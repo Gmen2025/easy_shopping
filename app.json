@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "AdduGenet EShop",
+    "slug": "AdduGenet-eshop",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/addugenet1.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/addugenet1.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "bundleIdentifier": "com.addugenet.eshop",
+      "buildNumber": "1",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "We need your location to calculate shipping costs and provide relevant product recommendations.",
+        "NSCameraUsageDescription": "This app uses the camera to upload product images and scan items.",
+        "NSPhotoLibraryUsageDescription": "This app accesses your photo library to select and upload product images.",
+        "NSPhotoLibraryAddUsageDescription": "This app saves product images to your photo library."
+      },
+      "icon": "./assets/addugenet1.png"
+    },
+    "privacy": {
+      "url": "https://www.addugenet.com/privacy"
+    },
+    "android": {
+      "package": "com.addugenet.eshop",
+      "versionCode": 1,
+      "icon": "./assets/addugenet1.png",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/addugenet1.png",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}   
