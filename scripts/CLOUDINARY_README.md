@@ -81,3 +81,25 @@ Security notes
 - For advanced use (transformations, eager processing) include the same parameters when signing on the server (e.g. `eager`, `folder`).
 
 - Use the official Cloudinary SDKs for server-side uploads.
+
+PowerShell server-side upload example
+------------------------------------
+
+If you're on Windows or prefer PowerShell, you can upload directly to the server-side `/upload` endpoint we added. This posts multipart/form-data and returns JSON with `secure_url`.
+
+```powershell
+# Example PowerShell upload to local signer server
+$filePath = "assets\store\image.png"
+$form = @{
+	file = Get-Item $filePath
+	folder = 'store'
+	public_id = 'store/image1'
+}
+$resp = Invoke-RestMethod -Uri 'http://localhost:3000/upload' -Method Post -Form $form
+Write-Host "Uploaded: $($resp.secure_url)"
+```
+
+Notes:
+- `Invoke-RestMethod -Form` sends multipart/form-data with file content when the value is a `FileInfo` object (returned by `Get-Item`).
+- Adjust `folder` and `public_id` as needed.
+- The server performs the signed upload using the server-side Cloudinary credentials, so you do not expose your `CLOUDINARY_API_SECRET` to clients.
