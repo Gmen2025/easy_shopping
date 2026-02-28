@@ -6,9 +6,14 @@
 
 const express = require('express');
 const crypto = require('crypto');
+const multer = require('multer');
+const cloudinary = require('cloudinary').v2;
 
 const app = express();
 app.use(express.json());
+
+// Multer memory storage for multipart uploads
+const upload = multer({ storage: multer.memoryStorage() });
 
 const PORT = process.env.PORT || 3000;
 const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
@@ -19,6 +24,13 @@ if (!CLOUDINARY_API_SECRET || !CLOUDINARY_API_KEY || !CLOUDINARY_CLOUD_NAME) {
   console.error('Environment variables missing: CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, CLOUDINARY_CLOUD_NAME');
   process.exit(1);
 }
+
+// Configure cloudinary
+cloudinary.config({
+  cloud_name: CLOUDINARY_CLOUD_NAME,
+  api_key: CLOUDINARY_API_KEY,
+  api_secret: CLOUDINARY_API_SECRET,
+});
 
 app.post('/sign', (req, res) => {
   // Accept optional params to include in signature (public_id, folder, tags, etc.)
@@ -45,6 +57,41 @@ app.post('/sign', (req, res) => {
     timestamp,
     cloud_name: CLOUDINARY_CLOUD_NAME
   });
+});
+
+// Server-side signed upload: accepts multipart/form-data with field `file`.
+// Optional form fields: public_id, folder, resource_type
+app.post('/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file provided' });
+
+    const { public_id, folder, resource_type } = req.body || {};
+
+    const uploadOptions = {};
+    if (public_id) uploadOptions.public_id = public_id;
+    if (folder) uploadOptions.folder = folder;
+    if (resource_type) uploadOptions.resource_type = resource_type; // e.g., 'image' or 'video'
+
+    const streamUpload = (buffer) => {
+      return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(uploadOptions, (error, result) => {
+          if (result) resolve(result);
+          else reject(error);
+        });
+        stream.end(buffer);
+      });
+    };
+
+    const result = await streamUpload(req.file.buffer);
+    return res.json({
+      secure_url: result.secure_url,
+      public_id: result.public_id,
+      raw: result,
+    });
+  } catch (err) {
+    console.error('Upload error', err);
+    return res.status(500).json({ error: err.message || 'Upload failed' });
+  }
 });
 
 app.get('/', (_, res) => res.send('Cloudinary signer running'));
