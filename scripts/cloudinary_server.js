@@ -94,6 +94,47 @@ app.post('/upload', upload.single('file'), async (req, res) => {
   }
 });
 
+// Server-side base64 upload endpoint
+// Accepts JSON: { data: "data:image/png;base64,...." OR base64 string, public_id, folder }
+app.post('/upload_base64', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const data = body.data || body.base64 || '';
+    if (!data) return res.status(400).json({ error: 'No base64 data provided in `data` or `base64` field' });
+
+    // Strip data URL prefix if present
+    const match = data.match(/^data:(image\/[a-zA-Z]+);base64,(.+)$/);
+    let base64String = data;
+    if (match) {
+      base64String = match[2];
+    }
+
+    const buffer = Buffer.from(base64String, 'base64');
+
+    const { public_id, folder, resource_type } = body;
+    const uploadOptions = {};
+    if (public_id) uploadOptions.public_id = public_id;
+    if (folder) uploadOptions.folder = folder;
+    if (resource_type) uploadOptions.resource_type = resource_type;
+
+    const streamUpload = (buffer) => {
+      return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(uploadOptions, (error, result) => {
+          if (result) resolve(result);
+          else reject(error);
+        });
+        stream.end(buffer);
+      });
+    };
+
+    const result = await streamUpload(buffer);
+    return res.json({ secure_url: result.secure_url, public_id: result.public_id, raw: result });
+  } catch (err) {
+    console.error('Base64 upload error', err);
+    return res.status(500).json({ error: err.message || 'Base64 upload failed' });
+  }
+});
+
 app.get('/', (_, res) => res.send('Cloudinary signer running'));
 
 app.listen(PORT, () => console.log(`Cloudinary signer listening on ${PORT}`));
