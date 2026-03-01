@@ -54,10 +54,34 @@ async function uploadToCloudinary(localUri, signatureResp, options = {}) {
     });
   }
 
-  const res = await fetch(url, { method: 'POST', body: form });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.error?.message || 'Cloudinary upload failed');
-  return json;
+  // Try fetch first; if that fails (network error), fall back to XMLHttpRequest
+  try {
+    const res = await fetch(url, { method: 'POST', body: form });
+    const text = await res.text();
+    let json;
+    try { json = JSON.parse(text || '{}'); } catch (e) { json = { raw: text }; }
+    if (!res.ok) throw new Error(`Cloudinary upload failed: ${res.status} ${text}`);
+    return json;
+  } catch (fetchErr) {
+    // Fallback to XHR (can be more reliable for binary/form uploads on some RN setups)
+    return await new Promise((resolve, reject) => {
+      try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', url);
+        xhr.onload = () => {
+          const ok = xhr.status >= 200 && xhr.status < 300;
+          let resp = {};
+          try { resp = JSON.parse(xhr.responseText || '{}'); } catch (e) { resp = { raw: xhr.responseText }; }
+          if (ok) resolve(resp);
+          else reject(new Error(`Cloudinary upload failed (XHR): ${xhr.status} ${xhr.responseText}`));
+        };
+        xhr.onerror = () => reject(new Error(`Network error during Cloudinary upload (XHR)`));
+        xhr.send(form);
+      } catch (xhrErr) {
+        reject(new Error(`Upload failed: ${fetchErr.message}; XHR fallback error: ${xhrErr.message}`));
+      }
+    });
+  }
 }
 
 function uploadWithProgress(localUri, signatureResp, options = {}, onProgress, onComplete, onError) {
