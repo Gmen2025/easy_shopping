@@ -1,0 +1,121 @@
+/**
+ * Shared/CloudinaryUploader.js
+ *
+ * React Native helper for direct Cloudinary uploads using a server-side signature.
+ * Usage:
+ * 1) Call `getSignature(serverUrl, params)` to get `{ signature, api_key, timestamp, cloud_name }` from your signer.
+ * 2) Call `uploadToCloudinary(localUri, signatureResp, options)` to upload the file directly to Cloudinary.
+ *
+ * Also supports `uploadWithProgress` using XMLHttpRequest for progress callbacks.
+ */
+
+async function getSignature(serverUrl, params = {}) {
+  const url = serverUrl.endsWith('/sign') ? serverUrl : `${serverUrl.replace(/\/$/, '')}/sign`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Signature request failed: ${res.status} ${text}`);
+  }
+  return await res.json();
+}
+
+async function uploadToCloudinary(localUri, signatureResp, options = {}) {
+  const { api_key, signature, timestamp, cloud_name } = signatureResp || {};
+  if (!cloud_name) throw new Error('cloud_name missing from signature response');
+
+  const resource_type = options.resource_type || 'image';
+  const url = `https://api.cloudinary.com/v1_1/${cloud_name}/${resource_type}/upload`;
+
+  const form = new FormData();
+  form.append('file', {
+    uri: localUri,
+    name: options.fileName || 'photo.jpg',
+    type: options.fileType || 'image/jpeg',
+  });
+
+  form.append('api_key', api_key);
+  form.append('timestamp', String(timestamp));
+  form.append('signature', signature);
+
+  if (options.public_id) form.append('public_id', options.public_id);
+  if (options.folder) form.append('folder', options.folder);
+  if (options.upload_preset) form.append('upload_preset', options.upload_preset);
+
+  if (options.extraParams) {
+    Object.keys(options.extraParams).forEach((k) => {
+      if (options.extraParams[k] !== undefined) form.append(k, options.extraParams[k]);
+    });
+  }
+
+  const res = await fetch(url, { method: 'POST', body: form });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error?.message || 'Cloudinary upload failed');
+  return json;
+}
+
+function uploadWithProgress(localUri, signatureResp, options = {}, onProgress, onComplete, onError) {
+  const { api_key, signature, timestamp, cloud_name } = signatureResp || {};
+  if (!cloud_name) throw new Error('cloud_name missing from signature response');
+
+  const resource_type = options.resource_type || 'image';
+  const url = `https://api.cloudinary.com/v1_1/${cloud_name}/${resource_type}/upload`;
+
+  const form = new FormData();
+  form.append('file', {
+    uri: localUri,
+    name: options.fileName || 'photo.jpg',
+    type: options.fileType || 'image/jpeg',
+  });
+  form.append('api_key', api_key);
+  form.append('timestamp', String(timestamp));
+  form.append('signature', signature);
+  if (options.public_id) form.append('public_id', options.public_id);
+  if (options.folder) form.append('folder', options.folder);
+
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', url);
+  xhr.onload = () => {
+    const ok = xhr.status >= 200 && xhr.status < 300;
+    let resp = {};
+    try { resp = JSON.parse(xhr.responseText || '{}'); } catch (e) { resp = { raw: xhr.responseText }; }
+    if (ok) onComplete && onComplete(resp);
+    else onError && onError(resp);
+  };
+  xhr.onerror = () => onError && onError(new Error('Network error'));
+  if (xhr.upload && typeof onProgress === 'function') {
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+  }
+  xhr.send(form);
+  return xhr;
+}
+
+export default {
+  getSignature,
+  uploadToCloudinary,
+  uploadWithProgress,
+};
+
+/* Example usage:
+
+import CloudinaryUploader from '../Shared/CloudinaryUploader';
+
+// 1) request signature from your server
+const sig = await CloudinaryUploader.getSignature('https://your-server.com', { folder: 'mobile_uploads' });
+
+// 2) upload file (localUri from ImagePicker / camera)
+const res = await CloudinaryUploader.uploadToCloudinary(localUri, sig, { folder: 'mobile_uploads' });
+
+// 3) or upload with progress
+CloudinaryUploader.uploadWithProgress(localUri, sig, {},
+  (pct) => console.log('progress', pct),
+  (result) => console.log('done', result),
+  (err) => console.error('err', err)
+);
+
+*/

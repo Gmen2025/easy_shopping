@@ -292,3 +292,42 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 **Built with ❤️ in Ethiopia**
 
 *For the latest updates and documentation, visit our [GitHub repository](https://github.com/YOUR_USERNAME/easy_shopping)*
+
+## ☁️ Cloudinary Direct Uploads
+
+This project includes a small server-side signer and a React Native helper to upload images directly from the app to Cloudinary without exposing your `CLOUDINARY_API_SECRET`.
+
+- Server signer: `scripts/cloudinary_server.js` — issues short-lived signatures. Keep `CLOUDINARY_API_SECRET` only on the server.
+- RN helper: `Shared/CloudinaryUploader.js` — ready-to-drop helper with `getSignature`, `uploadToCloudinary`, and `uploadWithProgress`.
+
+Basic flow:
+1. App requests a signature from your signer: `POST /sign` with optional `{ public_id, folder }`.
+2. Signer returns `{ signature, api_key, timestamp, cloud_name }`.
+3. App uploads directly to Cloudinary `https://api.cloudinary.com/v1_1/<cloud_name>/image/upload` with `file`, `api_key`, `timestamp`, and `signature` (plus optional `folder`, `public_id`).
+
+React Native example (using the included helper):
+
+```javascript
+// request signature from your backend
+const sig = await CloudinaryUploader.getSignature('https://your-server.com', { folder: 'mobile_uploads' });
+
+// upload localUri (from ImagePicker)
+const result = await CloudinaryUploader.uploadToCloudinary(localUri, sig, { folder: 'mobile_uploads' });
+console.log('uploaded', result.secure_url);
+```
+
+curl example (after obtaining `signature` + `timestamp` from your signer):
+
+```bash
+curl -X POST "https://api.cloudinary.com/v1_1/<cloud_name>/image/upload" \
+   -F "file=@/path/to/photo.jpg" \
+   -F "api_key=<api_key>" \
+   -F "timestamp=<timestamp>" \
+   -F "signature=<signature>" \
+   -F "folder=mobile_uploads"
+```
+
+Security notes:
+- Do not embed `CLOUDINARY_API_SECRET` in the app. Issue signatures from server after authenticating the user.
+- The included signer already filters allowed params; restrict further as needed for your app.
+

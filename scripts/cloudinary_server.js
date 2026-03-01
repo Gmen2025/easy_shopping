@@ -5,6 +5,7 @@
 // Then POST to /sign with optional body { public_id, folder } to receive { signature, api_key, timestamp, cloud_name }
 
 const express = require('express');
+const cors = require('cors');
 const crypto = require('crypto');
 const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
@@ -14,6 +15,9 @@ app.use(express.json());
 
 // Multer memory storage for multipart uploads
 const upload = multer({ storage: multer.memoryStorage() });
+
+// Allow cross-origin requests from mobile apps during development
+app.use(cors());
 
 const PORT = process.env.PORT || 3000;
 const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
