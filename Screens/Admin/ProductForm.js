@@ -17,6 +17,7 @@ import Toast from "react-native-toast-message";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import baseUrl from "../../assets/common/baseUrl";
 import axios from "axios";
+import CloudinaryUploader from "../../Shared/CloudinaryUploader";
 import * as ImagePicker from "expo-image-picker";
 
 const ProductForm = (props) => {
@@ -115,7 +116,7 @@ const ProductForm = (props) => {
     }
   };
 
-  const addProduct = () => {
+  const addProduct = async () => {
   if (
     brand === "" ||
     name === "" ||
@@ -134,106 +135,85 @@ const ProductForm = (props) => {
     return str.replace(/<[^>]*>/g, "");
   };
 
-  let formData = new FormData();
-
-  // Check if we're editing and if a new image was selected
+  // Build payload (we'll upload image to Cloudinary first if it's a new local image)
   const isEditing = item !== null;
   const hasNewImage = image && image.uri && !image.uri.startsWith('http');
 
   console.log("Is editing:", isEditing);
   console.log("Has new image:", hasNewImage);
-  console.log("Image object:", image);
 
-  // Only append image if it's a new local image (not editing with existing server image)
+  let imageUrl = item?.image || null;
+
   if (hasNewImage) {
-    const newImageUri = "file:///" + image.uri.split("file:/").join("");
-    
-    formData.append("image", {
-      uri: newImageUri,
-      type: "image/jpeg",
-      name: newImageUri.split("/").pop(),
-    });
-  } else if (!isEditing) {
-    // If adding new product, image is required
-    setError("Please select an image");
+    try {
+      // derive signer URL from baseUrl (remove /api/v1/)
+      const signerBase = baseUrl.replace(/\/api\/v1\/?$/, '');
+      const signUrl = `${signerBase}/sign`;
+
+      // Ensure correct local uri for Cloudinary helper
+      const localUri = image.uri.startsWith('file://') ? image.uri : 'file:///' + image.uri.split('file:/').join('');
+
+      const sig = await CloudinaryUploader.getSignature(signUrl, { folder: 'mobile_uploads' });
+      const uploadRes = await CloudinaryUploader.uploadToCloudinary(localUri, sig, { folder: 'mobile_uploads' });
+      imageUrl = uploadRes.secure_url || uploadRes.url || imageUrl;
+    } catch (err) {
+      console.log('Cloudinary upload error:', err.message || err);
+      Toast.show({ topOffset: 60, type: 'error', text1: 'Image upload failed', text2: 'Please try again' });
+      return;
+    }
+  } else if (!isEditing && !imageUrl) {
+    setError('Please select an image');
     return;
   }
-  // If editing and no new image selected, don't append image (keep existing)
 
-  formData.append("brand", brand);
-  formData.append("name", name);
-  formData.append("price", price);
-  formData.append("description", description);
-  formData.append("category", category);
-  formData.append("countInStock", countInStock);
-  formData.append("rating", rating);
-  formData.append("richDescription", stripHtmlTags(richDescription));
-  formData.append("numReviews", numReviews);
-  formData.append("isFeatured", isFeatured);
+  // Prepare JSON payload (server should accept image URL in `image` field)
+  const payload = {
+    brand,
+    name,
+    price,
+    description,
+    category,
+    countInStock,
+    rating,
+    richDescription: stripHtmlTags(richDescription),
+    numReviews,
+    isFeatured,
+    image: imageUrl,
+  };
 
   const config = {
     headers: {
-      "Content-Type": "multipart/form-data",
+      'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
   };
 
   if (isEditing) {
     // Edit product
-    console.log("Editing product with ID:", item._id);
-    
-    axios
-      .put(`${baseUrl}products/${item._id}`, formData, config)
-      .then((res) => {
-        if (res.status == 200 || res.status == 201) {
-          Toast.show({
-            topOffset: 60,
-            type: "success",
-            text1: "Product edited successfully",
-            text2: "",
-          });
-          setTimeout(() => {
-            props.navigation.navigate("Products");
-          }, 500);
-        }
-      })
-      .catch((err) => {
-        console.log("Product edit error:", err.response?.data || err.message);
-        Toast.show({
-          topOffset: 60,
-          type: "error",
-          text1: "Something went wrong",
-          text2: "Please try again",
-        });
-      });
+    console.log('Editing product with ID:', item._id);
+    try {
+      const res = await axios.put(`${baseUrl}products/${item._id}`, payload, config);
+      if (res.status === 200 || res.status === 201) {
+        Toast.show({ topOffset: 60, type: 'success', text1: 'Product edited successfully' });
+        setTimeout(() => props.navigation.navigate('Products'), 500);
+      }
+    } catch (err) {
+      console.log('Product edit error:', err.response?.data || err.message);
+      Toast.show({ topOffset: 60, type: 'error', text1: 'Something went wrong', text2: 'Please try again' });
+    }
   } else {
     // Add product
-    console.log("Adding new product");
-    
-    axios
-      .post(`${baseUrl}products`, formData, config)
-      .then((res) => {
-        if (res.status == 200 || res.status == 201) {
-          Toast.show({
-            topOffset: 60,
-            type: "success",
-            text1: "Product added successfully",
-            text2: "",
-          });
-          setTimeout(() => {
-            props.navigation.navigate("Products");
-          }, 500);
-        }
-      })
-      .catch((err) => {
-        console.log("Product add error:", err.response?.data || err.message);
-        Toast.show({
-          topOffset: 60,
-          type: "error",
-          text1: "Something went wrong",
-          text2: "Please try again",
-        });
-      });
+    console.log('Adding new product');
+    try {
+      const res = await axios.post(`${baseUrl}products`, payload, config);
+      if (res.status === 200 || res.status === 201) {
+        Toast.show({ topOffset: 60, type: 'success', text1: 'Product added successfully' });
+        setTimeout(() => props.navigation.navigate('Products'), 500);
+      }
+    } catch (err) {
+      console.log('Product add error:', err.response?.data || err.message);
+      Toast.show({ topOffset: 60, type: 'error', text1: 'Something went wrong', text2: 'Please try again' });
+    }
   }
 };
 
