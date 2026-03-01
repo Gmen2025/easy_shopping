@@ -9,11 +9,14 @@
  * Also supports `uploadWithProgress` using XMLHttpRequest for progress callbacks.
  */
 
-async function getSignature(serverUrl, params = {}) {
+async function getSignature(serverUrl, params = {}, options = {}) {
   const url = serverUrl.endsWith('/sign') ? serverUrl : `${serverUrl.replace(/\/$/, '')}/sign`;
+  const headers = { 'Content-Type': 'application/json' };
+  if (options.token) headers['Authorization'] = `Bearer ${options.token}`;
+
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(params),
   });
   if (!res.ok) {

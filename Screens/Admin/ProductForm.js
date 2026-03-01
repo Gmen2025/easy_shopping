@@ -153,7 +153,7 @@ const ProductForm = (props) => {
       // Ensure correct local uri for Cloudinary helper
       const localUri = image.uri.startsWith('file://') ? image.uri : 'file:///' + image.uri.split('file:/').join('');
 
-      const sig = await CloudinaryUploader.getSignature(signUrl, { folder: 'mobile_uploads' });
+      const sig = await CloudinaryUploader.getSignature(signUrl, { folder: 'mobile_uploads' }, { token });
       const uploadRes = await CloudinaryUploader.uploadToCloudinary(localUri, sig, { folder: 'mobile_uploads' });
       imageUrl = uploadRes.secure_url || uploadRes.url || imageUrl;
     } catch (err) {
