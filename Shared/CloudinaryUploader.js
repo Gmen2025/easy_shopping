@@ -10,20 +10,51 @@
  */
 
 async function getSignature(serverUrl, params = {}, options = {}) {
-  const url = serverUrl.endsWith('/sign') ? serverUrl : `${serverUrl.replace(/\/$/, '')}/sign`;
+  const normalized = (serverUrl || '').replace(/\/$/, '');
+  const primaryUrl = normalized.endsWith('/sign') ? normalized : `${normalized}/sign`;
+  const urls = [primaryUrl];
+
+  if (primaryUrl.endsWith('/api/v1/sign')) {
+    urls.push(primaryUrl.replace(/\/api\/v1\/sign$/, '/sign'));
+  } else if (primaryUrl.endsWith('/sign') && !primaryUrl.includes('/api/v1/')) {
+    urls.push(primaryUrl.replace(/\/sign$/, '/api/v1/sign'));
+  }
+
+  const uniqueUrls = [...new Set(urls)];
   const headers = { 'Content-Type': 'application/json' };
   if (options.token) headers['Authorization'] = `Bearer ${options.token}`;
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(params),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Signature request failed: ${res.status} ${text}`);
+  let lastError;
+  for (let index = 0; index < uniqueUrls.length; index += 1) {
+    const url = uniqueUrls[index];
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(params),
+      });
+
+      if (res.ok) {
+        return await res.json();
+      }
+
+      const text = await res.text();
+      lastError = new Error(`Signature request failed: ${res.status} ${text}`);
+
+      const hasFallback = index < uniqueUrls.length - 1;
+      if (!(res.status === 404 && hasFallback)) {
+        throw lastError;
+      }
+    } catch (err) {
+      lastError = err;
+      const hasFallback = index < uniqueUrls.length - 1;
+      if (!hasFallback) {
+        throw lastError;
+      }
+    }
   }
-  return await res.json();
+
+  throw lastError || new Error('Signature request failed');
 }
 
 async function uploadToCloudinary(localUri, signatureResp, options = {}) {

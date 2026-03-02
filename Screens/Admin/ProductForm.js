@@ -146,9 +146,8 @@ const ProductForm = (props) => {
 
   if (hasNewImage) {
     try {
-      // derive signer URL from baseUrl (remove /api/v1/)
-      const signerBase = baseUrl.replace(/\/api\/v1\/?$/, '');
-      const signUrl = `${signerBase}/sign`;
+      // signer route should follow backend API prefix
+      const signUrl = `${baseUrl.replace(/\/$/, '')}/sign`;
 
       // Ensure correct local uri for Cloudinary helper
       const localUri = image.uri.startsWith('file://') ? image.uri : 'file:///' + image.uri.split('file:/').join('');
