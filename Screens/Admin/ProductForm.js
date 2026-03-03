@@ -19,6 +19,7 @@ import baseUrl from "../../assets/common/baseUrl";
 import axios from "axios";
 import CloudinaryUploader from "../../Shared/CloudinaryUploader";
 import * as ImagePicker from "expo-image-picker";
+import getImageUrl from "../../assets/common/getImageUrl";
 
 const ProductForm = (props) => {
   const [pickerValue, setPickerValue] = useState("");
@@ -58,9 +59,10 @@ const ProductForm = (props) => {
       setPickerValue("");
     } else {
       const { item } = props.route.params;
+      const existingImage = getImageUrl(item);
       setItem(item);
-      setMainImage(item.image);
-      setImage(item.image ? { uri: item.image } : null); // Always set image as object with uri
+      setMainImage(existingImage);
+      setImage(existingImage ? { uri: existingImage } : null); // Always set image as object with uri
       setBrand(item.brand);
       setName(item.name);
       setPrice(item.price ? item.price.toString() : "");
@@ -142,7 +144,7 @@ const ProductForm = (props) => {
   console.log("Is editing:", isEditing);
   console.log("Has new image:", hasNewImage);
 
-  let imageUrl = item?.image || null;
+  let imageUrl = item ? getImageUrl(item) : null;
 
   if (hasNewImage) {
     try {

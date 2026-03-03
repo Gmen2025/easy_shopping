@@ -17,6 +17,7 @@ import EasyButton from "../../Shared/StyledComponenets/EasyButton";
 import axios from "axios";
 import baseUrl from "../../assets/common/baseUrl";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import getImageUrl from "../../assets/common/getImageUrl";
 
 var { height, width } = Dimensions.get("window");
 
@@ -57,8 +58,12 @@ const Products = (props) => {
           const fetchedProducts = Array.isArray(res.data)
             ? res.data
             : res.data.products;
-          setProductList(fetchedProducts || []);
-          setProductFilter(fetchedProducts || []);
+          const normalizedProducts = (fetchedProducts || []).map((product) => ({
+            ...product,
+            image: getImageUrl(product),
+          }));
+          setProductList(normalizedProducts);
+          setProductFilter(normalizedProducts);
           setLoading(false); // Set loading to false after fetching products
         })
         .catch((error) => {

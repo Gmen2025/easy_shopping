@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import EasyButton from "../../Shared/StyledComponenets/EasyButton";
 import { useNavigation } from "@react-navigation/native";
+import getImageUrl from "../../assets/common/getImageUrl";
 
 var { width } = Dimensions.get("window");
 var { height } = Dimensions.get("window");
@@ -45,9 +46,7 @@ const SearchedProducts = (props) => {
               <View style={styles.productContainer}>
                 <Image
                   source={{
-                    uri: item.image
-                      ? item.image
-                      : "https://cdn.pixabay.com/photo/2012/04/01/17/29/box-23649_960_720.png",
+                    uri: getImageUrl(item),
                   }}
                   style={styles.productImage}
                 />

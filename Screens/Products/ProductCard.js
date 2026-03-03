@@ -11,11 +11,13 @@ import EasyButton from "../../Shared/StyledComponenets/EasyButton";
 import Toast from "react-native-toast-message";
 import { useDispatch } from "react-redux";
 import { addToCart } from "../../store/cartSlice"; // Adjust the import path as necessary
+import getImageUrl from "../../assets/common/getImageUrl";
 
 var { width } = Dimensions.get("window");
 
 const ProductCard = (props) => {
   const { name, price, image, countInStock } = props;
+  const imageUrl = getImageUrl(props);
   const dispatch = useDispatch(); // Import the action to add items to the cart
 
   const handleAddToCart = () => {
@@ -41,9 +43,7 @@ const ProductCard = (props) => {
     <View style={styles.container}>
       <Image
         source={{
-          uri: image
-            ? image
-            : "https://cdn.pixabay.com/photo/2012/04/01/17/29/box-23649_960_720.png",
+          uri: imageUrl,
         }}
         style={styles.image}
         resizeMode="contain"

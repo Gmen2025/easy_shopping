@@ -12,9 +12,11 @@ import TrafficLight from "../../Shared/StyledComponenets/TrafficLight";
 import Toast from "react-native-toast-message";
 import { useDispatch } from "react-redux";
 import { addToCart } from "../../store/cartSlice"; // Adjust the import path as necessary
+import getImageUrl from "../../assets/common/getImageUrl";
 
 const SingleProduct = (props) => {
   const [item, setItem] = useState(props.route.params.item);
+  const imageUrl = getImageUrl(item);
   const [availabality, setAvailability] = useState(null);
   const [availabiltyText, setAvailabilityText] = useState("");
   //console.log("SingleProduct item:", item.countInStock);
@@ -95,9 +97,7 @@ const SingleProduct = (props) => {
         <View>
           <Image
             source={{
-              uri: item.image
-                ? item.image
-                : "https://cdn.pixabay.com/photo/2012/04/01/17/29/box-23649_960_720.png",
+              uri: imageUrl,
             }}
             resizeMode="contain"
             style={styles.image}

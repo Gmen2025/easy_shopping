@@ -19,6 +19,7 @@ import ProductList from "./ProductList";
 import SearchedProducts from "./SearchedProducts";
 import Banner from "../../Shared/Banner";
 import CategoriesFilter from "./CategoriesFilter";
+import getImageUrl from "../../assets/common/getImageUrl";
 
 //loading static resources
 //const data = require("../../assets/data/products.json");
@@ -53,10 +54,14 @@ const ProductContainer = (props) => {
         const fetchedProducts = Array.isArray(res.data)
           ? res.data
           : res.data.products;
-        setProducts(fetchedProducts || []);
-        setProductsFiltered(fetchedProducts || []);
-        setProductsCtg(fetchedProducts || []);
-        setInitialState(fetchedProducts || []); // Store the initial state of products
+        const normalizedProducts = (fetchedProducts || []).map((product) => ({
+          ...product,
+          image: getImageUrl(product),
+        }));
+        setProducts(normalizedProducts);
+        setProductsFiltered(normalizedProducts);
+        setProductsCtg(normalizedProducts);
+        setInitialState(normalizedProducts); // Store the initial state of products
         setLoading(false); // Set loading to false after fetching products
       })
       .catch((err) => {
