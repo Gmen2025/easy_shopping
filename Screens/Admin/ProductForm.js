@@ -156,8 +156,18 @@ const ProductForm = (props) => {
       const uploadRes = await CloudinaryUploader.uploadToCloudinary(localUri, sig, { folder: 'mobile_uploads' });
       imageUrl = uploadRes.secure_url || uploadRes.url || imageUrl;
     } catch (err) {
-      console.log('Cloudinary upload error:', err.message || err);
-      Toast.show({ topOffset: 60, type: 'error', text1: 'Image upload failed', text2: 'Please try again' });
+      const errorMessage = String(err?.message || err || '');
+      const serverNotConfigured = errorMessage.toLowerCase().includes('cloudinary not configured on server');
+
+      console.log('Cloudinary upload error:', errorMessage);
+      Toast.show({
+        topOffset: 60,
+        type: 'error',
+        text1: serverNotConfigured ? 'Server image upload not configured' : 'Image upload failed',
+        text2: serverNotConfigured
+          ? 'Please set Cloudinary env vars on backend and try again'
+          : 'Please try again',
+      });
       return;
     }
   } else if (!isEditing && !imageUrl) {

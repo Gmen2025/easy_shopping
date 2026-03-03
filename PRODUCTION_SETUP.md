@@ -50,6 +50,17 @@ NODE_ENV=production
 PORT=3001
 ```
 
+#### 5. Cloudinary (Required for Product Image Upload)
+Set these in Render for signed uploads (`POST /api/v1/sign`):
+```
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-cloudinary-api-key
+CLOUDINARY_API_SECRET=your-cloudinary-api-secret
+```
+
+If these are missing, image upload from admin product form will fail with:
+`Cloudinary upload error: Signature request failed: 500 {"message":"Cloudinary not configured on server"}`
+
 ---
 
 ## 📱 Frontend Deployment Options
