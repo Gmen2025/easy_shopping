@@ -144,7 +144,24 @@ const ProductForm = (props) => {
   console.log("Is editing:", isEditing);
   console.log("Has new image:", hasNewImage);
 
-  let imageUrl = item ? getImageUrl(item) : null;
+  const getExistingImageUrl = (currentItem) => {
+    if (!currentItem) return "";
+
+    if (typeof currentItem.image === "string" && currentItem.image.trim()) {
+      return currentItem.image.trim();
+    }
+
+    if (Array.isArray(currentItem.images) && currentItem.images.length > 0) {
+      const firstImage = currentItem.images[0];
+      if (typeof firstImage === "string" && firstImage.trim()) {
+        return firstImage.trim();
+      }
+    }
+
+    return "";
+  };
+
+  let imageUrl = getExistingImageUrl(item);
 
   if (hasNewImage) {
     try {
@@ -172,7 +189,11 @@ const ProductForm = (props) => {
       });
       return;
     }
-  } else if (!isEditing && !imageUrl) {
+  }
+
+  const normalizedImageUrl = typeof imageUrl === "string" ? imageUrl.trim() : "";
+
+  if (!isEditing && !normalizedImageUrl) {
     setError('Please select an image');
     return;
   }
@@ -189,7 +210,8 @@ const ProductForm = (props) => {
     richDescription: stripHtmlTags(richDescription),
     numReviews,
     isFeatured,
-    image: imageUrl,
+    image: normalizedImageUrl,
+    images: normalizedImageUrl ? [normalizedImageUrl] : [],
   };
 
   const config = {

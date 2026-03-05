@@ -62,6 +62,7 @@ const Products = (props) => {
             ...product,
             image: getImageUrl(product),
           }));
+          console.log("Product image URL: ", normalizedProducts[0]?.image); // Log the image URL of the first product
           setProductList(normalizedProducts);
           setProductFilter(normalizedProducts);
           setLoading(false); // Set loading to false after fetching products
