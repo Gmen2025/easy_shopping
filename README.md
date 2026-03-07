@@ -203,6 +203,7 @@ REDIRECT_URL=your_redirect_url
 ## 📄 Documentation
 
 - **Privacy Policy**: See `PRIVACY_POLICY.md`
+- **Account Deletion Page**: See `account-deletion.html`
 - **Production Setup**: See `PRODUCTION_SETUP.md`
 - **App Store Submission**: See `APP_STORE_DESCRIPTION.md`
 - **GitHub Pages Setup**: See `GITHUB_PAGES_SETUP.md`

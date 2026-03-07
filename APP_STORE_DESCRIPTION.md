@@ -140,8 +140,10 @@ Start shopping smarter with AdduGenet EShop!
 
 ---
 
-**Privacy & Terms**
-We respect your privacy. Read our privacy policy and terms of service at: https://www.addugenet.com/privacy
+**Privacy & Account Deletion**
+We respect your privacy.
+- Privacy Policy: https://gmen2025.github.io/easy_shopping/privacy.html
+- Account Deletion Request: https://gmen2025.github.io/easy_shopping/account-deletion.html
 
 ---
 
