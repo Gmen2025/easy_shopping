@@ -14,10 +14,24 @@
         "buildType": "apk"
       }
     },
+    "internal-testing": {
+      "distribution": "store",
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      }
+    },
     "production": {
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
+      }
+    }
+  },
+  "submit": {
+    "internal-testing": {
+      "android": {
+        "track": "internal"
       }
     }
   }
