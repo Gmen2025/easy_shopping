@@ -33,7 +33,7 @@ const SearchedProducts = (props) => {
       >
         <Text style={{ color: 'white', fontWeight: 'bold' }}>Back</Text>
       </EasyButton>
-      <ScrollView contentContainerStyle={{ padding: 20 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
         {productsFiltered.length > 0 ? (
           productsFiltered.map((item) => (
             <TouchableOpacity
@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
   productContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: 10,
+   // marginVertical: 4,
     paddingHorizontal: 10,
   },
   productImage: {

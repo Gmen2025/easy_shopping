@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Linking,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import OrderCard from "../../Shared/OrderCard";
 import EasyButton from "../../Shared/StyledComponenets/EasyButton";
 import Toast from "react-native-toast-message";
@@ -152,6 +153,7 @@ const styles = StyleSheet.create({
   subContainer: {
     alignItems: "center",
     marginTop: 60,
+    paddingBottom: 40,
   },
   orderDetails: {
     marginTop: 20,
