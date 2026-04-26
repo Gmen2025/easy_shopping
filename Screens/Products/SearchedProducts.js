@@ -9,7 +9,6 @@ import {
   Dimensions,
   Button,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
 } from "react-native";
 import EasyButton from "../../Shared/StyledComponenets/EasyButton";

@@ -2,13 +2,13 @@ import React, { useState, useContext } from "react";
 import { 
     StyleSheet, 
     Image, 
-    SafeAreaView, 
     View, 
     Text, 
     TouchableOpacity,
     Modal,
     FlatList 
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { AuthContext } from "../Context/store/Auth";
 import Icon from "react-native-vector-icons/FontAwesome5";
 
