@@ -1,9 +1,10 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import { 
     StyleSheet, 
     Image, 
     View, 
     Text, 
+    Alert,
     TouchableOpacity,
     Modal,
     FlatList 
@@ -11,8 +12,17 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AuthContext } from "../Context/store/Auth";
 import Icon from "react-native-vector-icons/FontAwesome5";
+import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import baseUrl from "../assets/common/baseUrl";
+import { COUNTRY_DB_MAP, getDatabaseNameFromStorage, setDatabaseNameInStorage } from "../assets/common/databaseConfig";
 
-const Header = () => {
+const DB_COUNTRY_MAP = {
+    E_Shopping: "Ethio",
+    E_ShopUSA: "USA",
+};
+
+const Header = ({ onDatabaseChanged }) => {
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     const [selectedCountry, setSelectedCountry] = useState('Ethio');
     const context = useContext(AuthContext);
@@ -25,16 +35,53 @@ const Header = () => {
         { id: 2, label: 'USA', value: 'USA', flag: '🇺🇸', currency: 'USD' }
     ];
 
-    const handleCountrySelect = (country) => {
-        setSelectedCountry(country.value);
+    useEffect(() => {
+        const syncCountryFromSavedDb = async () => {
+            const savedDb = await getDatabaseNameFromStorage();
+            const countryValue = DB_COUNTRY_MAP[savedDb] || 'Ethio';
+            setSelectedCountry(countryValue);
+        };
+
+        syncCountryFromSavedDb();
+    }, []);
+
+    const handleCountrySelect = async (country) => {
         setIsDropdownVisible(false);
-        
-         // Here you can add logic to handle country change
-        // For example, update currency, language, etc.
-        console.log('Country changed to:', country);
-        
-        // You might want to save this to AsyncStorage or global state
-        // AsyncStorage.setItem('selectedCountry', country.value);
+
+        if (country.value === selectedCountry) {
+            return;
+        }
+
+        const dbName = COUNTRY_DB_MAP[country.value];
+        if (dbName) {
+            try {
+                const token = await AsyncStorage.getItem("token");
+                const switchUrl = `${baseUrl}database/switch`;
+                console.log("[DB Switch] Calling:", switchUrl, "with database:", dbName);
+                const response = await axios.post(switchUrl, {
+                    database: dbName,
+                }, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+
+                const resolvedDbName = response?.data?.database || dbName;
+                const resolvedCountry = DB_COUNTRY_MAP[resolvedDbName] || country.value;
+
+                await setDatabaseNameInStorage(resolvedDbName);
+                setSelectedCountry(resolvedCountry);
+
+                if (typeof onDatabaseChanged === 'function') {
+                    onDatabaseChanged();
+                }
+            } catch (error) {
+                const message =
+                    error?.response?.data?.message ||
+                    error?.message ||
+                    "Could not switch database.";
+
+                Alert.alert("Database Switch Failed", message);
+            }
+        }
     };
 
     const toggleDropdown = () => {

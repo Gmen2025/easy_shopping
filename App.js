@@ -1,5 +1,6 @@
 import { StatusBar } from "expo-status-bar";
 import { Text, View } from "react-native";
+import { useEffect, useState, useCallback } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import Toast from "react-native-toast-message";
 
@@ -18,6 +19,7 @@ import { Linking } from 'react-native';
 import Main from "./Navigators/Main";
 
 import Header from "./Shared/Header";
+import { attachDatabaseInterceptor } from "./assets/common/attachDatabaseInterceptor";
 
 const linking = {
   prefixes: ['easyshopping://'],
@@ -31,13 +33,23 @@ const linking = {
 
 
 export default function App() {
+  const [dbRefreshKey, setDbRefreshKey] = useState(0);
+
+  useEffect(() => {
+    attachDatabaseInterceptor();
+  }, []);
+
+  const handleDatabaseChanged = useCallback(() => {
+    setDbRefreshKey((prevKey) => prevKey + 1);
+  }, []);
+
   return (
     <AuthProvider>
       <Provider store={store}>
         <StripeProvider publishableKey="pk_test_51SHSJmPIAcOeDqNEp78RzlADjQOLU9wqMNAIRJgKcaNRqbuKSpeUT12SL4ggEGHlJzEnYZv7hBqbb7zdGT6naZQM00nES3vyDJ">
           <TelebirrProvider>
-            <Header />
-            <NavigationContainer linking={linking}>
+            <Header onDatabaseChanged={handleDatabaseChanged} />
+            <NavigationContainer key={`db-${dbRefreshKey}`} linking={linking}>
               <Main />
               <Toast />
             </NavigationContainer>
