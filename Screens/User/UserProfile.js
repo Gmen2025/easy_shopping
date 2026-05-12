@@ -30,7 +30,6 @@ const UserProfile = (props) => {
   const dispatch = useDispatch();
 
   const [orders, setOrders] = useState();
-  const [token, setToken] = useState();
 
   useFocusEffect(
     useCallback(() => {
@@ -46,35 +45,52 @@ const UserProfile = (props) => {
         return;
       }
 
-      AsyncStorage.getItem("token").then((res) => {
-        //console.log("response value: ", res)
-        setToken(res);
-      });
+      let isActive = true;
 
-      //Fetch orders
-      axios
-        .get(`${baseUrl}orders`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        .then((res) => {
+      const fetchOrders = async () => {
+        try {
+          const savedToken = await AsyncStorage.getItem("token");
+          if (!savedToken) {
+            if (isActive) {
+              setOrders([]);
+            }
+            return;
+          }
+
+          const res = await axios.get(`${baseUrl}orders`, {
+            headers: { Authorization: `Bearer ${savedToken}` },
+          });
+
           const data = res.data;
-          //console.log("response data: ", data);
-          //const values = data.map((x) => x._id === context.user._id)
-          //console.log("values; ", values)
-          //console.log("data array values: ", data.user._id)
           const userOrders = data.filter(
             (order) => order.user && order.user._id === context.user._id
           );
-          console.log("UserOrders value: ", userOrders);
-          setOrders(userOrders);
-        })
-        .catch((error) => console.log("Orders data error: ", error));
+
+          if (isActive) {
+            setOrders(userOrders);
+          }
+        } catch (error) {
+          if (error?.response?.status === 401) {
+            await AsyncStorage.removeItem("token");
+            context.logout();
+            props.navigation.navigate("Login");
+            return;
+          }
+
+          console.log("Orders data error: ", error);
+          if (isActive) {
+            setOrders([]);
+          }
+        }
+      };
+
+      fetchOrders();
 
       return () => {
-        //setUserProfile();
+        isActive = false;
         setOrders();
       };
-    }, [context.isAuthenticated, token])
+    }, [context.isAuthenticated, context.user?._id])
   );
 
   return (

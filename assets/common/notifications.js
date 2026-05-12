@@ -127,6 +127,13 @@ export const addNotificationResponseListener = (listener) => {
 
 export const removeNotificationSubscription = (subscription) => {
   if (subscription) {
-    Notifications.removeNotificationSubscription(subscription);
+    if (typeof subscription.remove === "function") {
+      subscription.remove();
+      return;
+    }
+
+    if (typeof Notifications.removeNotificationSubscription === "function") {
+      Notifications.removeNotificationSubscription(subscription);
+    }
   }
 };
