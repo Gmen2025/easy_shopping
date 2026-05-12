@@ -1,37 +1,35 @@
-import React, { useEffect } from "react";
+import React from "react";
 import {
   View,
   Image,
   StyleSheet,
-  Content,
-  Body,
   Text,
   Dimensions,
-  Button,
   TouchableOpacity,
   ScrollView,
 } from "react-native";
 import EasyButton from "../../Shared/StyledComponenets/EasyButton";
 import { useNavigation } from "@react-navigation/native";
 import getImageUrl from "../../assets/common/getImageUrl";
+import { useCurrency } from "../../assets/common/currency";
 
 var { width } = Dimensions.get("window");
-var { height } = Dimensions.get("window");
 
 const SearchedProducts = (props) => {
   const navigation = useNavigation(); // Access the navigation object
   const { productsFiltered = [] } = props;
+  const { formatPrice } = useCurrency();
 
   // productsFiltered is an array of products that match the search criteria
   return (
-    <View style={{ width: width, height: height - 300 }}>
+    <View style={styles.screen}>
       <EasyButton
-        tertiary
+        secondary
         medium
-        style={{ alignSelf: "flex-end", margin: 10 }}
+        style={styles.backButton}
         onPress={props.clearSearchScreen} //calls a prop function to clear the search screen
       >
-        <Text style={{ color: 'white', fontWeight: 'bold' }}>Back</Text>
+        <Text style={styles.backButtonText}>Back</Text>
       </EasyButton>
       <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
         {productsFiltered.length > 0 ? (
@@ -48,18 +46,22 @@ const SearchedProducts = (props) => {
                     uri: getImageUrl(item),
                   }}
                   style={styles.productImage}
+                  resizeMode="cover"
                 />
                 <View style={styles.productDetails}>
                   <Text style={styles.productName}>{item.name}</Text>
-                  <Text style={styles.productDescription}>
-                    {item.description}
+                  <Text style={styles.productDescription} numberOfLines={2}>
+                    {item.description || "No description available"}
                   </Text>
+                  <Text style={styles.productPrice}>{formatPrice(item.price || 0)}</Text>
                 </View>
               </View>
             </TouchableOpacity>
           ))
         ) : (
-          <Text>No products match the selected criteria</Text>
+          <View style={styles.emptyStateWrap}>
+            <Text style={styles.emptyStateText}>No products match the selected criteria</Text>
+          </View>
         )}
       </ScrollView>
     </View>
@@ -67,28 +69,69 @@ const SearchedProducts = (props) => {
 };
 
 const styles = StyleSheet.create({
+  screen: {
+    width: width,
+    flex: 1,
+    backgroundColor: "#f3f6fb",
+  },
+  backButton: {
+    alignSelf: "flex-end",
+    marginHorizontal: 10,
+    marginTop: 8,
+    borderRadius: 10,
+    paddingVertical: 4,
+  },
+  backButtonText: {
+    color: "white",
+    fontWeight: "700",
+    fontSize: 13,
+  },
   productContainer: {
     flexDirection: "row",
     alignItems: "center",
-   // marginVertical: 4,
-    paddingHorizontal: 10,
+    marginHorizontal: 10,
+    marginBottom: 10,
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#dce3ef",
+    backgroundColor: "#ffffff",
   },
   productImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 5,
+    width: 64,
+    height: 64,
+    borderRadius: 8,
+    backgroundColor: "#eef3fa",
   },
   productDetails: {
-    marginLeft: 10,
+    marginLeft: 12,
     flex: 1,
   },
   productName: {
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#0f172a",
   },
   productDescription: {
+    fontSize: 13,
+    color: "#64748b",
+    marginTop: 3,
+  },
+  productPrice: {
+    marginTop: 6,
     fontSize: 14,
-    color: "gray",
+    fontWeight: "700",
+    color: "#0f3f79",
+  },
+  emptyStateWrap: {
+    alignItems: "center",
+    paddingTop: 40,
+    paddingHorizontal: 20,
+  },
+  emptyStateText: {
+    color: "#64748b",
+    fontSize: 15,
+    textAlign: "center",
   },
 });
 

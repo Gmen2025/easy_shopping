@@ -1,7 +1,7 @@
 import React, {useContext} from 'react'
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
-import { Text, Card, Button, Divider, Avatar } from 'react-native-paper';
+import { Text, Card, Divider, Avatar } from 'react-native-paper';
 import EasyButton from '../../../Shared/StyledComponenets/EasyButton';
 
 import { useDispatch } from 'react-redux';
@@ -12,6 +12,7 @@ import axios from "axios";
 import baseUrl from '../../../assets/common/baseUrl'; 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCheckout } from '../../../Context/store/CheckoutContext'; // Import the useCheckout hook
+import { useCurrency } from '../../../assets/common/currency';
 
 
 
@@ -20,6 +21,7 @@ const width = Dimensions.get('window').width; // Get the width of the device scr
 
 const Confirm = (props) => {
     const { order: contextOrder } = useCheckout();
+  const { formatPrice } = useCurrency();
     //const finalOrder = route.params;
     const context = useContext(AuthContext);
 
@@ -80,14 +82,15 @@ const Confirm = (props) => {
 
     if (!order) {
     return (
-      <View style={styles.container}>
-        <Text>No order data available</Text>
+      <View style={[styles.container, styles.centeredEmpty]}>
+        <Text style={styles.emptyText}>No order data available</Text>
         <EasyButton
           tertiary
           large
           onPress={() => props.navigation.navigate("Shipping")}
+          style={styles.emptyButton}
         >
-          <Text style={{ color: 'white' }}>Start Checkout</Text>
+          <Text style={styles.actionPrimaryText}>Start Checkout</Text>
         </EasyButton>
       </View>
     );
@@ -95,16 +98,19 @@ const Confirm = (props) => {
 
     return (
       <View style={styles.container}>
+        <View style={styles.headerCard}>
+          <Text style={styles.headerTitle}>Review and Confirm</Text>
+          <Text style={styles.headerSubtitle}>
+            Verify your shipping details and items before placing the order.
+          </Text>
+        </View>
         <ScrollView
-          contentContainerStyle={{
-            flexGrow: 1,
-            justifyContent: "center",
-            alignItems: "center",
-          }}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
           <Card style={styles.card}>
             <Card.Content>
-              <Text variant="titleLarge" style={styles.title}>
+              <Text variant="titleLarge" style={styles.confirmTitle}>
                 Order Confirmation
               </Text>
               <Text variant="bodyLarge" style={styles.label}>
@@ -148,8 +154,7 @@ const Confirm = (props) => {
                     <Text style={styles.itemName}>{item.name}</Text>
                     <Text style={styles.itemQty}>X: {item.quantity || 1}</Text>
                     <Text style={styles.itemPrice}>
-                      $
-                      {item.price?.toFixed ? item.price.toFixed(2) : item.price}
+                      {formatPrice(item.price?.toFixed ? item.price : Number(item.price || 0))}
                     </Text>
                   </View>
                 ))
@@ -159,29 +164,29 @@ const Confirm = (props) => {
               <Text variant="bodyLarge" style={styles.label}>
                 Total Price:
               </Text>
-              <Text>
-                $
-                {Array.isArray(order.orderItems)
+              <Text style={styles.totalText}>
+                {formatPrice(
+                  Array.isArray(order.orderItems)
                   ? order.orderItems
                       .reduce(
                         (sum, item) => sum + item.price * (item.quantity || 1),
                         0
                       )
-                      .toFixed(2)
-                  : "0.00"}
+                  : 0
+                )}
               </Text>
             </Card.Content>
             <Card.Actions style={{ justifyContent: "space-between" }}>
               <EasyButton 
-                style={{ marginLeft: 10 }} 
+                style={[styles.actionButton, styles.actionButtonLeft]} 
                 secondary 
                 large
                 onPress={() => props.navigation.navigate("Shipping")}
               >
-                <Text style={{ color: 'white', fontWeight: 'bold' }}>Back</Text>
+                <Text style={styles.actionSecondaryText}>Back</Text>
               </EasyButton>
-              <EasyButton style={{ marginRight: 10 }} tertiary onPress={handlePlaceOrder}>
-                <Text style={{ color: 'black', fontWeight: 'bold' }}>Place Order</Text>
+              <EasyButton style={[styles.actionButton, styles.actionButtonRight]} tertiary onPress={handlePlaceOrder}>
+                <Text style={styles.actionPrimaryText}>Place Order</Text>
               </EasyButton>
             </Card.Actions>
           </Card>
@@ -194,46 +199,128 @@ const Confirm = (props) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f3f6fb',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  centeredEmpty: {
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 24,
+  },
+  emptyText: {
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#374151',
+    marginBottom: 14,
+    textAlign: 'center',
+  },
+  emptyButton: {
+    borderRadius: 12,
+    paddingVertical: 4,
+  },
+  headerCard: {
+    backgroundColor: '#0f1f36',
+    borderRadius: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 14,
+    marginBottom: 12,
+  },
+  headerTitle: {
+    fontSize: 22,
+    color: '#ffffff',
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: '#d2dced',
+    lineHeight: 18,
+  },
+  scrollContent: {
+    paddingBottom: 30,
+    alignItems: 'center',
   },
   card: {
-    width: width - 80, // Make the card width responsive
-    padding: 20,
-    marginTop: 10,
-    marginBottom: 50,
+    width: width * 0.92,
+    maxWidth: 420,
+    borderRadius: 14,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#dce3ef',
+    marginBottom: 40,
   },
-  title: {
-    marginBottom: 10,
+  confirmTitle: {
+    marginBottom: 12,
     textAlign: 'center',
+    color: '#10243f',
+    fontWeight: '700',
   },
   label: {
     fontWeight: 'bold',
     marginTop: 10,
+    color: '#10243f',
   },
   itemRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginVertical: 2,
+    alignItems: 'center',
+    marginVertical: 5,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f3f9',
   },
   itemName: {
     flex: 2,
     fontSize: 15,
+    color: '#334155',
   },
   itemQty: {
     flex: 1,
     textAlign: 'center',
     fontSize: 15,
+    color: '#475569',
   },
   itemPrice: {
     flex: 1,
     textAlign: 'right',
     fontSize: 15,
+    fontWeight: '700',
+    color: '#0f3f79',
   },
   thumbnail: {
     marginRight: 8,
     backgroundColor: '#eee',
+  },
+  totalText: {
+    fontSize: 19,
+    color: '#114f9d',
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 6,
+  },
+  actionPrimaryText: {
+    color: '#0f172a',
+    fontWeight: '700',
+    fontSize: 15,
+    letterSpacing: 0.2,
+  },
+  actionSecondaryText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 15,
+    letterSpacing: 0.2,
+  },
+  actionButton: {
+    borderRadius: 12,
+    minHeight: 50,
+    justifyContent: 'center',
+  },
+  actionButtonLeft: {
+    marginLeft: 10,
+  },
+  actionButtonRight: {
+    marginRight: 10,
   },
 });
 

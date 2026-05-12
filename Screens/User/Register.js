@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Button, Dimensions } from "react-native";
+import { View, Text, StyleSheet, Button, Dimensions, ScrollView } from "react-native";
 import FormContainer from "../../Shared/Form/FormContainer";
 import Input from "../../Shared/Form/Input";
 import Error from "../../Shared/Error";
 import Toast from "react-native-toast-message";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scrollview";
 import EasyButton from "../../Shared/StyledComponenets/EasyButton";
+import Icon from "react-native-vector-icons/FontAwesome";
 
 import axios from "axios";
 import baseUrl from "../../assets/common/baseUrl";
@@ -162,210 +163,285 @@ const Register = (props) => {
   };
 
   return (
-    <FormContainer title={formData.registrationStep === "verificationSent" ? "Verify Email" : "Register"}>
-      {formData.registrationStep === "verificationSent" ? (
-        // Email verification screen
-        <View style={styles.verificationContainer}>
-          <Text style={styles.verificationTitle}>Check Your Email</Text>
-          <Text style={styles.verificationText}>
-            We've sent a verification link to:
-          </Text>
-          <Text style={styles.emailText}>{formData.email}</Text>
-          <Text style={styles.verificationText}>
-            Please click the link in your email to verify your account and complete registration.
-          </Text>
-          
-          <View style={styles.verificationActions}>
-            <EasyButton 
-              onPress={resendVerificationEmail} 
-              secondary 
-              large
-              disabled={formData.isRegistering}
-              style={styles.button}
-            >
-              <Text style={{ color: "white" }}>
-                {formData.isRegistering ? "Sending..." : "Resend Email"}
-              </Text>
-            </EasyButton>
+    <FormContainer title="">
+      <ScrollView contentContainerStyle={styles.container}>
+        {formData.registrationStep === "verificationSent" ? (
+          // Email verification screen
+          <View style={styles.verificationContainer}>
+            <Icon name="envelope-open" size={48} color="#1a237e" style={{ marginBottom: 16 }} />
+            <Text style={styles.verificationTitle}>Verify Your Email</Text>
+            <Text style={styles.verificationText}>
+              We've sent a verification link to:
+            </Text>
+            <Text style={styles.emailText}>{formData.email}</Text>
+            <Text style={styles.verificationText}>
+              Click the link in your email to verify your account and complete registration.
+            </Text>
             
-            <EasyButton
-              onPress={() => setFormData({ ...formData, registrationStep: "form" })}
-              tertiary
-              large
-              style={styles.button}
-            >
-              <Text style={{ color: "white" }}>Back to Registration</Text>
-            </EasyButton>
-            
-            <EasyButton
-              onPress={() => props.navigation.navigate("Login")}
-              large
-              style={styles.button}
-            >
-              <Text style={{ color: "black" }}>Go to Login</Text>
-            </EasyButton>
+            <View style={styles.verificationActions}>
+              <EasyButton 
+                onPress={resendVerificationEmail} 
+                secondary 
+                large
+                disabled={formData.isRegistering}
+                style={styles.button}
+              >
+                <Text style={styles.buttonText}>
+                  {formData.isRegistering ? "Sending..." : "Resend Email"}
+                </Text>
+              </EasyButton>
+              
+              <EasyButton
+                onPress={() => setFormData({ ...formData, registrationStep: "form" })}
+                tertiary
+                large
+                style={styles.button}
+              >
+                <Text style={styles.buttonText}>Back to Registration</Text>
+              </EasyButton>
+              
+              <EasyButton
+                onPress={() => props.navigation.navigate("Login")}
+                style={styles.loginLink}
+              >
+                <Text style={styles.loginLinkText}>Already verified? Go to Login</Text>
+              </EasyButton>
+            </View>
           </View>
-        </View>
-      ) : (
-        // Registration form
-        <View style={styles.formContainer}>
-      <Input
-        id="name"
-        placeholder="Name"
-        name="name"
-        value={formData.name}
-        onChangeText={(text) => setFormData({ ...formData, name: text })}
-      />
-      <Input
-        id="email"
-        placeholder="Email"
-        name="email"
-        value={formData.email}
-        onChangeText={handleEmailChange}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
-      {formData.emailError ? (
-        <Text style={styles.validationError}>{formData.emailError}</Text>
-      ) : formData.email.length > 0 && validateEmail(formData.email) ? (
-        <Text style={styles.validationSuccess}>✓ Valid email address</Text>
-      ) : null}
-      <Input
-        id="password"
-        placeholder="Password"
-        name="password"
-        secureTextEntry={true}
-        value={formData.password}
-        onChangeText={(text) => setFormData({ ...formData, password: text })}
-      />
-      <Input
-        id="confirmPassword"
-        placeholder="Confirm Password"
-        name="confirmPassword"
-        secureTextEntry={true}
-        value={formData.confirmPassword}
-        onChangeText={(text) =>
-          setFormData({ ...formData, confirmPassword: text })
-        }
-      />
-      {formData.confirmPassword.length > 0 && formData.password !== formData.confirmPassword ? (
-        <Text style={styles.validationError}>Passwords do not match</Text>
-      ) : formData.confirmPassword.length > 0 && formData.password === formData.confirmPassword ? (
-        <Text style={styles.validationSuccess}>✓ Passwords match</Text>
-      ) : null}
-      <Input
-        id="phone"
-        placeholder="Phone Number"
-        name="phone"
-        keyboardType="numeric"
-        value={formData.phone}
-        onChangeText={(text) => setFormData({ ...formData, phone: text })}
-      />
-      <View style={styles.buttnGroup}>
-        {formData.error ? <Error message={formData.error} /> : null}
-      </View>
-      <View style={styles.buttonContainer}>
-        <EasyButton 
-          onPress={() => register()} 
-          tertiary 
-          large
-          disabled={formData.isRegistering}
-          style={styles.button}
-        >
-          <Text style={{ color: "white" }}>
-            {formData.isRegistering ? "Registering..." : "Register"}
-          </Text>
-        </EasyButton>
-      </View>
-      <View style={styles.buttonContainer}>
-        <EasyButton
-          tertiary
-          large
-          onPress={() => props.navigation.navigate("Login")}
-          style={styles.button}
-        >
-          <Text style={{ color: "white" }}>Back to Login</Text>
-        </EasyButton>
-      </View>
-        </View>
-      )}
+        ) : (
+          // Registration form
+          <View style={styles.formContainer}>
+            {/* Header */}
+            <View style={styles.header}>
+              <Icon name="user-plus" size={40} color="#1a237e" />
+              <Text style={styles.headerTitle}>Create Account</Text>
+              <Text style={styles.headerSubtitle}>Join Easy Shopping today</Text>
+            </View>
+
+            {/* Form Fields */}
+            <View style={styles.formFields}>
+              <Text style={styles.fieldLabel}>Full Name</Text>
+              <Input
+                id="name"
+                placeholder="John Doe"
+                name="name"
+                value={formData.name}
+                onChangeText={(text) => setFormData({ ...formData, name: text })}
+              />
+
+              <Text style={styles.fieldLabel}>Email Address</Text>
+              <Input
+                id="email"
+                placeholder="you@example.com"
+                name="email"
+                value={formData.email}
+                onChangeText={handleEmailChange}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              {formData.emailError ? (
+                <Text style={styles.validationError}>✗ {formData.emailError}</Text>
+              ) : formData.email.length > 0 && validateEmail(formData.email) ? (
+                <Text style={styles.validationSuccess}>✓ Valid email address</Text>
+              ) : null}
+
+              <Text style={styles.fieldLabel}>Password</Text>
+              <Input
+                id="password"
+                placeholder="Min 6 characters"
+                name="password"
+                secureTextEntry={true}
+                value={formData.password}
+                onChangeText={(text) => setFormData({ ...formData, password: text })}
+              />
+
+              <Text style={styles.fieldLabel}>Confirm Password</Text>
+              <Input
+                id="confirmPassword"
+                placeholder="Re-enter password"
+                name="confirmPassword"
+                secureTextEntry={true}
+                value={formData.confirmPassword}
+                onChangeText={(text) =>
+                  setFormData({ ...formData, confirmPassword: text })
+                }
+              />
+              {formData.confirmPassword.length > 0 && formData.password !== formData.confirmPassword ? (
+                <Text style={styles.validationError}>✗ Passwords do not match</Text>
+              ) : formData.confirmPassword.length > 0 && formData.password === formData.confirmPassword ? (
+                <Text style={styles.validationSuccess}>✓ Passwords match</Text>
+              ) : null}
+
+              <Text style={styles.fieldLabel}>Phone Number</Text>
+              <Input
+                id="phone"
+                placeholder="123-456-7890"
+                name="phone"
+                keyboardType="phone-pad"
+                value={formData.phone}
+                onChangeText={(text) => setFormData({ ...formData, phone: text })}
+              />
+            </View>
+
+            {/* Error Messages */}
+            {formData.error ? <Error message={formData.error} /> : null}
+
+            {/* Buttons */}
+            <View style={styles.actionSection}>
+              <EasyButton 
+                onPress={() => register()} 
+                tertiary 
+                large
+                disabled={formData.isRegistering}
+                style={styles.registerButton}
+              >
+                <Text style={styles.buttonText}>
+                  {formData.isRegistering ? "Creating Account..." : "Create Account"}
+                </Text>
+              </EasyButton>
+
+              <EasyButton
+                tertiary
+                large
+                onPress={() => props.navigation.navigate("Login")}
+                style={styles.alternateButton}
+              >
+                <Text style={styles.buttonText}>Back to Login</Text>
+              </EasyButton>
+            </View>
+          </View>
+        )}
+      </ScrollView>
     </FormContainer>
   );
 };
 
 const styles = StyleSheet.create({
-  formContainer: {
-    width: "100%",
-    maxWidth: Math.min(screenWidth * 0.9, 400),
-    alignItems: "center",
-    paddingHorizontal: 20,
-    alignSelf: "center",
+  container: {
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 32,
   },
-  buttnGroup: {
-    width: "80%",
-    maxWidth: 300,
-    margin: 10,
-    alignItems: "center",
+  formContainer: {
+    width: '100%',
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 28,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#1a237e',
+    marginTop: 12,
+    letterSpacing: 0.5,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#5a6c7d',
+    marginTop: 6,
+  },
+  formFields: {
+    marginBottom: 20,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    marginBottom: 8,
+    marginTop: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   validationError: {
-    color: "red",
+    color: '#e53935',
     fontSize: 12,
-    alignSelf: "flex-start",
-    marginLeft: "10%",
-    marginTop: -10,
-    marginBottom: 10,
-    width: "80%",
+    fontWeight: '500',
+    marginTop: -6,
+    marginBottom: 8,
+    marginLeft: 4,
   },
   validationSuccess: {
-    color: "green",
+    color: '#4caf50',
     fontSize: 12,
-    alignSelf: "flex-start",
-    marginLeft: "10%",
-    marginTop: -10,
-    marginBottom: 10,
-    width: "80%",
+    fontWeight: '500',
+    marginTop: -6,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  actionSection: {
+    marginTop: 24,
+  },
+  registerButton: {
+    marginBottom: 12,
+    borderRadius: 8,
+    elevation: 4,
+  },
+  alternateButton: {
+    borderRadius: 8,
+    elevation: 4,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   verificationContainer: {
-    width: "100%",
-    maxWidth: Math.min(screenWidth * 0.9, 400),
-    padding: 20,
-    alignItems: "center",
-    alignSelf: "center",
-  },
-  buttonContainer: {
-    width: "80%",
-    maxWidth: 300,
-    marginVertical: 5,
-    alignItems: "center",
-  },
-  button: {
-    width: "100%",
-    minWidth: 200,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 32,
   },
   verificationTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 20,
-    textAlign: "center",
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#1a237e',
+    marginBottom: 16,
+    textAlign: 'center',
   },
   verificationText: {
-    fontSize: 16,
-    marginBottom: 10,
-    textAlign: "center",
-    lineHeight: 24,
+    fontSize: 15,
+    color: '#5a6c7d',
+    marginBottom: 12,
+    textAlign: 'center',
+    lineHeight: 22,
   },
   emailText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#8a6c09",
-    marginBottom: 20,
-    textAlign: "center",
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1a237e',
+    marginVertical: 16,
+    textAlign: 'center',
+    paddingHorizontal: 12,
   },
   verificationActions: {
-    marginTop: 30,
-    width: "100%",
-    alignItems: "center",
-    gap: 10,
+    marginTop: 32,
+    width: '100%',
+  },
+  button: {
+    marginBottom: 12,
+    borderRadius: 8,
+    elevation: 4,
+  },
+  loginLink: {
+    marginTop: 8,
+    paddingVertical: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  loginLinkText: {
+    color: '#1a237e',
+    fontSize: 14,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  buttnGroup: {
+    marginVertical: 12,
+  },
+  buttonContainer: {
+    marginBottom: 12,
   },
 });
 

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Dimensions } from "react-native";
+import { View, Text, StyleSheet, Dimensions, ScrollView } from "react-native";
 import FormContainer from "../../Shared/Form/FormContainer";
 import Input from "../../Shared/Form/Input";
 import Error from "../../Shared/Error";
@@ -7,6 +7,7 @@ import EasyButton from "../../Shared/StyledComponenets/EasyButton";
 import Toast from "react-native-toast-message";
 import axios from "axios";
 import baseUrl from "../../assets/common/baseUrl";
+import Icon from "react-native-vector-icons/FontAwesome";
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -105,138 +106,235 @@ const ForgotPassword = (props) => {
   };
 
   return (
-    <FormContainer title={formData.step === "emailSent" ? "Check Your Email" : "Forgot Password"}>
-      {formData.step === "emailSent" ? (
-        // Email sent confirmation screen
-        <View style={styles.confirmationContainer}>
-          <Text style={styles.confirmationTitle}>Reset Email Sent</Text>
-          <Text style={styles.confirmationText}>
-            We've sent password reset instructions to:
-          </Text>
-          <Text style={styles.emailText}>{formData.email}</Text>
-          <Text style={styles.confirmationText}>
-            Please check your email and follow the instructions to reset your password.
-          </Text>
-          
-          <View style={styles.buttonContainer}>
-            <EasyButton 
-              onPress={resendResetEmail} 
-              secondary 
-              large
-              disabled={formData.isLoading}
-              style={styles.button}
-            >
-              <Text style={{ color: "white" }}>
-                {formData.isLoading ? "Sending..." : "Resend Email"}
-              </Text>
-            </EasyButton>
+    <FormContainer title="">
+      <ScrollView contentContainerStyle={styles.container}>
+        {formData.step === "emailSent" ? (
+          // Email sent confirmation screen
+          <View style={styles.confirmationContainer}>
+            <Icon name="envelope-open-o" size={56} color="#1a237e" />
+            <Text style={styles.confirmationTitle}>Check Your Email</Text>
+            <Text style={styles.confirmationText}>
+              We've sent password reset instructions to:
+            </Text>
+            <Text style={styles.emailText}>{formData.email}</Text>
+            <Text style={styles.confirmationText}>
+              Please check your email and follow the link to reset your password.
+            </Text>
             
-            <EasyButton
-              onPress={() => setFormData({ ...formData, step: "email" })}
-              tertiary
-              large
-              style={styles.button}
-            >
-              <Text style={{ color: "white" }}>Try Different Email</Text>
-            </EasyButton>
-            
-            <EasyButton
-              onPress={() => props.navigation.navigate("Login")}
-              large
-              style={styles.button}
-            >
-              <Text style={{ color: "black" }}>Back to Login</Text>
-            </EasyButton>
+            <View style={styles.actionButtons}>
+              <EasyButton 
+                onPress={resendResetEmail} 
+                secondary 
+                large
+                disabled={formData.isLoading}
+                style={styles.resendButton}
+              >
+                <Icon name="repeat" size={16} color="white" style={{ marginRight: 8 }} />
+                <Text style={styles.buttonText}>
+                  {formData.isLoading ? "Sending..." : "Resend Email"}
+                </Text>
+              </EasyButton>
+              
+              <EasyButton
+                onPress={() => setFormData({ ...formData, step: "email" })}
+                tertiary
+                large
+                style={styles.changeEmailButton}
+              >
+                <Icon name="arrow-left" size={16} color="white" style={{ marginRight: 8 }} />
+                <Text style={styles.buttonText}>Try Different Email</Text>
+              </EasyButton>
+              
+              <EasyButton
+                onPress={() => props.navigation.navigate("Login")}
+                style={styles.loginButton}
+              >
+                <Text style={styles.loginButtonText}>Back to Login</Text>
+              </EasyButton>
+            </View>
           </View>
-        </View>
-      ) : (
-        // Email input form
-        <View style={styles.formContainer}>
-          <Text style={styles.instructionText}>
-            Enter your email address and we'll send you instructions to reset your password.
-          </Text>
-          
-          <Input
-            id="email"
-            placeholder="Email Address"
-            name="email"
-            value={formData.email}
-            onChangeText={handleEmailChange}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-          
-          {formData.error ? <Error message={formData.error} /> : null}
-          
-          <View style={styles.buttonContainer}>
-            <EasyButton
-              onPress={handleForgotPassword}
-              tertiary
-              large
-              disabled={formData.isLoading}
-              style={styles.button}
-            >
-              <Text style={{ color: "white" }}>
-                {formData.isLoading ? "Sending..." : "Send Reset Email"}
-              </Text>
-            </EasyButton>
+        ) : (
+          // Email input form
+          <View style={styles.formContainer}>
+            {/* Header */}
+            <View style={styles.header}>
+              <Icon name="lock" size={40} color="#1a237e" />
+              <Text style={styles.headerTitle}>Reset Password</Text>
+              <Text style={styles.headerSubtitle}>We'll send you a reset link</Text>
+            </View>
+
+            <Text style={styles.instructionText}>
+              Enter your email address and we'll send you instructions to reset your password.
+            </Text>
             
-            <EasyButton
-              onPress={() => props.navigation.navigate("Login")}
-              large
-              style={styles.button}
-            >
-              <Text style={{ color: "#8a6c09", textDecorationLine: "underline" }}>Back to Login</Text>
-            </EasyButton>
+            <Text style={styles.fieldLabel}>Email Address</Text>
+            <Input
+              id="email"
+              placeholder="you@example.com"
+              name="email"
+              value={formData.email}
+              onChangeText={handleEmailChange}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            
+            {formData.error ? <Error message={formData.error} /> : null}
+            
+            <View style={styles.actionButtons}>
+              <EasyButton
+                onPress={handleForgotPassword}
+                tertiary
+                large
+                disabled={formData.isLoading}
+                style={styles.submitButton}
+              >
+                <Icon name="paper-plane" size={16} color="white" style={{ marginRight: 8 }} />
+                <Text style={styles.buttonText}>
+                  {formData.isLoading ? "Sending..." : "Send Reset Email"}
+                </Text>
+              </EasyButton>
+              
+              <EasyButton
+                onPress={() => props.navigation.navigate("Login")}
+                style={styles.backButton}
+              >
+                <Text style={styles.backButtonText}>Back to Login</Text>
+              </EasyButton>
+            </View>
           </View>
-        </View>
-      )}
+        )}
+      </ScrollView>
     </FormContainer>
   );
 };
 
 const styles = StyleSheet.create({
-  formContainer: {
-    width: "100%",
-    maxWidth: Math.min(screenWidth * 0.9, 400),
-    alignItems: "center",
-    paddingHorizontal: 20,
-    alignSelf: "center",
+  container: {
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 32,
   },
-  confirmationContainer: {
-    width: "100%",
-    maxWidth: Math.min(screenWidth * 0.9, 400),
-    padding: 20,
-    alignItems: "center",
-    alignSelf: "center",
+  formContainer: {
+    width: '100%',
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 28,
+  },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#1a237e',
+    marginTop: 12,
+    letterSpacing: 0.5,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#5a6c7d',
+    marginTop: 6,
   },
   instructionText: {
-    fontSize: 16,
-    textAlign: "center",
-    marginBottom: 20,
+    fontSize: 15,
+    textAlign: 'center',
+    marginBottom: 24,
     lineHeight: 24,
-    color: "#666",
+    color: '#5a6c7d',
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  confirmationContainer: {
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 32,
   },
   confirmationTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 20,
-    textAlign: "center",
-    color: "#8a6c09",
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#1a237e',
+    marginTop: 12,
+    marginBottom: 16,
+    textAlign: 'center',
   },
   confirmationText: {
-    fontSize: 16,
-    marginBottom: 10,
-    textAlign: "center",
-    lineHeight: 24,
-    color: "#666",
+    fontSize: 15,
+    marginBottom: 12,
+    textAlign: 'center',
+    lineHeight: 22,
+    color: '#5a6c7d',
   },
   emailText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#8a6c09",
-    marginBottom: 20,
-    textAlign: "center",
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1a237e',
+    marginVertical: 16,
+    textAlign: 'center',
+    paddingHorizontal: 12,
+  },
+  actionButtons: {
+    marginTop: 28,
+    width: '100%',
+  },
+  submitButton: {
+    marginBottom: 12,
+    borderRadius: 8,
+    elevation: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resendButton: {
+    marginBottom: 12,
+    borderRadius: 8,
+    elevation: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  changeEmailButton: {
+    marginBottom: 12,
+    borderRadius: 8,
+    elevation: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  backButton: {
+    paddingVertical: 14,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  backButtonText: {
+    color: '#1a237e',
+    fontSize: 16,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  loginButton: {
+    paddingVertical: 14,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    marginTop: 8,
+  },
+  loginButtonText: {
+    color: '#1a237e',
+    fontSize: 14,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
   buttonContainer: {
     width: "100%",

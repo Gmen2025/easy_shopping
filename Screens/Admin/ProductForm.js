@@ -10,7 +10,6 @@ import {
 import { Picker } from "@react-native-picker/picker";
 import FormContainer from "../../Shared/Form/FormContainer";
 import Input from "../../Shared/Form/Input";
-import EasyButton from "../../Shared/StyledComponenets/EasyButton";
 import Icon from "react-native-vector-icons/FontAwesome";
 import Error from "../../Shared/Error";
 import Toast from "react-native-toast-message";
@@ -21,6 +20,14 @@ import CloudinaryUploader from "../../Shared/CloudinaryUploader";
 import * as ImagePicker from "expo-image-picker";
 import getImageUrl from "../../assets/common/getImageUrl";
 
+const FieldLabel = ({ label }) => (
+  <View style={{ width: '90%', marginTop: 12, marginBottom: 2 }}>
+    <Text style={{ fontSize: 13, fontWeight: '600', color: '#1a1a1a', textTransform: 'uppercase', letterSpacing: 0.4 }}>
+      {label}
+    </Text>
+  </View>
+);
+
 const ProductForm = (props) => {
   const [pickerValue, setPickerValue] = useState("");
   const [brand, setBrand] = useState("");
@@ -29,8 +36,7 @@ const ProductForm = (props) => {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
   const [categories, setCategories] = useState();
-  const [image, setImage] = useState();
-  const [mainImage, setMainImage] = useState();
+  const [selectedImages, setSelectedImages] = useState([]);
   const [token, setToken] = useState();
   const [error, setError] = useState("");
   const [countInStock, setCountInStock] = useState("");
@@ -40,13 +46,10 @@ const ProductForm = (props) => {
   const [numReviews, setNumReviews] = useState(0);
   const [item, setItem] = useState(null);
 
-  console.log("Image state:", image); // Debugging line
-
   useEffect(() => {
     if (!props.route.params) {
       setItem(null);
-      setMainImage(null);
-      setImage(null);
+      setSelectedImages([]);
       setBrand("");
       setName("");
       setPrice("");
@@ -59,10 +62,18 @@ const ProductForm = (props) => {
       setPickerValue("");
     } else {
       const { item } = props.route.params;
-      const existingImage = getImageUrl(item);
       setItem(item);
-      setMainImage(existingImage);
-      setImage(existingImage ? { uri: existingImage } : null); // Always set image as object with uri
+      // Build selectedImages from item.images array or fallback single image
+      const existingUrls = [];
+      if (Array.isArray(item.images) && item.images.length > 0) {
+        item.images.forEach(img => {
+          if (typeof img === 'string' && img.trim()) existingUrls.push({ uri: img.trim(), isNew: false });
+        });
+      } else {
+        const fallback = getImageUrl(item);
+        if (fallback) existingUrls.push({ uri: fallback, isNew: false });
+      }
+      setSelectedImages(existingUrls);
       setBrand(item.brand);
       setName(item.name);
       setPrice(item.price ? item.price.toString() : "");
@@ -103,19 +114,21 @@ const ProductForm = (props) => {
     };
   }, []);
 
-  const pickImage = async () => {
+  const pickImages = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
-      allowsEditing: true,
-      aspect: [4, 3],
+      allowsMultipleSelection: true,
       quality: 1,
     });
 
     if (!result.canceled) {
-      console.log("New image selected:", result.assets[0]);
-      setMainImage(result.assets[0].uri);
-      setImage(result.assets[0]);
+      const newImgs = result.assets.map(a => ({ uri: a.uri, isNew: true }));
+      setSelectedImages(prev => [...prev, ...newImgs]);
     }
+  };
+
+  const removeImage = (index) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const addProduct = async () => {
@@ -137,68 +150,41 @@ const ProductForm = (props) => {
     return str.replace(/<[^>]*>/g, "");
   };
 
-  // Build payload (we'll upload image to Cloudinary first if it's a new local image)
   const isEditing = item !== null;
-  const hasNewImage = image && image.uri && !image.uri.startsWith('http');
 
-  console.log("Is editing:", isEditing);
-  console.log("Has new image:", hasNewImage);
+  if (!isEditing && selectedImages.length === 0) {
+    setError('Please select at least one image');
+    return;
+  }
 
-  const getExistingImageUrl = (currentItem) => {
-    if (!currentItem) return "";
+  // Upload new images to Cloudinary, keep existing URLs as-is
+  const uploadedUrls = [];
+  const signUrl = `${baseUrl.replace(/\/$/, '')}/sign`;
 
-    if (typeof currentItem.image === "string" && currentItem.image.trim()) {
-      return currentItem.image.trim();
+  for (const img of selectedImages) {
+    if (!img.isNew) {
+      uploadedUrls.push(img.uri);
+      continue;
     }
-
-    if (Array.isArray(currentItem.images) && currentItem.images.length > 0) {
-      const firstImage = currentItem.images[0];
-      if (typeof firstImage === "string" && firstImage.trim()) {
-        return firstImage.trim();
-      }
-    }
-
-    return "";
-  };
-
-  let imageUrl = getExistingImageUrl(item);
-
-  if (hasNewImage) {
     try {
-      // signer route should follow backend API prefix
-      const signUrl = `${baseUrl.replace(/\/$/, '')}/sign`;
-
-      // Ensure correct local uri for Cloudinary helper
-      const localUri = image.uri.startsWith('file://') ? image.uri : 'file:///' + image.uri.split('file:/').join('');
-
+      const localUri = img.uri.startsWith('file://') ? img.uri : 'file:///' + img.uri.split('file:/').join('');
       const sig = await CloudinaryUploader.getSignature(signUrl, { folder: 'mobile_uploads' }, { token });
       const uploadRes = await CloudinaryUploader.uploadToCloudinary(localUri, sig, { folder: 'mobile_uploads' });
-      imageUrl = uploadRes.secure_url || uploadRes.url || imageUrl;
+      uploadedUrls.push(uploadRes.secure_url || uploadRes.url);
     } catch (err) {
       const errorMessage = String(err?.message || err || '');
       const serverNotConfigured = errorMessage.toLowerCase().includes('cloudinary not configured on server');
-
-      console.log('Cloudinary upload error:', errorMessage);
       Toast.show({
         topOffset: 60,
         type: 'error',
         text1: serverNotConfigured ? 'Server image upload not configured' : 'Image upload failed',
-        text2: serverNotConfigured
-          ? 'Please set Cloudinary env vars on backend and try again'
-          : 'Please try again',
+        text2: serverNotConfigured ? 'Please set Cloudinary env vars on backend and try again' : 'Please try again',
       });
       return;
     }
   }
 
-  const normalizedImageUrl = typeof imageUrl === "string" ? imageUrl.trim() : "";
-
-  if (!isEditing && !normalizedImageUrl) {
-    setError('Please select an image');
-    return;
-  }
-
-  // Prepare JSON payload (server should accept image URL in `image` field)
+  // Prepare JSON payload
   const payload = {
     brand,
     name,
@@ -210,8 +196,8 @@ const ProductForm = (props) => {
     richDescription: stripHtmlTags(richDescription),
     numReviews,
     isFeatured,
-    image: normalizedImageUrl,
-    images: normalizedImageUrl ? [normalizedImageUrl] : [],
+    image: uploadedUrls[0] || '',
+    images: uploadedUrls,
   };
 
   const config = {
@@ -248,209 +234,229 @@ const ProductForm = (props) => {
       Toast.show({ topOffset: 60, type: 'error', text1: 'Something went wrong', text2: 'Please try again' });
     }
   }
-};
+  };
+
+  const isEditing = item !== null;
 
   return (
-    <FormContainer title={"Add Product"}>
-      <View style={styles.imageContainer}>
-        <Image style={styles.image} source={{ uri: mainImage }} />
-        <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
-          <Icon name={"camera"} size={30} color={"#fff"} />
-        </TouchableOpacity>
+    <FormContainer title={isEditing ? "Edit Product" : "Add Product"}>
+      {/* Multi-image section */}
+      <View style={styles.imagesSection}>
+        <Text style={styles.imagesSectionLabel}>Product Images</Text>
+        <View style={styles.thumbnailRow}>
+          {selectedImages.map((img, index) => (
+            <View key={index} style={styles.thumbnailWrapper}>
+              <Image source={{ uri: img.uri }} style={styles.thumbnail} />
+              <TouchableOpacity style={styles.removeBtn} onPress={() => removeImage(index)}>
+                <Icon name="times" size={12} color="#fff" />
+              </TouchableOpacity>
+              {index === 0 && <View style={styles.mainBadge}><Text style={styles.mainBadgeText}>Main</Text></View>}
+            </View>
+          ))}
+          <TouchableOpacity style={styles.addImageBtn} onPress={pickImages}>
+            <Icon name="camera" size={24} color="#1a237e" />
+            <Text style={styles.addImageText}>Add</Text>
+          </TouchableOpacity>
+        </View>
+        {selectedImages.length === 0 && (
+          <Text style={styles.noImageHint}>No images selected. Tap Add to choose images.</Text>
+        )}
       </View>
-      <View style={styles.label}>
-        <Text>Brand</Text>
+      {/* Section: Basic Info */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Basic Information</Text>
       </View>
-      <Input
-        placeholder={"Brand"}
-        name={"brand"}
-        id={"brand"}
-        value={brand}
-        onChangeText={(text) => setBrand(text)}
-      />
-      <View style={styles.label}>
-        <Text>Name</Text>
+      <FieldLabel label="Brand" />
+      <Input placeholder={"Brand"} name={"brand"} id={"brand"} value={brand} onChangeText={(text) => setBrand(text)} />
+      <FieldLabel label="Product Name" />
+      <Input placeholder={"Name"} name={"name"} id={"name"} value={name} onChangeText={(text) => setName(text)} />
+      <FieldLabel label="Price" />
+      <Input placeholder={"Price"} name={"price"} id={"price"} value={price} keyboardType={"numeric"} onChangeText={(text) => setPrice(text)} />
+      <FieldLabel label="Description" />
+      <Input placeholder={"Description"} name={"description"} id={"description"} value={description} onChangeText={(text) => setDescription(text)} />
+      <FieldLabel label="Rich Description" />
+      <Input placeholder={"Rich Description"} name={"richDescription"} id={"richDescription"} value={richDescription} onChangeText={(text) => setRichDescription(text)} />
+
+      {/* Section: Inventory */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Inventory & Stats</Text>
       </View>
-      <Input
-        placeholder={"Name"}
-        name={"name"}
-        id={"name"}
-        value={name}
-        onChangeText={(text) => setName(text)}
-      />
-      <View style={styles.label}>
-        <Text>Price</Text>
+      <FieldLabel label="Count in Stock" />
+      <Input placeholder={"Stock"} name={"Stock"} id={"stock"} value={countInStock} keyboardType={"numeric"} onChangeText={(text) => setCountInStock(text)} />
+      <FieldLabel label="Rating" />
+      <Input placeholder={"Rating (0–5)"} name={"rating"} id={"rating"} value={rating} keyboardType={"numeric"} onChangeText={(text) => setRating(text)} />
+      <FieldLabel label="Number of Reviews" />
+      <Input placeholder={"Number of Reviews"} name={"numReviews"} id={"numReviews"} value={numReviews} keyboardType={"numeric"} onChangeText={(text) => setNumReviews(text)} />
+      <FieldLabel label="Is Featured" />
+      <Input placeholder={"true / false"} name={"isFeatured"} id={"isFeatured"} value={isFeatured.toString()} onChangeText={(text) => setIsFeatured(text.toLowerCase())} />
+      {/* Section: Category */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Category</Text>
       </View>
-      <Input
-        placeholder={"Price"}
-        name={"price"}
-        id={"price"}
-        value={price}
-        keyboardType={"numeric"}
-        onChangeText={(text) => setPrice(text)}
-      />
-      <View style={styles.label}>
-        <Text>Description</Text>
-      </View>
-      <Input
-        placeholder={"Description"}
-        name={"description"}
-        id={"description"}
-        value={description}
-        onChangeText={(text) => setDescription(text)}
-      />
-      <View style={styles.label}>
-        <Text>Count in Stock</Text>
-      </View>
-      <Input
-        placeholder={"Stock"}
-        name={"Stock"}
-        id={"stock"}
-        value={countInStock}
-        keyboardType={"numeric"}
-        onChangeText={(text) => setCountInStock(text)}
-      />
-      <View style={styles.label}>
-        <Text>Rating</Text>
-      </View>
-      <Input
-        placeholder={"Rating"}
-        name={"rating"}
-        id={"rating"}
-        value={rating}
-        keyboardType={"numeric"}
-        onChangeText={(text) => setRating(text)}
-      />
-      <View style={styles.label}>
-        <Text>Rich Description</Text>
-      </View>
-      <Input
-        placeholder={"Rich Description"}
-        name={"richDescription"}
-        id={"richDescription"}
-        value={richDescription}
-        onChangeText={(text) => setRichDescription(text)}
-      />
-      <View style={styles.label}>
-        <Text>Number of Reviews</Text>
-      </View>
-      <Input
-        placeholder={"Number of Reviews"}
-        name={"numReviews"}
-        id={"numReviews"}
-        value={numReviews}
-        keyboardType={"numeric"}
-        onChangeText={(text) => setNumReviews(text)}
-      />
-      <View style={styles.label}>
-        <Text>Is Featured</Text>
-      </View>
-      <Input
-        placeholder={"Is Featured (true/false)"}
-        name={"isFeatured"}
-        id={"isFeatured"}
-        value={isFeatured.toString()}
-        onChangeText={(text) => setIsFeatured(text.toLowerCase())}
-      />
-      <View style={styles.inputContainer}>
+      <View style={styles.pickerContainer}>
         <Picker
           selectedValue={pickerValue}
-          style={
-            Platform.OS === "android"
-              ? {
-                  height: 50,
-                  width: "100%",
-                  color: "#007aff",
-                  backgroundColor: "white",
-                }
-              : { height: 50, marginTop: -80, marginBottom: 10, width: "100%" }
-          }
+          style={styles.picker}
+          dropdownIconColor="#1a237e"
           onValueChange={(itemValue) => {
             setPickerValue(itemValue);
             setCategory(itemValue);
           }}
+          mode="dropdown"
         >
-          <Picker.Item label="Select Category" value="" />
+          <Picker.Item label="Select Category…" value="" color="#9e9e9e" />
           {categories
-            ? categories.map((c) => {
-                return <Picker.Item label={c.name} value={c._id} key={c._id} />;
-              })
+            ? categories.map((c) => (
+                <Picker.Item label={c.name} value={c._id} key={c._id} color="#1a1a1a" />
+              ))
             : null}
         </Picker>
       </View>
+
       {error ? <Error message={error} /> : null}
-      <View>
-        <EasyButton
-          style={styles.buttonContainer}
-          large
-          primary
-          onPress={() => addProduct()}
-        >
-          <Text style={styles.buttonText}>Submit</Text>
-        </EasyButton>
-      </View>
+
+      <TouchableOpacity style={styles.submitBtn} onPress={() => addProduct()}>
+        <Icon name={isEditing ? "save" : "plus-circle"} size={18} color="#fff" style={{ marginRight: 8 }} />
+        <Text style={styles.submitBtnText}>{isEditing ? "Save Changes" : "Add Product"}</Text>
+      </TouchableOpacity>
     </FormContainer>
   );
 };
 
 const styles = StyleSheet.create({
-  label: {
-    width: "80%",
-    marginTop: 10,
-    fontSize: 16,
-    color: "grey",
+  sectionHeader: {
+    width: "90%",
+    marginTop: 20,
+    marginBottom: 4,
+    borderLeftWidth: 3,
+    borderLeftColor: "#1a237e",
+    paddingLeft: 10,
   },
-  inputContainer: {
-    marginBottom: 5,
-    marginTop: 50,
-    width: "80%",
-    borderColor: "#ccc",
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#1a237e",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  pickerContainer: {
+    width: "90%",
     borderWidth: 1,
-    borderRadius: 3,
-    paddingHorizontal: 10,
-    paddingBottom: 50,
-    backgroundColor: "white",
+    borderColor: "#c5cae9",
+    borderRadius: 10,
+    backgroundColor: "#fff",
+    marginTop: 6,
+    marginBottom: 4,
   },
-  buttonContainer: {
-    marginTop: 30,
-    marginBottom: 30,
-    // width: "80%",
-    // justifyContent: "center",
-    // alignItems: "center",
-  },
-  buttonText: {
-    color: "white",
-    fontWeight: "bold",
-    textAlign: "center",
-    fontSize: 18,
-  },
-  imageContainer: {
-    width: 200,
-    height: 200,
-    borderStyle: "solid",
-    borderColor: "#7a2d2dff",
-    borderRadius: 100,
-    justifyContent: "center",
-    padding: 0,
-    //Android shadow
-    //elevation: 2,
-  },
-  image: {
+  picker: {
     width: "100%",
-    height: "100%",
-    borderRadius: 100,
-    borderStyle: "solid",
-    borderColor: "lightgrey",
-    borderWidth: 4,
+    height: Platform.OS === "ios" ? 180 : 54,
+    color: "#1a237e",
   },
-  imagePicker: {
-    position: "absolute",
-    bottom: 5,
-    right: 5,
-    backgroundColor: "darkslategrey",
-    padding: 8,
-    borderRadius: 100,
-    elevation: 20,
+  submitBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1a237e",
+    borderRadius: 12,
+    paddingVertical: 15,
+    width: "90%",
+    marginTop: 28,
+    marginBottom: 40,
+    elevation: 3,
+    shadowColor: "#1a237e",
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  submitBtnText: {
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  imagesSection: {
+    width: '90%',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  imagesSectionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a237e',
+    marginBottom: 10,
+  },
+  thumbnailRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    alignItems: 'center',
+  },
+  thumbnailWrapper: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    overflow: 'visible',
+    position: 'relative',
+  },
+  thumbnail: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  removeBtn: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: '#e53935',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+    elevation: 5,
+  },
+  mainBadge: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(26,35,126,0.75)',
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+    paddingVertical: 2,
+    alignItems: 'center',
+  },
+  mainBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  addImageBtn: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: '#1a237e',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f0f4ff',
+  },
+  addImageText: {
+    color: '#1a237e',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  noImageHint: {
+    color: '#9e9e9e',
+    fontSize: 12,
+    marginTop: 6,
+    fontStyle: 'italic',
   },
 });
 

@@ -6,155 +6,251 @@ import {
   TextInput,
   StyleSheet,
   Dimensions,
+  TouchableOpacity,
+  ActivityIndicator,
 } from "react-native";
+import Icon from "react-native-vector-icons/FontAwesome";
 import baseUrl from "../../assets/common/baseUrl";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import EasyButton from "../../Shared/StyledComponenets/EasyButton";
 
 var { width } = Dimensions.get("window");
 
-const Item = (props) => {
-  return (
-    <View style={styles.item}>
-      <Text>{props.item.name}</Text>
-      <EasyButton 
-        danger 
-        medium
-        onPress={() => props.delete(props.item._id) }
-        >
-        <Text style={{ color: "white", fontWeight:"bold" }}>Delete</Text>
-      </EasyButton>
+const CategoryItem = ({ item, onDelete }) => (
+  <View style={styles.categoryCard}>
+    <View style={styles.categoryIcon}>
+      <Icon name="tag" size={14} color="#1a237e" />
     </View>
-  );
-}
+    <Text style={styles.categoryName}>{item.name}</Text>
+    <TouchableOpacity style={styles.deleteBtn} onPress={() => onDelete(item._id)}>
+      <Icon name="trash" size={14} color="#fff" />
+    </TouchableOpacity>
+  </View>
+);
 
 const Categories = () => {
   const [categories, setCategories] = useState([]);
-  const [categoryName, setCategoryName] = useState();
+  const [categoryName, setCategoryName] = useState("");
   const [token, setToken] = useState();
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     AsyncStorage.getItem("token")
-      .then((res) => {
-        setToken(res);
-      })
+      .then((res) => setToken(res))
       .catch((error) => console.log(error));
 
     axios
       .get(`${baseUrl}categories`)
-      .then((res) => setCategories(res.data))
-      .catch((error) => alert("Error to load categories"));
+      .then((res) => {
+        setCategories(res.data);
+        setLoading(false);
+      })
+      .catch(() => {
+        alert("Error loading categories");
+        setLoading(false);
+      });
 
     return () => {
       setCategories([]);
       setToken();
     };
+  }, []);
 
-    }, []);
-
-    const addCategory = () => {
-
-      const category = {
-        name: categoryName
-      };
-
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        }
-      };
-
-      axios.post(`${baseUrl}categories`, category, config)
-        .then((res) => {
-          setCategories([...categories, res.data]);
-        })
-        .catch((error) => alert("Error to load category"));
-
-        setCategoryName("");
-    }
-
-    const deleteCategory = (id) => {
-
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        }
-      }
-
-      axios
-      .delete(`${baseUrl}categories/${id}`, config)
+  const addCategory = () => {
+    if (!categoryName.trim()) return;
+    const config = { headers: { Authorization: `Bearer ${token}` } };
+    axios
+      .post(`${baseUrl}categories`, { name: categoryName.trim() }, config)
       .then((res) => {
-        const newCategories = categories.filter((item) => item._id !== id);
-        setCategories(newCategories);
+        setCategories([...categories, res.data]);
+        setCategoryName("");
       })
-      .catch((error) => alert("Error to delete category"))
-    }
+      .catch(() => alert("Error adding category"));
+  };
+
+  const deleteCategory = (id) => {
+    const config = { headers: { Authorization: `Bearer ${token}` } };
+    axios
+      .delete(`${baseUrl}categories/${id}`, config)
+      .then(() => setCategories(categories.filter((item) => item._id !== id)))
+      .catch(() => alert("Error deleting category"));
+  };
 
   return (
-    <View style={{ position: "relative", height: "100%", padding: 5 }}>
-       <View style={styles.topBar}>
-        <View>
-          <Text>Add Category</Text>
-        </View>
-        <View style={{ width: width / 2 }}>
+    <View style={styles.container}>
+      {/* Navy header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Categories</Text>
+        <Text style={styles.headerSubtitle}>
+          {categories.length} {categories.length === 1 ? "category" : "categories"}
+        </Text>
+      </View>
+
+      {/* Add category bar */}
+      <View style={styles.addBar}>
+        <View style={styles.inputWrapper}>
+          <Icon name="plus" size={13} color="#9e9e9e" style={{ marginRight: 8 }} />
           <TextInput
             value={categoryName}
             style={styles.input}
+            placeholder="New category name…"
+            placeholderTextColor="#bdbdbd"
             onChangeText={(text) => setCategoryName(text)}
+            onSubmitEditing={addCategory}
+            returnKeyType="done"
           />
         </View>
-        <View>
-          <EasyButton tertiary medium onPress={() => addCategory()}>
-            <Text style={{ color: "white", fontWeight: "bold" }}>Submit</Text>
-          </EasyButton>
-        </View>
+        <TouchableOpacity
+          style={[styles.addBtn, !categoryName.trim() && styles.addBtnDisabled]}
+          onPress={addCategory}
+          disabled={!categoryName.trim()}
+        >
+          <Text style={styles.addBtnText}>Add</Text>
+        </TouchableOpacity>
       </View>
-      <View style={{ marginBottom: 10, marginTop:60 }}>
+
+      {/* List */}
+      {loading ? (
+        <View style={styles.spinner}>
+          <ActivityIndicator size="large" color="#1a237e" />
+        </View>
+      ) : (
         <FlatList
           data={categories}
-          renderItem={({ item, index }) => (
-            <Item item={item} index={index} delete={deleteCategory}>{item.name}</Item>
+          renderItem={({ item }) => (
+            <CategoryItem item={item} onDelete={deleteCategory} />
           )}
           keyExtractor={(item) => item._id}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Icon name="tags" size={40} color="#c5cae9" />
+              <Text style={styles.emptyText}>No categories yet</Text>
+            </View>
+          }
+          ListFooterComponent={<View style={{ marginBottom: 80 }} />}
         />
-      </View>
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  topBar: {
-    backgroundColor: "white",
-    width: width,
-    height: 60,
-    padding: 5,
-    position: "absolute",
-    top: 0,
-    left: 0,
+  container: {
+    flex: 1,
+    backgroundColor: "#f5f6fa",
+  },
+  header: {
+    backgroundColor: "#1a237e",
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 16,
+  },
+  headerTitle: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  headerSubtitle: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 13,
+    marginTop: 2,
+  },
+  addBar: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    margin: 14,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    gap: 10,
+  },
+  inputWrapper: {
+    flex: 1,
+    flexDirection: "row",
     alignItems: "center",
   },
   input: {
-    height: 40,
-    borderColor: "gray",
-    borderWidth: 1,
+    flex: 1,
+    fontSize: 14,
+    color: "#333",
+    paddingVertical: 4,
   },
-  item: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1,
-    elevation: 1,
-    padding: 5,
-    margin: 5,
-    backgroundColor: "white",
+  addBtn: {
+    backgroundColor: "#1a237e",
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    borderRadius: 8,
+  },
+  addBtnDisabled: {
+    backgroundColor: "#c5cae9",
+  },
+  addBtnText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  list: {
+    paddingHorizontal: 14,
+    paddingTop: 4,
+  },
+  categoryCard: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    borderRadius: 5,
-  }
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 8,
+    elevation: 1,
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    gap: 10,
+  },
+  categoryIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "#e8eaf6",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  categoryName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#1a1a1a",
+  },
+  deleteBtn: {
+    backgroundColor: "#c62828",
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  spinner: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyState: {
+    alignItems: "center",
+    paddingTop: 60,
+  },
+  emptyText: {
+    color: "#9e9e9e",
+    fontSize: 15,
+    marginTop: 12,
+  },
 });
 
 export default Categories;

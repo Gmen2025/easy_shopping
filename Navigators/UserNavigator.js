@@ -23,17 +23,20 @@ const MyStack = () => {
         headerShown: false,
       }}
     >
-      {/* login screen be unavaialable if user is logged in. */}
-      {!isLoggedIn ? (
-        <Stack.Screen name="Login" component={Login} />
+      {isLoggedIn ? (
+        <>
+          <Stack.Screen name="User Profile" component={UserProfile} />
+          <Stack.Screen name="EditProfile" component={EditProfile} />
+        </>
       ) : (
-        <Stack.Screen name="User Profile" component={UserProfile} />
+        <>
+          <Stack.Screen name="Login" component={Login} />
+          <Stack.Screen name="Register" component={Register} />
+          <Stack.Screen name="EmailVerification" component={EmailVerification} />
+          <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
+          <Stack.Screen name="ResetPassword" component={ResetPassword} />
+        </>
       )}
-      <Stack.Screen name="Register" component={Register} />
-      <Stack.Screen name="EmailVerification" component={EmailVerification} />
-      <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
-      <Stack.Screen name="ResetPassword" component={ResetPassword} />
-      {/* <Stack.Screen name="EditProfile" component={EditProfile} /> */}
     </Stack.Navigator>
   );
 };

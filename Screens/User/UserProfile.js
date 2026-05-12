@@ -15,6 +15,7 @@ import EasyButton from "../../Shared/StyledComponenets/EasyButton";
 import Toast from "react-native-toast-message";
 import { useDispatch } from 'react-redux';
 import { clearCart } from '../../store/cartSlice';
+import Icon from 'react-native-vector-icons/FontAwesome';
 
 import { useFocusEffect } from "@react-navigation/native";
 import axios from "axios";
@@ -78,68 +79,142 @@ const UserProfile = (props) => {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.subContainer}>
-        <Text style={{ fontSize: 20 }}>
-          Name: {context.user ? context.user.name : ""}
-        </Text>
-        <View style={{ marginTop: 20 }}>
-          <Text style={{ margin: 10 }}>
-            Email: {context.user ? context.user.user : ""}
-          </Text>
-          <Text style={{ margin: 10 }}>
-            Phone: {context.user ? context.user.phone : ""}
-          </Text>
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Icon name="user-circle" size={56} color="#1a237e" />
+          <Text style={styles.headerTitle}>My Profile</Text>
         </View>
-         {/* Help & Support Section */}
+
+        {/* Profile Info Card */}
+        <View style={styles.profileCard}>
+          <View style={styles.profileItem}>
+            <Icon name="user" size={18} color="#1a237e" style={{ marginRight: 12 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.profileLabel}>Name</Text>
+              <Text style={styles.profileValue}>{context.user ? context.user.name : "—"}</Text>
+            </View>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.profileItem}>
+            <Icon name="envelope" size={18} color="#1a237e" style={{ marginRight: 12 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.profileLabel}>Email</Text>
+              <Text style={styles.profileValue}>{context.user ? context.user.user : "—"}</Text>
+            </View>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.profileItem}>
+            <Icon name="phone" size={18} color="#1a237e" style={{ marginRight: 12 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.profileLabel}>Phone</Text>
+              <Text style={styles.profileValue}>{context.user ? context.user.phone : "—"}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.actionButtons}>
+          <EasyButton
+            onPress={() => props.navigation.navigate("EditProfile")}
+            secondary
+            large
+            style={styles.editButton}
+          >
+            <Icon name="edit" size={16} color="white" style={{ marginRight: 8 }} />
+            <Text style={styles.buttonText}>Edit Profile</Text>
+          </EasyButton>
+
+          <EasyButton
+            tertiary
+            large
+            onPress={() => props.navigation.navigate("ForgotPassword")}
+            style={styles.passwordButton}
+          >
+            <Icon name="key" size={16} color="white" style={{ marginRight: 8 }} />
+            <Text style={styles.buttonText}>Change Password</Text>
+          </EasyButton>
+        </View>
+
+        {/* My Orders Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Icon name="shopping-bag" size={20} color="#1a237e" />
+            <Text style={styles.sectionTitle}>My Orders</Text>
+          </View>
+
+          {orders && orders.length > 0 ? (
+            <View style={styles.ordersList}>
+              {orders.map((order) => (
+                <View key={order._id} style={styles.orderItemWrapper}>
+                  <OrderCard {...order} />
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptyState}>
+              <Icon name="inbox" size={40} color="#9fa8da" />
+              <Text style={styles.emptyStateText}>No orders yet</Text>
+              <Text style={styles.emptyStateSubtext}>Start shopping to see your orders here</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Help & Support Section */}
         <View style={styles.supportSection}>
-          <Text style={styles.supportTitle}>Help & Support</Text>
+          <View style={styles.sectionHeader}>
+            <Icon name="headphones" size={20} color="#1a237e" />
+            <Text style={styles.sectionTitle}>Help & Support</Text>
+          </View>
           <Text style={styles.supportSubtitle}>Need assistance? Contact us:</Text>
           
           <TouchableOpacity 
             style={styles.contactItem}
             onPress={() => Linking.openURL('mailto:girma.m.halie19@gmail.com')}
           >
-            <Text style={styles.contactLabel}>Email:</Text>
-            <Text style={styles.contactValue}>girma.m.halie19@gmail.com</Text>
+            <Icon name="envelope" size={16} color="#1a237e" style={{ marginRight: 12 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.contactLabel}>Email</Text>
+              <Text style={styles.contactValue}>girma.m.halie19@gmail.com</Text>
+            </View>
+            <Icon name="chevron-right" size={14} color="#9fa8da" />
           </TouchableOpacity>
 
           <TouchableOpacity 
             style={styles.contactItem}
             onPress={() => Linking.openURL('tel:+251910588929')}
           >
-            <Text style={styles.contactLabel}>Phone:</Text>
-            <Text style={styles.contactValue}>+251 910 588 929</Text>
+            <Icon name="phone" size={16} color="#1a237e" style={{ marginRight: 12 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.contactLabel}>Phone</Text>
+              <Text style={styles.contactValue}>+251 910 588 929</Text>
+            </View>
+            <Icon name="chevron-right" size={14} color="#9fa8da" />
           </TouchableOpacity>
 
-          <Text style={styles.supportHours}>Support Hours: Mon-Sat, 9 AM - 6 PM</Text>
+          <Text style={styles.supportHours}>
+            <Icon name="clock-o" size={14} color="#1a237e" /> Support Hours: Mon-Sat, 9 AM - 6 PM
+          </Text>
         </View>
-        <View style={{ marginTop: 20 }}>
-          <View>
-            <EasyButton
-              tertiary
-              large
-               onPress={() => {
-              dispatch(clearCart()); // Clear cart when logging out
-              context.logout();
-              props.navigation.navigate("Home");
-            }}
-            >
-              <Text style={{ color: "white" }}>Sign Out</Text>
-            </EasyButton>
-          </View>
-        </View>
-        <View style={styles.order}>
-          <Text style={{ fontSize: 20, textAlign: "center" }}>My Orders</Text>
-          <View style={styles.order}>
-            {orders && orders.length > 0 ? (
-              orders.map((order) => <OrderCard key={order._id} {...order} />)
-            ) : (
-              <View>
-                <Text>You have no orders</Text>
-              </View>
-            )}
-          </View>
-        </View>
+
+        {/* Sign Out Button */}
+        <EasyButton
+          tertiary
+          large
+          onPress={() => {
+            dispatch(clearCart());
+            context.logout();
+            props.navigation.navigate("Home");
+          }}
+          style={styles.signOutButton}
+        >
+          <Icon name="sign-out" size={16} color="white" style={{ marginRight: 8 }} />
+          <Text style={styles.signOutText}>Sign Out</Text>
+        </EasyButton>
       </ScrollView>
     </View>
   );
@@ -148,72 +223,186 @@ const UserProfile = (props) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: "center",
+    backgroundColor: '#ffffff',
   },
-  subContainer: {
-    alignItems: "center",
-    marginTop: 60,
+  scrollContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 20,
     paddingBottom: 40,
   },
-  orderDetails: {
-    marginTop: 20,
-    borderStyle: "solid",
-    borderRadius: 20,
-    borderColor: "grey",
-    borderWidth: 5,
+  header: {
+    alignItems: 'center',
+    marginBottom: 28,
   },
-  order: {
-    marginTop: 10,
-    alignItem: "center",
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#1a237e',
+    marginTop: 12,
+    letterSpacing: 0.5,
+  },
+  profileCard: {
+    backgroundColor: '#f8f9ff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#e8eaf6',
+  },
+  profileItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  profileLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#7a8a99',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    marginBottom: 2,
+  },
+  profileValue: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#1a237e',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#e0e0e0',
+    marginVertical: 4,
+  },
+  actionButtons: {
+    marginBottom: 24,
+  },
+  editButton: {
     marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    elevation: 4,
+  },
+  passwordButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    elevation: 4,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  section: {
+    marginBottom: 28,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: '#e8eaf6',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a237e',
+    marginLeft: 10,
+  },
+  ordersList: {
+    gap: 12,
+  },
+  orderItemWrapper: {
+    marginBottom: 8,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1a237e',
+    marginTop: 12,
+  },
+  emptyStateSubtext: {
+    fontSize: 13,
+    color: '#7a8a99',
+    marginTop: 6,
+    textAlign: 'center',
   },
   supportSection: {
-    marginTop: 30,
+    backgroundColor: '#f8f9ff',
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 20,
-    padding: 20,
-    backgroundColor: "#f9f9f9",
-    borderRadius: 10,
-    width: "90%",
     borderWidth: 1,
-    borderColor: "#e0e0e0",
-  },
-  supportTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 5,
-    textAlign: "center",
+    borderColor: '#e8eaf6',
   },
   supportSubtitle: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 15,
-    textAlign: "center",
+    fontSize: 13,
+    color: '#5a6c7d',
+    marginBottom: 12,
   },
   contactItem: {
-    marginVertical: 10,
-    padding: 12,
-    backgroundColor: "#fff",
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    backgroundColor: '#ffffff',
     borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: "#8a6c09",
+    borderLeftWidth: 3,
+    borderLeftColor: '#1a237e',
   },
   contactLabel: {
-    fontSize: 12,
-    color: "#888",
-    marginBottom: 3,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#7a8a99',
+    textTransform: 'uppercase',
+    letterSpacing: 0.2,
+    marginBottom: 2,
   },
   contactValue: {
-    fontSize: 16,
-    color: "#8a6c09",
-    fontWeight: "600",
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a237e',
   },
   supportHours: {
     fontSize: 12,
-    color: "#888",
-    marginTop: 15,
-    textAlign: "center",
-    fontStyle: "italic",
+    color: '#5a6c7d',
+    marginTop: 12,
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
+  signOutButton: {
+    backgroundColor: '#e53935',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 8,
+    elevation: 4,
+  },
+  signOutText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  order: {
+    marginTop: 10,
+    alignItem: 'center',
+    marginBottom: 10,
+  },
+  orderDetails: {
+    marginTop: 20,
+    borderStyle: 'solid',
+    borderRadius: 20,
+    borderColor: 'grey',
+    borderWidth: 5,
   },
 });
 

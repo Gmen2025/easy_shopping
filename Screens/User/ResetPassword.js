@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Dimensions } from "react-native";
+import { View, Text, StyleSheet, Dimensions, ScrollView } from "react-native";
 import FormContainer from "../../Shared/Form/FormContainer";
 import Input from "../../Shared/Form/Input";
 import Error from "../../Shared/Error";
@@ -7,6 +7,7 @@ import EasyButton from "../../Shared/StyledComponenets/EasyButton";
 import Toast from "react-native-toast-message";
 import axios from "axios";
 import baseUrl from "../../assets/common/baseUrl";
+import Icon from "react-native-vector-icons/FontAwesome";
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -114,7 +115,8 @@ const ResetPassword = (props) => {
   const renderContent = () => {
     if (formData.tokenValid === null) {
       return (
-        <View style={styles.container}>
+        <View style={styles.center}>
+          <Icon name="spinner" size={40} color="#1a237e" />
           <Text style={styles.loadingText}>Verifying reset link...</Text>
         </View>
       );
@@ -122,26 +124,27 @@ const ResetPassword = (props) => {
 
     if (formData.tokenValid === false) {
       return (
-        <View style={styles.container}>
+        <View style={styles.center}>
+          <Icon name="exclamation-circle" size={48} color="#e53935" />
           <Text style={styles.errorTitle}>Invalid Reset Link</Text>
           <Text style={styles.errorText}>
             {formData.error || "This password reset link is invalid or has expired."}
           </Text>
-          <View style={styles.buttonContainer}>
+          <View style={styles.errorActions}>
             <EasyButton
               onPress={() => props.navigation.navigate("ForgotPassword")}
               tertiary
               large
-              style={styles.button}
+              style={styles.errorButton}
             >
-              <Text style={{ color: "white" }}>Request New Reset Link</Text>
+              <Icon name="refresh" size={16} color="white" style={{ marginRight: 8 }} />
+              <Text style={styles.buttonText}>Request New Reset Link</Text>
             </EasyButton>
             <EasyButton
               onPress={() => props.navigation.navigate("Login")}
-              large
-              style={styles.button}
+              style={styles.cancelButton}
             >
-              <Text style={{ color: "black" }}>Back to Login</Text>
+              <Text style={styles.cancelButtonText}>Back to Login</Text>
             </EasyButton>
           </View>
         </View>
@@ -149,23 +152,32 @@ const ResetPassword = (props) => {
     }
 
     return (
-      <View style={styles.formContainer}>
+      <ScrollView contentContainerStyle={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Icon name="key" size={40} color="#1a237e" />
+          <Text style={styles.headerTitle}>Create New Password</Text>
+          <Text style={styles.headerSubtitle}>Enter a strong password</Text>
+        </View>
+
         <Text style={styles.instructionText}>
           Enter your new password below. Make sure it's at least 6 characters long.
         </Text>
         
+        <Text style={styles.fieldLabel}>New Password</Text>
         <Input
           id="password"
-          placeholder="New Password"
+          placeholder="Enter new password"
           name="password"
           value={formData.password}
           onChangeText={handlePasswordChange}
           secureTextEntry={true}
         />
         
+        <Text style={styles.fieldLabel}>Confirm Password</Text>
         <Input
           id="confirmPassword"
-          placeholder="Confirm New Password"
+          placeholder="Re-enter password"
           name="confirmPassword"
           value={formData.confirmPassword}
           onChangeText={handleConfirmPasswordChange}
@@ -173,40 +185,40 @@ const ResetPassword = (props) => {
         />
         
         {formData.confirmPassword.length > 0 && formData.password !== formData.confirmPassword ? (
-          <Text style={styles.validationError}>Passwords do not match</Text>
+          <Text style={styles.validationError}>✗ Passwords do not match</Text>
         ) : formData.confirmPassword.length > 0 && formData.password === formData.confirmPassword ? (
           <Text style={styles.validationSuccess}>✓ Passwords match</Text>
         ) : null}
         
         {formData.error ? <Error message={formData.error} /> : null}
         
-        <View style={styles.buttonContainer}>
+        <View style={styles.actionButtons}>
           <EasyButton
             onPress={handleResetPassword}
             tertiary
             large
             disabled={formData.isLoading}
-            style={styles.button}
+            style={styles.resetButton}
           >
-            <Text style={{ color: "white" }}>
+            <Icon name="check" size={16} color="white" style={{ marginRight: 8 }} />
+            <Text style={styles.buttonText}>
               {formData.isLoading ? "Resetting..." : "Reset Password"}
             </Text>
           </EasyButton>
           
           <EasyButton
             onPress={() => props.navigation.navigate("Login")}
-            large
-            style={styles.button}
+            style={styles.cancelButton}
           >
-            <Text style={{ color: "black" }}>Cancel</Text>
+            <Text style={styles.cancelButtonText}>Cancel</Text>
           </EasyButton>
         </View>
-      </View>
+      </ScrollView>
     );
   };
 
   return (
-    <FormContainer title="Reset Password">
+    <FormContainer title="">
       {renderContent()}
     </FormContainer>
   );
@@ -214,11 +226,124 @@ const ResetPassword = (props) => {
 
 const styles = StyleSheet.create({
   container: {
-    width: "100%",
-    maxWidth: Math.min(screenWidth * 0.9, 400),
-    padding: 20,
-    alignItems: "center",
-    alignSelf: "center",
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 32,
+  },
+  center: {
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 40,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 28,
+  },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#1a237e',
+    marginTop: 12,
+    letterSpacing: 0.5,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#5a6c7d',
+    marginTop: 6,
+  },
+  instructionText: {
+    fontSize: 15,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 24,
+    color: '#5a6c7d',
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    marginBottom: 8,
+    marginTop: 14,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#1a237e',
+    fontWeight: '600',
+    marginTop: 12,
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#e53935',
+    marginBottom: 12,
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 15,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+    color: '#5a6c7d',
+  },
+  validationError: {
+    color: '#e53935',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: -6,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  validationSuccess: {
+    color: '#4caf50',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: -6,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  actionButtons: {
+    marginTop: 28,
+  },
+  errorActions: {
+    marginTop: 28,
+    width: '100%',
+  },
+  resetButton: {
+    marginBottom: 12,
+    borderRadius: 8,
+    elevation: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorButton: {
+    marginBottom: 12,
+    borderRadius: 8,
+    elevation: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cancelButton: {
+    paddingVertical: 14,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  cancelButtonText: {
+    color: '#1a237e',
+    fontSize: 16,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
   formContainer: {
     width: "100%",
@@ -226,50 +351,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
     alignSelf: "center",
-  },
-  instructionText: {
-    fontSize: 16,
-    textAlign: "center",
-    marginBottom: 20,
-    lineHeight: 24,
-    color: "#666",
-  },
-  loadingText: {
-    fontSize: 18,
-    textAlign: "center",
-    color: "#8a6c09",
-  },
-  errorTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "red",
-    marginBottom: 20,
-    textAlign: "center",
-  },
-  errorText: {
-    fontSize: 16,
-    textAlign: "center",
-    marginBottom: 20,
-    lineHeight: 24,
-    color: "#666",
-  },
-  validationError: {
-    color: "red",
-    fontSize: 12,
-    alignSelf: "flex-start",
-    marginLeft: "10%",
-    marginTop: -10,
-    marginBottom: 10,
-    width: "80%",
-  },
-  validationSuccess: {
-    color: "green",
-    fontSize: 12,
-    alignSelf: "flex-start",
-    marginLeft: "10%",
-    marginTop: -10,
-    marginBottom: 10,
-    width: "80%",
   },
   buttonContainer: {
     width: "100%",

@@ -13,6 +13,7 @@ import axios from "axios";
 import baseUrl from "../assets/common/baseUrl";
 import { AuthContext } from "../Context/store/Auth";
 import UserOrderItems from "./UserOrderItems";
+import { useCurrency } from "../assets/common/currency";
 
 const OrderCard = (props) => {
   const context = useContext(AuthContext);
@@ -26,6 +27,7 @@ const OrderCard = (props) => {
   const [token, setToken] = useState();
   const [cardColor, setCardColor] = useState();
   const [orderItemValues, setOrderItemValues] = useState([]);
+  const { formatPrice } = useCurrency();
 
   const order = props.order || {};
 
@@ -247,7 +249,7 @@ const OrderCard = (props) => {
         <UserOrderItems orderId={props._id} />
         <View style={styles.priceContainer}>
           <Text>Total Price: </Text>
-          <Text style={styles.price}>ETB {props.totalPrice}</Text>
+          <Text style={styles.price}>{formatPrice(props.totalPrice)}</Text>
         </View>
         {props.editMode ? (
           <View>

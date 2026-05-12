@@ -16,6 +16,7 @@ import { clearCart } from "../../../store/cartSlice";
 import Toast from "react-native-toast-message";
 import axios from "axios";
 import baseUrl from "../../../assets/common/baseUrl";
+import { useCurrency } from "../../../assets/common/currency";
 
 const TelebirrPayment = (props) => {
   // Change from destructured props to props
@@ -24,6 +25,7 @@ const TelebirrPayment = (props) => {
   const [customerName, setCustomerName] = useState("");
   const [orderProcessing, setOrderProcessing] = useState(false);
   const dispatch = useDispatch();
+  const { formatPrice } = useCurrency();
 
   // Get order data from navigation params
   const orderData = props.route?.params?.order;
@@ -243,7 +245,7 @@ const TelebirrPayment = (props) => {
         // Mock payment for testing when API is not available
         Alert.alert(
           "Telebirr Payment Simulation",
-          `API Error: ${apiError.message}\n\nUsing mock payment for testing:\n\nCustomer: ${customerName}\nPhone: ${phoneNumber}\nAmount: ETB ${orderData.totalPrice}`,
+          `API Error: ${apiError.message}\n\nUsing mock payment for testing:\n\nCustomer: ${customerName}\nPhone: ${phoneNumber}\nAmount: ${formatPrice(orderData.totalPrice)}`,
           [
             {
               text: "Cancel",
@@ -382,10 +384,10 @@ const TelebirrPayment = (props) => {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.header}>
         <Text style={styles.title}>Telebirr Payment</Text>
-        <Text style={styles.subtitle}>Pay securely with Telebirr</Text>
+        <Text style={styles.subtitle}>Pay securely and complete your order in minutes.</Text>
       </View>
 
       <View style={styles.orderSummary}>
@@ -398,7 +400,7 @@ const TelebirrPayment = (props) => {
         </View>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Total Amount:</Text>
-          <Text style={styles.summaryValue}>ETB {orderData.totalPrice}</Text>
+          <Text style={styles.summaryValue}>{formatPrice(orderData.totalPrice)}</Text>
         </View>
       </View>
 
@@ -457,7 +459,7 @@ const TelebirrPayment = (props) => {
             <Text style={styles.payButtonText}>Placing Order...</Text>
           ) : (
             <Text style={styles.payButtonText}>
-              Pay ETB {orderData.totalPrice}
+              Pay {formatPrice(orderData.totalPrice)}
             </Text>
           )}
         </TouchableOpacity>
@@ -469,7 +471,10 @@ const TelebirrPayment = (props) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#f3f6fb",
+  },
+  contentContainer: {
+    paddingBottom: 30,
   },
   errorText: {
     fontSize: 18,
@@ -478,25 +483,32 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   header: {
-    backgroundColor: "#8a6c09ff",
-    padding: 20,
-    alignItems: "center",
+    backgroundColor: "#0f1f36",
+    marginHorizontal: 15,
+    marginTop: 14,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    alignItems: "flex-start",
+    borderRadius: 14,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "bold",
+    fontSize: 22,
+    fontWeight: "700",
     color: "#fff",
-    marginBottom: 5,
+    marginBottom: 6,
   },
   subtitle: {
-    fontSize: 16,
-    color: "#E8F5E8",
+    fontSize: 13,
+    color: "#d2dced",
+    lineHeight: 18,
   },
   orderSummary: {
     backgroundColor: "#fff",
     margin: 15,
-    padding: 20,
-    borderRadius: 10,
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#dce3ef",
     elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -504,30 +516,35 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 15,
-    color: "#333",
+    fontSize: 17,
+    fontWeight: "700",
+    marginBottom: 14,
+    color: "#10243f",
   },
   summaryRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 10,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eef2f7",
   },
   summaryLabel: {
-    fontSize: 16,
-    color: "#666",
+    fontSize: 15,
+    color: "#64748b",
   },
   summaryValue: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#0f3f79",
   },
   form: {
     backgroundColor: "#fff",
     marginHorizontal: 15,
-    padding: 20,
-    borderRadius: 10,
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#dce3ef",
     elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -538,58 +555,62 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   label: {
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: 15,
+    fontWeight: "700",
     marginBottom: 8,
-    color: "#333",
+    color: "#1e293b",
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
+    borderColor: "#d7dce5",
+    borderRadius: 10,
     padding: 12,
     fontSize: 16,
-    backgroundColor: "#f9f9f9",
+    backgroundColor: "#f8fafc",
+    color: "#0f172a",
   },
   helperText: {
     fontSize: 12,
-    color: "#666",
+    color: "#64748b",
     marginTop: 5,
   },
   buttonContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    padding: 15,
+    paddingHorizontal: 15,
+    paddingTop: 14,
     gap: 10,
   },
   button: {
-    //flex: 1,
     paddingVertical: 15,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: "center",
-    height: 50,
+    height: 52,
     width: "48%",
+    justifyContent: "center",
   },
   cancelButton: {
     backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: "#d7dce5",
   },
   cancelButtonText: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#666",
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#334155",
+    letterSpacing: 0.2,
   },
   payButton: {
-    backgroundColor: "#8a6c09ff",
+    backgroundColor: "#0f3f79",
   },
   payButtonText: {
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: 15,
+    fontWeight: "700",
     color: "#fff",
+    letterSpacing: 0.2,
   },
   disabledButton: {
-    backgroundColor: "#ccc",
+    backgroundColor: "#94a3b8",
   },
 });
 

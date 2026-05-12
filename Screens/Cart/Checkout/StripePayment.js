@@ -20,6 +20,7 @@ import Toast from "react-native-toast-message";
 import axios from "axios";
 import { useContext } from "react";
 import { AuthContext } from "../../../Context/store/Auth";
+import { useCurrency } from "../../../assets/common/currency";
 
 const width = Dimensions.get("window").width;
 
@@ -33,7 +34,38 @@ const StripePayment = (props) => {
   const { order } = useCheckout();
   const dispatch = useDispatch();
   const authContext = useContext(AuthContext);
+  const { formatPrice } = useCurrency();
   const [cardDetails, setCardDetails] = useState(null);
+
+  const isStripeConfigurationError = (message) => {
+    console.log("Checking for Stripe configuration error in message:", message);
+    if (!message) {
+      return false;
+    }
+
+    const normalized = String(message).toLowerCase();
+    return (
+      normalized.includes("stripe is not configured") ||
+      normalized.includes("stripe_not_configured") ||
+      normalized.includes("card payment is currently unavailable") ||
+      normalized.includes("stripe_key") ||
+      normalized.includes("publishable key") ||
+      normalized.includes("secret key")
+    );
+  };
+
+  const showStripeUnavailableAlert = () => {
+    Alert.alert(
+      "Card Payment Unavailable",
+      "Card payment is currently unavailable for this store. Please choose another payment method.",
+      [
+        {
+          text: "Back to Payment Methods",
+          onPress: () => props.navigation.goBack(),
+        },
+      ]
+    );
+  };
 
   const orderData = order || props.route?.params?.order;
 
@@ -45,13 +77,21 @@ const StripePayment = (props) => {
 
     try {
       const orderItem = {
-        ...orderData,
         user: authContext.user?._id,
+        shippingAddress1: orderData.shippingAddress1,
+        shippingAddress2: orderData.shippingAddress2,
+        city: orderData.city,
+        zip: orderData.zip,
+        country: orderData.country,
+        phone: orderData.phone,
+        status: orderData.status || "3",
+        totalPrice: Number(orderData.totalPrice || 0),
+        methodName: "Card Payment",
         paymentId: transactionId,
         paymentStatus: "paid",
-        paymentMethod: "Stripe",
+        paymentMethod: 3,
         orderItems: orderData.orderItems.map((item) => ({
-          product: item._id,
+          product: item._id || item.id,
           quantity: item.quantity || 1,
         })),
       };
@@ -119,27 +159,63 @@ const StripePayment = (props) => {
         throw new Error("Authentication token not found");
       }
 
-      const response = await fetch(`${baseUrl}stripe/create-payment-intent`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          amount: Math.round(orderData.totalPrice * 100),
-          currency: "usd",
-          orderId: orderData._id || Date.now().toString(),
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `HTTP error! status: ${response.status}, message: ${errorText}`
+      let intentResponse;
+      try {
+        intentResponse = await axios.post(
+          `${baseUrl}stripe/create-payment-intent`,
+          {
+            amount: Math.round(Number(orderData.totalPrice || 0) * 100),
+            currency: "usd",
+            orderId:
+              orderData.orderId ||
+              (typeof orderData._id === "string" &&
+              orderData._id.startsWith("temp_order_")
+                ? Date.now().toString()
+                : orderData._id) ||
+              Date.now().toString(),
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
+      } catch (requestError) {
+        const responseStatus = requestError?.response?.status;
+        const responseData = requestError?.response?.data;
+        const errorCode = responseData?.code;
+        const errorMessage =
+          responseData?.message || responseData?.error || requestError?.message;
+
+        if (
+          responseStatus === 503 &&
+          (errorCode === "STRIPE_NOT_CONFIGURED" ||
+            isStripeConfigurationError(errorMessage))
+        ) {
+          showStripeUnavailableAlert();
+          return;
+        }
+
+        if (
+          (responseStatus === 500 || responseStatus === 400) &&
+          isStripeConfigurationError(errorMessage)
+        ) {
+          showStripeUnavailableAlert();
+          return;
+        }
+
+        if (responseStatus === 404) {
+          Alert.alert(
+            "Stripe Endpoint Missing",
+            "The card payment service endpoint was not found on the server. Please contact support or use another payment method."
+          );
+          return;
+        }
+
+        throw new Error(errorMessage || "Failed to create payment intent");
       }
 
-      const { client_secret } = await response.json();
+      const { client_secret } = intentResponse?.data || {};
 
       if (!client_secret) {
         throw new Error("No client secret received");
@@ -174,6 +250,12 @@ const StripePayment = (props) => {
       }
     } catch (error) {
       console.error("Payment error:", error);
+
+      if (isStripeConfigurationError(error?.message)) {
+        showStripeUnavailableAlert();
+        return;
+      }
+
       Alert.alert("Error", `Payment failed: ${error.message}`);
     } finally {
       setLoading(false);
@@ -192,7 +274,7 @@ const StripePayment = (props) => {
   if (!orderData) {
     return (
       <View style={styles.container}>
-        <Text style={{ textAlign: "center", fontSize: 16 }}>
+        <Text style={styles.emptyStateText}>
           No order data available. Please go back to checkout.
         </Text>
         <EasyButton
@@ -212,23 +294,17 @@ const StripePayment = (props) => {
     return (
       <View style={styles.confirmContainer}>
         <ScrollView
-          contentContainerStyle={{
-            flexGrow: 1,
-            justifyContent: "center",
-            alignItems: "center",
-          }}
+          contentContainerStyle={styles.confirmScrollContent}
         >
           <Card style={styles.card}>
             <Card.Content>
-              <Text variant="titleLarge" style={styles.title}>
+              <Text variant="titleLarge" style={styles.confirmTitle}>
                 {paymentSuccess ? "Payment Successful!" : "Order Confirmation"}
               </Text>
 
               {paymentSuccess && (
                 <View style={styles.paymentSuccessSection}>
-                  <Text style={styles.successText}>
-                    ✅ Stripe Payment Completed
-                  </Text>
+                  <Text style={styles.successText}>Stripe payment completed</Text>
                   <Text style={styles.paymentIdText}>
                     Payment ID: {paymentId}
                   </Text>
@@ -283,8 +359,7 @@ const StripePayment = (props) => {
                     <Text style={styles.itemName}>{item.name}</Text>
                     <Text style={styles.itemQty}>X: {item.quantity || 1}</Text>
                     <Text style={styles.itemPrice}>
-                      $
-                      {item.price?.toFixed ? item.price.toFixed(2) : item.price}
+                      {formatPrice(item.price?.toFixed ? item.price : Number(item.price || 0))}
                     </Text>
                   </View>
                 ))
@@ -297,7 +372,7 @@ const StripePayment = (props) => {
               <Text variant="bodyLarge" style={styles.label}>
                 Total Price:
               </Text>
-              <Text style={styles.totalPrice}>${calculateTotal()}</Text>
+              <Text style={styles.totalPrice}>{formatPrice(calculateTotal())}</Text>
             </Card.Content>
 
             <Card.Actions
@@ -308,7 +383,8 @@ const StripePayment = (props) => {
                 mode="contained"
                 onPress={() => handlePlaceOrderDirectly(paymentId)}
                 disabled={orderProcessing}
-                style={{ flex: 1, marginLeft: 10 }}
+                style={styles.placeOrderButton}
+                labelStyle={styles.placeOrderButtonLabel}
               >
                 {orderProcessing ? "Placing Order..." : "Place Order"}
               </Button>
@@ -324,54 +400,55 @@ const StripePayment = (props) => {
   return (
     <FormContainer title="Stripe Payment">
       <View style={styles.container}>
-        <Text style={styles.orderInfo}>
-          Total: ${orderData.totalPrice || 0}
-        </Text>
-        <Text style={styles.cardFieldLabel}>Card Details</Text>
-        <View style={styles.cardFieldContainer}>
-          <CardField
-            postalCodeEnabled={false}
-            placeholders={{
-              number: "4242 4242 4242 4242",
-              expiry: "MM/YY",
-              cvc: "CVC",
-            }}
-            cardStyle={{
-              backgroundColor: "#FFFFFF",
-              textColor: "#000000",
-              borderColor: "#E0E0E0",
-              borderWidth: 1,
-              borderRadius: 8,
-              fontSize: 16,
-              placeholderColor: "#999999",
-            }}
-            style={{
-              width: "100%",
-              height: 50,
-            }}
-            onCardChange={(details) => {
-              setCardDetails(details);
-              console.log("Card details:", details);
-            }}
-          />
+        <View style={styles.summaryCard}>
+          <Text style={styles.paymentTitle}>Secure Card Payment</Text>
+          <Text style={styles.orderInfo}>Total: {formatPrice(orderData.totalPrice || 0)}</Text>
+          <Text style={styles.summaryHint}>Your card details are securely handled by Stripe.</Text>
         </View>
 
-        {/* Show card validation status */}
-
-        {cardDetails && (
-          <View style={styles.cardStatus}>
-            <Text
-              style={[
-                styles.cardStatusText,
-                { color: cardDetails.complete ? "#4caf50" : "#f44336" },
-              ]}
-            >
-              {cardDetails.complete
-                ? "✅ Card details complete"
-                : "⚠️ Please complete card details"}
-            </Text>
+        <View style={styles.inputCard}>
+          <Text style={styles.cardFieldLabel}>Card Details</Text>
+          <View style={styles.cardFieldContainer}>
+            <CardField
+              postalCodeEnabled={false}
+              placeholders={{
+                number: "4242 4242 4242 4242",
+                expiry: "MM/YY",
+                cvc: "CVC",
+              }}
+              cardStyle={{
+                backgroundColor: "#FFFFFF",
+                textColor: "#0f172a",
+                borderColor: "#d7dce5",
+                borderWidth: 1,
+                borderRadius: 8,
+                fontSize: 16,
+                placeholderColor: "#94a3b8",
+              }}
+              style={{
+                width: "100%",
+                height: 50,
+              }}
+              onCardChange={(details) => {
+                setCardDetails(details);
+                console.log("Card details:", details);
+              }}
+            />
           </View>
-        )}
+
+          {cardDetails && (
+            <View style={styles.cardStatus}>
+              <Text
+                style={[
+                  styles.cardStatusText,
+                  cardDetails.complete ? styles.cardStatusSuccess : styles.cardStatusPending,
+                ]}
+              >
+                {cardDetails.complete ? "Card details complete" : "Please complete card details"}
+              </Text>
+            </View>
+          )}
+        </View>
 
         <EasyButton
           primary
@@ -380,7 +457,7 @@ const StripePayment = (props) => {
           disabled={loading || orderProcessing}
           style={styles.payButton}
         >
-          <Text style={{ color: "white" }}>
+          <Text style={styles.payButtonText}>
             {loading
               ? "Processing..."
               : orderProcessing
@@ -396,7 +473,7 @@ const StripePayment = (props) => {
           style={styles.backButton}
           disabled={loading || orderProcessing}
         >
-          <Text>Back</Text>
+          <Text style={styles.backButtonText}>Back</Text>
         </EasyButton>
       </View>
     </FormContainer>
@@ -405,50 +482,64 @@ const StripePayment = (props) => {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
+    padding: 16,
+    backgroundColor: "#f3f6fb",
   },
   confirmContainer: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#f3f6fb",
+  },
+  confirmScrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 16,
   },
   card: {
-    margin: 16,
+    marginHorizontal: 16,
+    marginVertical: 10,
     width: width * 0.9,
     maxWidth: 400,
+    borderRadius: 16,
+    backgroundColor: "#ffffff",
   },
-  title: {
+  confirmTitle: {
     fontSize: 24,
     fontWeight: "bold",
     marginBottom: 16,
     textAlign: "center",
+    color: "#10243f",
   },
   paymentSuccessSection: {
-    backgroundColor: "#e3f2fd",
+    backgroundColor: "#ecfdf3",
     padding: 15,
-    borderRadius: 8,
+    borderRadius: 12,
     marginBottom: 20,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#b5e3c8",
   },
   successText: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "bold",
-    color: "#1976d2",
+    color: "#1f7a45",
     marginBottom: 5,
   },
   paymentIdText: {
     fontSize: 14,
-    color: "#666",
+    color: "#4b5563",
     marginBottom: 3,
   },
   methodText: {
     fontSize: 14,
-    color: "#666",
+    color: "#4b5563",
   },
   label: {
     fontSize: 16,
     fontWeight: "bold",
     marginTop: 16,
     marginBottom: 8,
+    color: "#10243f",
   },
   itemRow: {
     flexDirection: "row",
@@ -481,31 +572,113 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
     textAlign: "center",
-    color: "#1976d2",
+    color: "#114f9d",
+  },
+  summaryCard: {
+    backgroundColor: "#0f1f36",
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 12,
+  },
+  paymentTitle: {
+    color: "#ffffff",
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 8,
   },
   orderInfo: {
     fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 20,
-    textAlign: "center",
+    fontWeight: "700",
+    color: "#f3f7ff",
+    marginBottom: 4,
+  },
+  summaryHint: {
+    color: "#d2dced",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  inputCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#dce3ef",
+    padding: 14,
+    marginBottom: 12,
+  },
+  cardFieldLabel: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#1a2f4a",
+    marginBottom: 10,
   },
   payButton: {
-    marginTop: 20,
+    marginTop: 6,
+    borderRadius: 12,
+    paddingVertical: 4,
   },
   backButton: {
     marginTop: 10,
+    borderRadius: 12,
+    paddingVertical: 4,
+  },
+  payButtonText: {
+    color: "#ffffff",
+    fontWeight: "700",
+    letterSpacing: 0.2,
+  },
+  backButtonText: {
+    color: "#0f172a",
+    fontWeight: "600",
   },
   cardFieldContainer: {
-  backgroundColor: '#FFFFFF',
-  borderWidth: 1,
-  borderColor: '#E0E0E0',
-  borderRadius: 8,
-  padding: 5,
-  marginVertical: 20,
-  minHeight: 60,
-  justifyContent: 'center',
-  width: 400,
-},
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#d7dce5",
+    borderRadius: 10,
+    padding: 6,
+    minHeight: 60,
+    justifyContent: "center",
+    width: "100%",
+  },
+  cardStatus: {
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: "#f8fafc",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  cardStatusText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  cardStatusSuccess: {
+    color: "#1f7a45",
+  },
+  cardStatusPending: {
+    color: "#b45309",
+  },
+  emptyStateText: {
+    textAlign: "center",
+    fontSize: 16,
+    color: "#374151",
+    lineHeight: 22,
+  },
+  placeOrderButton: {
+    flex: 1,
+    marginLeft: 10,
+    borderRadius: 12,
+    backgroundColor: "#0f3f79",
+    minHeight: 50,
+    justifyContent: "center",
+  },
+  placeOrderButtonLabel: {
+    color: "#ffffff",
+    fontWeight: "700",
+    fontSize: 15,
+    letterSpacing: 0.2,
+  },
 });
 
 export default StripePayment;

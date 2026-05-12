@@ -5,12 +5,14 @@ import axios from "axios";
 import baseUrl from "../assets/common/baseUrl";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AuthContext } from "../Context/store/Auth";
+import { useCurrency } from "../assets/common/currency";
 
 const UserOrderDisplay = (props) => {
   // State to hold user order data
   const [userOrderData, setUserOrderData] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const context = useContext(AuthContext);
+  const { formatPrice } = useCurrency();
 
   useEffect(() => {
     fetchOrderItems();
@@ -147,10 +149,11 @@ const UserOrderDisplay = (props) => {
                       <Text>{item.product?.name}</Text>
                       <Text>Qty: {item.quantity}</Text>
                       <Text>
-                        $
-                        {item.product?.price?.toFixed
-                          ? item.product.price.toFixed(2)
-                          : item.product?.price}
+                        {formatPrice(
+                          item.product?.price?.toFixed
+                            ? item.product.price
+                            : item.product?.price
+                        )}
                       </Text>
                     </View>
                   </View>

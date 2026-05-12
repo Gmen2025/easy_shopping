@@ -4,10 +4,12 @@ import { View, Text, Image, StyleSheet } from "react-native";
 import axios from "axios";
 import baseUrl from "../assets/common/baseUrl";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useCurrency } from "../assets/common/currency";
 
 const UserOrderItems = (props) => {
   const [orderItems, setOrderItems] = useState([]);
   const [token, setToken] = useState();
+  const { formatPrice } = useCurrency();
 
   const orderId = props.orderId || props._id;
 
@@ -52,10 +54,9 @@ const UserOrderItems = (props) => {
               <Text style={styles.itemName}>{item.product?.name}</Text>
               <Text>Qty: {item.quantity || 1}</Text>
               <Text>
-                Price: $
-                {item.product?.price?.toFixed(2)}
+                Price: {formatPrice(item.product?.price || 0)}
               </Text>
-              <Text>Subtotal: $ {(item.product?.price * item.quantity).toFixed(2)}</Text>
+              <Text>Subtotal: {formatPrice((item.product?.price || 0) * (item.quantity || 1))}</Text>
             </View>
           </View>
         ))

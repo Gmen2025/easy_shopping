@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import baseUrl from '../../assets/common/baseUrl'; // Import the base URL for API requests
 import { AuthContext } from '../../Context/store/Auth';
 import EasyButton from '../../Shared/StyledComponenets/EasyButton';
+import { useCurrency } from '../../assets/common/currency';
 //import { CheckoutProvider } from '../../Context/store/CheckoutContext'; // Import the CheckoutProvider
 
 // products data
@@ -29,6 +30,7 @@ const CartView = (props) => {
 
   const cartItems = useSelector((state) => state.cart.cartItems);
   const dispatch = useDispatch();
+  const { formatPrice, currencySymbol } = useCurrency();
 
   // Clear cart when user changes (different user logs in)
   useEffect(() => {
@@ -127,9 +129,9 @@ return (
               />
               <View style={styles.itemInfo}>
                 <Text style={styles.itemName}>{item.name}</Text>
-                <Text style={styles.itemPrice}>${item.price.toFixed(2)}</Text>
+                <Text style={styles.itemPrice}>{formatPrice(item.price)}</Text>
                 <Text>Qty: {quantity}</Text>
-                <Text>Subtotal: ETB {(item.price * quantity).toFixed(2)}</Text>
+                <Text>Subtotal: {formatPrice(item.price * quantity)}</Text>
               </View>
               <View style={styles.actions}>
                 <Button
@@ -149,7 +151,7 @@ return (
     {productsData.length > 0 && (
       <View style={{ padding: 10 }}>
         <Text style={{ fontSize: 18, fontWeight: "bold" }}>
-          Grand Total: ETB 
+          Grand Total: {currencySymbol} 
           {productsData
             .reduce((total, item) => {
               const quantity =

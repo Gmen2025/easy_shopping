@@ -5,7 +5,6 @@ import {
   ScrollView,
   Text,
 } from "react-native";
-import { Badge } from "react-native-paper";
 
 const CategoriesFilter = (props) => {
   return (
@@ -23,14 +22,15 @@ const CategoriesFilter = (props) => {
         }}
         style={styles.touchableOpacity}
       >
-        <Badge
+        <Text
           style={[
-            styles.center,
+            styles.chip,
             props.active === -1 ? styles.active : styles.inactive,
+            props.active === -1 ? styles.activeText : styles.inactiveText,
           ]}
         >
-          <Text style={styles.badgeText}>All</Text>
-        </Badge>
+          All
+        </Text>
       </TouchableOpacity>
 
       {/* Dynamic Categories */}
@@ -43,14 +43,19 @@ const CategoriesFilter = (props) => {
           }}
           style={styles.touchableOpacity}
         >
-          <Badge
+          <Text
             style={[
-              styles.center,
-              props.active === props.categories.indexOf(item) ? styles.active : styles.inactive,
+              styles.chip,
+              props.active === props.categories.indexOf(item)
+                ? styles.active
+                : styles.inactive,
+              props.active === props.categories.indexOf(item)
+                ? styles.activeText
+                : styles.inactiveText,
             ]}
           >
-            <Text style={styles.badgeText}>{item.name}</Text>
-          </Badge>
+            {item.name}
+          </Text>
         </TouchableOpacity>
       ))}
     </ScrollView>
@@ -59,30 +64,37 @@ const CategoriesFilter = (props) => {
 
 const styles = StyleSheet.create({
   scrollView: {
-    backgroundColor: "#f2f2f2",
-    padding: 10,
+    backgroundColor: "#f3f6fb",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     flexShrink:1, //Prevents horizontal overflow
   },
   touchableOpacity: {
-    marginHorizontal: 5,
+    marginRight: 8,
   },
-  center: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 15,
-    paddingVertical: 5,
-    borderRadius: 20,
-    height: 30,
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+    fontSize: 13,
+    fontWeight: "700",
+    overflow: "hidden",
   },
   active: {
-    backgroundColor: "#857d22ff",
+    backgroundColor: "#0f3f79",
+    borderWidth: 1,
+    borderColor: "#0f3f79",
   },
   inactive: {
-    backgroundColor: "#ebe7a0ff",
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#d7dce5",
   },
-  badgeText: {
-    fontSize: 15,
-    color: "#000000ff",
+  activeText: {
+    color: "#ffffff",
+  },
+  inactiveText: {
+    color: "#334155",
   },
 });
 

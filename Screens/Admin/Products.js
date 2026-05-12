@@ -6,13 +6,12 @@ import {
   ActivityIndicator,
   StyleSheet,
   Dimensions,
-  Button,
+  TouchableOpacity,
 } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
 import { Searchbar } from "react-native-paper";
 import { useFocusEffect } from "@react-navigation/native";
 import ListItem from "./ListItem";
-import EasyButton from "../../Shared/StyledComponenets/EasyButton";
 
 import axios from "axios";
 import baseUrl from "../../assets/common/baseUrl";
@@ -21,17 +20,22 @@ import getImageUrl from "../../assets/common/getImageUrl";
 
 var { height, width } = Dimensions.get("window");
 
-const ListHeader = () => {
-  return (
-    <View style={styles.listHeader}>
-      <Text style={styles.headerItem}>Image</Text>
-      <Text style={styles.headerItem}>Brand</Text>
-      <Text style={styles.headerItem}>Name</Text>
-      <Text style={styles.headerItem}>Category</Text>
-      <Text style={styles.headerItem}>Price</Text>
-    </View>
-  );
-};
+const ListHeader = () => (
+  <View style={styles.listHeader}>
+    <Text style={[styles.headerItem, { width: width / 7 }]}>Image</Text>
+    <Text style={styles.headerItem}>Brand</Text>
+    <Text style={styles.headerItem}>Name</Text>
+    <Text style={styles.headerItem}>Category</Text>
+    <Text style={styles.headerItem}>Price</Text>
+  </View>
+);
+
+const ActionButton = ({ icon, label, onPress, color = "#1a237e" }) => (
+  <TouchableOpacity style={[styles.actionBtn, { borderColor: color }]} onPress={onPress}>
+    <Icon name={icon} size={16} color={color} />
+    <Text style={[styles.actionBtnText, { color }]}>{label}</Text>
+  </TouchableOpacity>
+);
 
 const Products = (props) => {
   const [productList, setProductList] = useState();
@@ -41,40 +45,29 @@ const Products = (props) => {
   const [search, setSearch] = useState("");
 
   useFocusEffect(
-    //useCallback is used to prevent the function from being called multiple times unnecessarily
-    // It will only be recreated if any of its dependencies change
     useCallback(() => {
-      // Fetch the token from AsyncStorage
       AsyncStorage.getItem("token")
-        .then((res) => {
-          setToken(res);
-        })
+        .then((res) => setToken(res))
         .catch((error) => console.log(error));
 
-      // Fetch products from the API
       axios
         .get(`${baseUrl}products`)
         .then((res) => {
-          const fetchedProducts = Array.isArray(res.data)
-            ? res.data
-            : res.data.products;
+          const fetchedProducts = Array.isArray(res.data) ? res.data : res.data.products;
           const normalizedProducts = (fetchedProducts || []).map((product) => ({
             ...product,
             image: getImageUrl(product),
           }));
-          console.log("Product image URL: ", normalizedProducts[0]?.image); // Log the image URL of the first product
           setProductList(normalizedProducts);
           setProductFilter(normalizedProducts);
-          setLoading(false); // Set loading to false after fetching products
+          setLoading(false);
         })
-        .catch((error) => {
-          console.log("Api call error");
-        });
+        .catch(() => console.log("Api call error"));
 
       return () => {
-        setProductList(); // Cleanup function to reset productList when component unmounts
-        setProductFilter(); // Cleanup function to reset productFilter when component unmounts
-        setLoading(true); // Reset loading state
+        setProductList();
+        setProductFilter();
+        setLoading(true);
       };
     }, [])
   );
@@ -84,142 +77,182 @@ const Products = (props) => {
       .delete(`${baseUrl}products/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      .then((res) => {
-        const newProductList = productFilter.filter((item) => item._id !== id);
-        setProductFilter(newProductList);
-        setProductList(newProductList);
+      .then(() => {
+        const updated = productFilter.filter((item) => item._id !== id);
+        setProductFilter(updated);
+        setProductList(updated);
       })
       .catch((error) => console.log("Api delete error: ", error));
   };
 
   return (
     <View style={styles.mainContainer}>
-      {/* Header  */}
-      {/* Search Bar  */}
-      <View style={styles.buttonContainer}>
-        <EasyButton
-          tertiary
-          medium
-          onPress={() => props.navigation.navigate("Orders")}
-        >
-          <Icon name="shopping-bag" size={18} color="white" />
-          <Text style={{ color: "white", fontWeight: "bold" }}>
-            Orders
-          </Text>
-        </EasyButton>
-        <EasyButton
-          tertiary
-          medium
-          onPress={() => props.navigation.navigate("ProductForm")}
-        >
-          <Icon name="plus" size={18} color="white" />
-          <Text style={{ color: "white", fontWeight: "bold" }}>
-            Products
-          </Text>
-        </EasyButton>
-        <EasyButton
-          tertiary
-          medium
-          onPress={() => props.navigation.navigate("Categories")}
-        >
-          <Icon name="plus" size={18} color="white" />
-          <Text style={{ color: "white", fontWeight: "bold" }}>
-            Categories
-          </Text>
-        </EasyButton>
+      {/* Navy header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Product Management</Text>
+        <Text style={styles.headerSubtitle}>
+          {productFilter ? `${productFilter.length} products` : "Loading…"}
+        </Text>
       </View>
-      <View
-        style={{
-          margin: 10,
-        }}
-      >
+
+      {/* Action buttons */}
+      <View style={styles.actionRow}>
+        <ActionButton
+          icon="shopping-bag"
+          label="Orders"
+          color="#1a237e"
+          onPress={() => props.navigation.navigate("Orders")}
+        />
+        <ActionButton
+          icon="plus-circle"
+          label="Add Product"
+          color="#2e7d32"
+          onPress={() => props.navigation.navigate("ProductForm")}
+        />
+        <ActionButton
+          icon="tags"
+          label="Categories"
+          color="#e65100"
+          onPress={() => props.navigation.navigate("Categories")}
+        />
+      </View>
+
+      {/* Search */}
+      <View style={styles.searchWrapper}>
         <Searchbar
-          placeholder="Type Here..."
+          placeholder="Search products…"
           onChangeText={(text) => {
             setSearch(text);
             if (text) {
-              const newProductList = productList.filter((item) => {
-                const itemData = item.name ? item.name.toUpperCase() : "";
-                const textData = text.toUpperCase();
-                return itemData.indexOf(textData) > -1;
-              });
-              setProductFilter(newProductList);
+              setProductFilter(
+                productList.filter((item) =>
+                  (item.name || "").toUpperCase().includes(text.toUpperCase())
+                )
+              );
             } else {
               setProductFilter(productList);
             }
           }}
           value={search}
-          style={{ backgroundColor: "lightgray" }} // Use style for background
+          style={styles.searchBar}
+          inputStyle={{ fontSize: 14 }}
         />
       </View>
-      {/* Product List  */}
-      <View style={{ marginBottom: 200 }}>
-        {loading ? (
-          <View style={styles.spinner}>
-            <ActivityIndicator size="large" color="blue" />
-          </View>
-        ) : (
-          <FlatList
-            data={productFilter}
-            ListHeaderComponent={ListHeader}
-            stickyHeaderIndices={[0]} // Make the header sticky
-            ListFooterComponent={<View style={{ marginBottom: 60 }} />} // Add space at the bottom
-            showsVerticalScrollIndicator={false}
-            showsHorizontalScrollIndicator={false}
-            numColumns={1}
-            renderItem={({ item, index }) => (
-              <View style={styles.container}>
-                <ListItem
-                  item={item}
-                  navigation={props.navigation}
-                  index={index}
-                  delete={deleteProduct}
-                />
-              </View>
-            )}
-            keyExtractor={(item) => item._id}
-          />
-        )}
-      </View>
+
+      {/* List */}
+      {loading ? (
+        <View style={styles.spinner}>
+          <ActivityIndicator size="large" color="#1a237e" />
+          <Text style={styles.loadingText}>Loading products…</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={productFilter}
+          ListHeaderComponent={ListHeader}
+          stickyHeaderIndices={[0]}
+          ListFooterComponent={<View style={{ marginBottom: 120 }} />}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item, index }) => (
+            <ListItem
+              item={item}
+              navigation={props.navigation}
+              index={index}
+              delete={deleteProduct}
+            />
+          )}
+          keyExtractor={(item) => item._id}
+        />
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  mainContainer: {
+    flex: 1,
+    backgroundColor: "#f5f6fa",
+  },
+  header: {
+    backgroundColor: "#1a237e",
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 16,
+  },
+  headerTitle: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  headerSubtitle: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 13,
+    marginTop: 2,
+  },
+  actionRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    backgroundColor: "#fff",
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e8eaf6",
+  },
+  actionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    backgroundColor: "#fff",
+  },
+  actionBtnText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  searchWrapper: {
+    marginHorizontal: 14,
+    marginVertical: 10,
+  },
+  searchBar: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  spinner: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "blue",
-    margin: 3,
+    marginTop: height / 4,
   },
-  spinner: {
-    height: height / 2,
-    alignItems: "center",
-    justifyContent: "center",
+  loadingText: {
+    marginTop: 10,
+    color: "#9e9e9e",
+    fontSize: 14,
   },
   listHeader: {
     flexDirection: "row",
-    padding: 5,
-    width: width,
-    backgroundColor: "orange",
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    backgroundColor: "#e8eaf6",
+    borderBottomWidth: 1,
+    borderBottomColor: "#c5cae9",
   },
   headerItem: {
-    margin: 3,
-    fontWeight: "bold",
+    fontWeight: "700",
+    fontSize: 11,
+    color: "#1a237e",
     width: width / 6,
     textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
   },
-  mainContainer: {
-    marginBottom: 20,
-    backgroundColor: "white",
-  },
-  buttonContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    margin: 5,
-  }
 });
 
 export default Products;

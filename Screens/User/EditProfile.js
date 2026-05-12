@@ -1,11 +1,12 @@
 import React, { useContext, useState, useEffect } from "react";
-import { View, Text, TextInput, Button, StyleSheet } from "react-native";
+import { View, Text, TextInput, Button, StyleSheet, ScrollView, Platform } from "react-native";
 import { AuthContext } from "../../Context/store/Auth";
 import Input from "../../Shared/Form/Input";
 import EasyButton from "../../Shared/StyledComponenets/EasyButton";
 import FormContainer from "../../Shared/Form/FormContainer";
 import { Picker } from "@react-native-picker/picker";
 import Toast from "react-native-toast-message";
+import Icon from "react-native-vector-icons/FontAwesome";
 
 const countries = require("../../assets/data/countries.json");
 
@@ -102,71 +103,185 @@ const EditProfile = (props) => {
   };
 
   return (
-    <FormContainer title="Edit Profile">
-      {/* <Input
-        id="name"
-        value={name}
-        onChangeText={setName}
-        placeholder="Name"
-      />
-      <Input
-        id="phone"
-        value={phone}
-        onChangeText={setPhone}
-        placeholder="Phone"
-        keyboardType="phone-pad"
-      />
-      <Input
-        id="email"
-        value={email}
-        onChangeText={setEmail}
-        placeholder="Email"
-        keyboardType="email-address"
-      /> */}
-      <Input
-        id="address"
-        value={address}
-        onChangeText={setAddress}
-        placeholder="Address 1"
-      />
-      <Input
-        id="address2"
-        value={address2}
-        onChangeText={setAddress2}
-        placeholder="Address 2"
-      />
-      <Input id="city" value={city} onChangeText={setCity} placeholder="City" />
-      <Input
-        id="zip"
-        value={zip}
-        onChangeText={setZip}
-        placeholder="Zip"
-        keyboardType="numeric"
-      />
-      <Text style={{ marginTop: 10, fontWeight: "bold", fontSize: 20 }}>
-        Country
-      </Text>
-      <Picker
-        selectedValue={country}
-        onValueChange={(itemValue) => setCountry(itemValue)}
-        style={{ marginBottom: 10, marginTop: -2, width: 250 }}
-        mode="dropdown"
-      >
-        <Picker.Item label="Select a country..." value="" />
-        {countries.map((c) => (
-          <Picker.Item key={c.code} label={c.name} value={c.name} />
-        ))}
-      </Picker>
-      <View style={styles.buttnGroup}>
-        <EasyButton primary large onPress={handleSave}>
-          <Text style={{ color: "white" }}>Save</Text>
-        </EasyButton>
-      </View>
+    <FormContainer title="">
+      <ScrollView contentContainerStyle={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Icon name="map-marker" size={40} color="#1a237e" />
+          <Text style={styles.headerTitle}>Shipping Address</Text>
+          <Text style={styles.headerSubtitle}>Update your delivery information</Text>
+        </View>
+
+        {/* Address Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Address Details</Text>
+
+          <Text style={styles.fieldLabel}>Address Line 1</Text>
+          <Input
+            id="address"
+            value={address}
+            onChangeText={setAddress}
+            placeholder="Street address"
+          />
+
+          <Text style={styles.fieldLabel}>Address Line 2</Text>
+          <Input
+            id="address2"
+            value={address2}
+            onChangeText={setAddress2}
+            placeholder="Apartment, suite, etc (optional)"
+          />
+
+          <Text style={styles.fieldLabel}>City</Text>
+          <Input
+            id="city"
+            value={city}
+            onChangeText={setCity}
+            placeholder="City"
+          />
+
+          <Text style={styles.fieldLabel}>Postal Code</Text>
+          <Input
+            id="zip"
+            value={zip}
+            onChangeText={setZip}
+            placeholder="Postal code"
+            keyboardType="numeric"
+          />
+
+          <Text style={styles.fieldLabel}>Country</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={country}
+              onValueChange={(itemValue) => setCountry(itemValue)}
+              style={styles.picker}
+              itemStyle={styles.pickerItem}
+            >
+              <Picker.Item label="Select a country..." value="" />
+              {countries.map((c) => (
+                <Picker.Item key={c.code} label={c.name} value={c.name} />
+              ))}
+            </Picker>
+          </View>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.actionButtons}>
+          <EasyButton
+            primary
+            large
+            onPress={handleSave}
+            style={styles.saveButton}
+          >
+            <Icon name="check" size={16} color="white" style={{ marginRight: 8 }} />
+            <Text style={styles.buttonText}>Save Changes</Text>
+          </EasyButton>
+
+          <EasyButton
+            onPress={() => props.navigation.goBack()}
+            style={styles.cancelButton}
+          >
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </EasyButton>
+        </View>
+      </ScrollView>
     </FormContainer>
   );
 };
 
 const styles = StyleSheet.create({
+  container: {
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 32,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 28,
+  },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#1a237e',
+    marginTop: 12,
+    letterSpacing: 0.5,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#5a6c7d',
+    marginTop: 6,
+  },
+  section: {
+    marginBottom: 28,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1a237e',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: '#e8eaf6',
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    marginBottom: 8,
+    marginTop: 14,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  pickerContainer: {
+    marginTop: 6,
+    marginBottom: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    backgroundColor: '#f8f9fa',
+    overflow: Platform.OS === 'ios' ? 'visible' : 'hidden',
+    minHeight: Platform.OS === 'ios' ? 160 : 50,
+    height: Platform.OS === 'ios' ? 160 : 50,
+    justifyContent: 'center',
+  },
+  picker: {
+    height: Platform.OS === 'ios' ? 160 : 50,
+    color: '#1a1a1a',
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  pickerItem: {
+    fontSize: 15,
+    color: '#1a1a1a',
+  },
+  actionButtons: {
+    marginTop: 8,
+  },
+  saveButton: {
+    marginBottom: 12,
+    borderRadius: 8,
+    elevation: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    paddingVertical: 14,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cancelButtonText: {
+    color: '#1a237e',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   buttnGroup: {
     width: "80%",
     margin: 10,

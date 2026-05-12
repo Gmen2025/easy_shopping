@@ -1,22 +1,10 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  Button,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  Keyboard,
-  Platform,
-  KeyboardAvoidingView,
-  ScrollView,
-} from "react-native";
+import React, { useState, useEffect, useCallback } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView } from "react-native";
 import EasyButton from "../../../Shared/StyledComponenets/EasyButton";
+import { useFocusEffect } from "@react-navigation/native";
 
 import { useCheckout } from "../../../Context/store/CheckoutContext";
-
-
-import { useSelector } from "react-redux";
+import { getDatabaseNameFromStorage } from "../../../assets/common/databaseConfig";
 
 
 
@@ -50,6 +38,37 @@ const Payment = (props) => {
 
   const [selected, setSelected] = useState();
   const [card, setCard] = useState();
+  const [isCardPaymentAvailable, setIsCardPaymentAvailable] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+
+      const syncPaymentAvailability = async () => {
+        const dbName = await getDatabaseNameFromStorage();
+        if (isMounted) {
+          setIsCardPaymentAvailable(dbName === "E_ShopUSA");
+        }
+      };
+
+      syncPaymentAvailability();
+
+      return () => {
+        isMounted = false;
+      };
+    }, [])
+  );
+
+  useEffect(() => {
+    if (!isCardPaymentAvailable && selected === 3) {
+      setSelected();
+      setCard();
+    }
+  }, [isCardPaymentAvailable, selected]);
+
+  const visibleMethods = isCardPaymentAvailable
+    ? methods
+    : methods.filter((method) => method.value !== 3);
 
   const handleConfirm = () => {
   if (!selected) {
@@ -59,6 +78,11 @@ const Payment = (props) => {
 
   if (selected === 3 && !card) {
     Alert.alert('Error', 'Please select a card type');
+    return;
+  }
+
+  if (selected === 3 && !isCardPaymentAvailable) {
+    Alert.alert('Unavailable', 'Card Payment is available only for USA (E_ShopUSA).');
     return;
   }
 
@@ -73,8 +97,7 @@ const Payment = (props) => {
   // Handle different payment methods
   switch (selected) {
     case 3: // Card Payment
-      //props.navigation.navigate("StripePayment", { order: orderWithPayment });
-      Alert.alert('Info', 'Card Payment integration is coming soon! \n Please choose another method.');
+      props.navigation.navigate("StripePayment", { order: orderWithPayment });
       break;
     case 4: // Telebirr Payment
       props.navigation.navigate("TelebirrPayment", { order: orderWithPayment });
@@ -87,97 +110,168 @@ const Payment = (props) => {
 
 
   return (
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={{ paddingBottom: 50 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.title}>Select Payment Method</Text>
-        {methods.map((m) => (
-          <TouchableOpacity
-            key={m.value}
-            style={styles.radioContainer}
-            onPress={() => setSelected(m.value)}
-          >
-            <View style={styles.radioCircle}>
-              {selected === m.value && <View style={styles.selectedRb} />}
-            </View>
-            <Text style={styles.radioText}>{m.name}</Text>
-          </TouchableOpacity>
-        ))}
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.headerCard}>
+        <Text style={styles.title}>Payment</Text>
+        <Text style={styles.subtitle}>Choose your preferred payment method to complete checkout.</Text>
+      </View>
 
-        {selected === 3 && (
-          <>
-            <Text style={[styles.title, { marginTop: 20 }]}>
-              Select Card Type
-            </Text>
-            {paymentCards.map((c) => (
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Payment Method</Text>
+        {visibleMethods.map((m) => {
+          const isSelected = selected === m.value;
+          return (
+            <TouchableOpacity
+              key={m.value}
+              style={[styles.optionRow, isSelected && styles.optionRowActive]}
+              onPress={() => setSelected(m.value)}
+            >
+              <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
+                {isSelected && <View style={styles.selectedRb} />}
+              </View>
+              <Text style={[styles.radioText, isSelected && styles.radioTextActive]}>{m.name}</Text>
+            </TouchableOpacity>
+          );
+        })}
+
+        {!isCardPaymentAvailable && (
+          <Text style={styles.infoText}>Card payment is available only when USA is selected.</Text>
+        )}
+      </View>
+
+      {selected === 3 && (
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Card Type</Text>
+          {paymentCards.map((c) => {
+            const isSelected = card === c.value;
+            return (
               <TouchableOpacity
                 key={c.value}
-                style={styles.radioContainer}
+                style={[styles.optionRow, isSelected && styles.optionRowActive]}
                 onPress={() => setCard(c.value)}
               >
-                <View style={styles.radioCircle}>
-                  {card === c.value && <View style={styles.selectedRb} />}
+                <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
+                  {isSelected && <View style={styles.selectedRb} />}
                 </View>
-                <Text style={styles.radioText}>{c.name}</Text>
+                <Text style={[styles.radioText, isSelected && styles.radioTextActive]}>{c.name}</Text>
               </TouchableOpacity>
-            ))}
-          </>
-        )}
+            );
+          })}
+        </View>
+      )}
 
-        {/* <View style={{ marginTop: 30 }}> */}
-          <EasyButton style={{ marginTop: 30 }} contained tertiary onPress={handleConfirm}>
-            <Text style={{ color: 'black', fontWeight: 'bold' }}>Confirm Payment</Text>
-          </EasyButton>
-        {/* </View> */}
-      </ScrollView>
+      <EasyButton style={styles.confirmButton} contained tertiary onPress={handleConfirm}>
+        <Text style={styles.confirmButtonText}>Confirm Payment</Text>
+      </EasyButton>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
-    backgroundColor: "#fff",
+    backgroundColor: "#f3f6fb",
+  },
+  contentContainer: {
+    padding: 18,
+    paddingBottom: 40,
+  },
+  headerCard: {
+    backgroundColor: "#0f1f36",
+    borderRadius: 14,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    marginBottom: 14,
   },
   title: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 16,
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#ffffff",
+    marginBottom: 4,
   },
-  radioContainer: {
+  subtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#d0d8e8",
+  },
+  sectionCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#dce3ef",
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#152642",
+    marginBottom: 10,
+  },
+  optionRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    backgroundColor: "#f9fbff",
+    borderWidth: 1,
+    borderColor: "#d7dce5",
+    borderRadius: 12,
+    marginBottom: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  optionRowActive: {
+    borderColor: "#1d72d6",
+    backgroundColor: "#eef5ff",
   },
   radioCircle: {
-    height: 20,
-    width: 20,
-    borderRadius: 10,
+    height: 22,
+    width: 22,
+    borderRadius: 11,
     borderWidth: 2,
-    borderColor: "#2e86de",
+    borderColor: "#7b8ea7",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 10,
+    marginRight: 12,
+  },
+  radioCircleActive: {
+    borderColor: "#1d72d6",
   },
   selectedRb: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: "#2e86de",
+    backgroundColor: "#1d72d6",
   },
   radioText: {
     fontSize: 16,
+    color: "#233349",
+    fontWeight: "500",
   },
-  cardField: {
-    width: "100%",
-    height: 50,
-    marginVertical: 30,
+  radioTextActive: {
+    color: "#0f3f79",
+    fontWeight: "700",
   },
-  payButton: {
-    marginTop:10,
-  }
+  confirmButton: {
+    marginTop: 8,
+    borderRadius: 12,
+    paddingVertical: 4,
+  },
+  confirmButtonText: {
+    color: "#0d0d0d",
+    fontWeight: "700",
+    fontSize: 15,
+    letterSpacing: 0.2,
+  },
+  infoText: {
+    marginTop: 2,
+    color: "#6a7380",
+    fontSize: 13,
+    lineHeight: 18,
+  },
 });
 
 export default Payment;

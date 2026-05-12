@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Image,
   View,
   StyleSheet,
   Text,
   ScrollView,
-  Button,
+  FlatList,
+  TouchableOpacity,
+  Dimensions,
 } from "react-native";
 import EasyButton from "../../Shared/StyledComponenets/EasyButton";
 import TrafficLight from "../../Shared/StyledComponenets/TrafficLight";
@@ -13,15 +15,56 @@ import Toast from "react-native-toast-message";
 import { useDispatch } from "react-redux";
 import { addToCart } from "../../store/cartSlice"; // Adjust the import path as necessary
 import getImageUrl from "../../assets/common/getImageUrl";
+import { useCurrency } from "../../assets/common/currency";
+import baseUrl from "../../assets/common/baseUrl";
+import axios from "axios";
+
+const { width } = Dimensions.get("window");
 
 const SingleProduct = (props) => {
+  const { formatPrice } = useCurrency();
   const [item, setItem] = useState(props.route.params.item);
-  const imageUrl = getImageUrl(item);
+  const [imageIndex, setImageIndex] = useState(0);
+  const [relatedProducts, setRelatedProducts] = useState([]);
   const [availabality, setAvailability] = useState(null);
   const [availabiltyText, setAvailabilityText] = useState("");
-  //console.log("SingleProduct item:", item.countInStock);
+
+  const normalizeId = (value) => {
+    if (!value) return "";
+    if (typeof value === "string") return value;
+    if (typeof value === "object") return value.$oid || value._id || "";
+    return "";
+  };
+
+  const galleryImages = useMemo(() => {
+    if (!item) {
+      return [];
+    }
+
+    const sources = [];
+    if (Array.isArray(item.images)) {
+      sources.push(...item.images);
+    }
+    if (item.image) {
+      sources.push(item.image);
+    }
+
+    if (sources.length === 0) {
+      sources.push(item);
+    }
+
+    const normalized = sources
+      .map((source) => getImageUrl(source))
+      .filter(Boolean);
+
+    return [...new Set(normalized)];
+  }, [item]);
 
   useEffect(() => {
+    if (!item) {
+      return;
+    }
+
     if(item.countInStock == 0) {
       setAvailability(<TrafficLight unavailable></TrafficLight>);
       setAvailabilityText("Unavailable");
@@ -36,21 +79,48 @@ const SingleProduct = (props) => {
       console.error("Item is undefined. Ensure it is passed correctly.");
     }
 
-    // Cleanup function to reset state when component unmounts
-    return () => (
-      setAvailability(null),
-      setAvailabilityText(""),
-      setItem(null)
-    );
+  }, [item]);
 
-    //this immeditely resets the component to null and "", so never see the status
-    // return (
-    //   setAvailability(null),
-    //   setAvailabilityText(""),
-    //   setItem(null)
-    // )
+  useEffect(() => {
+    const fetchRelatedProducts = async () => {
+      if (!item) {
+        return;
+      }
 
-  }, []);
+      try {
+        const response = await axios.get(`${baseUrl}products`);
+        const fetchedProducts = Array.isArray(response.data)
+          ? response.data
+          : response.data.products;
+
+        const currentProductId = normalizeId(item._id);
+        const currentCategoryId = normalizeId(item.category?._id || item.category);
+
+        const related = (fetchedProducts || [])
+          .filter((product) => {
+            const productId = normalizeId(product._id);
+            const productCategoryId = normalizeId(
+              product.category?._id || product.category
+            );
+
+            return (
+              productId &&
+              productId !== currentProductId &&
+              currentCategoryId &&
+              productCategoryId === currentCategoryId
+            );
+          })
+          .slice(0, 10);
+
+        setRelatedProducts(related);
+      } catch (error) {
+        console.log("Failed to load related products:", error.message);
+        setRelatedProducts([]);
+      }
+    };
+
+    fetchRelatedProducts();
+  }, [item]);
 
   //Redux store is used to manage the cart state
   // This allows us to add items to the cart and access the cart state globally
@@ -77,7 +147,7 @@ const SingleProduct = (props) => {
         id: item._id, // Assuming each product has a unique id
         name: item.name,
         price: item.price,
-        image: item.image,
+        image: galleryImages[0] || item.image,
         countInStock: item.countInStock,
       };
       dispatch(addToCart(product));
@@ -91,22 +161,61 @@ const SingleProduct = (props) => {
     }
   };
 
+  if (!item) {
+    return (
+      <View style={styles.emptyStateWrap}>
+        <Text style={styles.emptyStateText}>Product is not available.</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <ScrollView style={{ marginBottom: 80, padding: 5 }}>
-        <View>
-          <Image
-            source={{
-              uri: imageUrl,
-            }}
-            resizeMode="contain"
-            style={styles.image}
-          />
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.imageCard}>
+          <View style={styles.imageClipBox}>
+            <FlatList
+              data={galleryImages}
+              keyExtractor={(uri, index) => `${uri}-${index}`}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={(event) => {
+                const currentIndex = Math.round(
+                  event.nativeEvent.contentOffset.x / (width - 24)
+                );
+                setImageIndex(currentIndex);
+              }}
+              renderItem={({ item: imageUri }) => (
+                <Image
+                  source={{ uri: imageUri }}
+                  resizeMode="cover"
+                  style={styles.image}
+                />
+              )}
+            />
+          </View>
+          {galleryImages.length > 1 && (
+            <View style={styles.sliderDotsRow}>
+              {galleryImages.map((_, idx) => (
+                <View
+                  key={`dot-${idx}`}
+                  style={[
+                    styles.sliderDot,
+                    imageIndex === idx && styles.sliderDotActive,
+                  ]}
+                />
+              ))}
+            </View>
+          )}
+        </View>
+
+        <View style={styles.detailsCard}>
           <Text style={styles.name}>{item.name || "No Name Available"}</Text>
-          <Text style={styles.brand}>{item.brand}</Text>
+          <Text style={styles.brand}>{item.brand || "Unbranded"}</Text>
           <View style={styles.availabilityContainer}>
             <View style={ styles.availability }>
-              <Text style={{marginRight:10}}>Availability: {availabiltyText}</Text>
+              <Text style={styles.availabilityText}>Availability: {availabiltyText}</Text>
               {availabality}
             </View>
           </View>
@@ -114,13 +223,45 @@ const SingleProduct = (props) => {
             {item.description || "No Description Available"}
           </Text>
           <Text style={styles.price}>
-            ETB {item.price || "No Price Available"}
+            {typeof item.price === "number" ? formatPrice(item.price) : "No Price Available"}
           </Text>
           <View style={styles.buttonContainer}>
-            <EasyButton onPress={handleAddToCart} tertiary medium>
-              <Text style={{ color: "white" }}>Add</Text>
+            <EasyButton onPress={handleAddToCart} secondary medium style={styles.addButton}>
+              <Text style={styles.addButtonText}>Add to Cart</Text>
             </EasyButton>
           </View>
+        </View>
+
+        <View style={styles.relatedCard}>
+          <Text style={styles.relatedTitle}>Related Products</Text>
+          {relatedProducts.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {relatedProducts.map((relatedItem) => (
+                <TouchableOpacity
+                  key={normalizeId(relatedItem._id)}
+                  style={styles.relatedItem}
+                  onPress={() => {
+                    setItem(relatedItem);
+                    setImageIndex(0);
+                  }}
+                >
+                  <Image
+                    source={{ uri: getImageUrl(relatedItem) }}
+                    style={styles.relatedImage}
+                    resizeMode="cover"
+                  />
+                  <Text style={styles.relatedName} numberOfLines={2}>
+                    {relatedItem.name || "Unnamed Product"}
+                  </Text>
+                  <Text style={styles.relatedPrice}>
+                    {formatPrice(relatedItem.price || 0)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : (
+            <Text style={styles.relatedEmptyText}>No related products found.</Text>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -129,53 +270,163 @@ const SingleProduct = (props) => {
 
 const styles = StyleSheet.create({
   container: {
-    position: "relative",
-    height: "100%",
+    flex: 1,
+    backgroundColor: "#f3f6fb",
   },
-  imageContainer: {
-    backgroundColor: "white",
-    padding: 0,
-    margin: 0,
+  scrollContent: {
+    padding: 12,
+    paddingBottom: 32,
+  },
+  imageCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#dce3ef",
+    overflow: "visible",
+  },
+  imageClipBox: {
+    borderRadius: 14,
+    overflow: "hidden",
   },
   image: {
-    width: "100%",
-    height: 250,
+    width: width - 24,
+    height: 280,
+    backgroundColor: "#eef3fa",
+  },
+  sliderDotsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    paddingVertical: 8,
+  },
+  sliderDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: "#c5cae9",
+    marginHorizontal: 4,
+  },
+  sliderDotActive: {
+    width: 18,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: "#1a237e",
+  },
+  detailsCard: {
+    marginTop: 12,
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#dce3ef",
+    padding: 14,
   },
   name: {
-    fontSize: 20,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginVertical: 10,
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#10243f",
+    textAlign: "left",
+    marginBottom: 4,
   },
   brand: {
-    fontSize: 16,
-    textAlign: "center",
-    color: "gray",
-    fontWeight: "bold",
+    fontSize: 14,
+    color: "#64748b",
+    fontWeight: "600",
   },
   description: {
-    fontSize: 16,
-    textAlign: "center",
-    color: "gray",
+    fontSize: 15,
+    color: "#475569",
     marginVertical: 10,
+    lineHeight: 22,
   },
   price: {
     fontSize: 24,
-    color: "red",
-    margin: 20,
+    color: "#0f3f79",
+    marginTop: 6,
+    fontWeight: "700",
   },
   buttonContainer: {
-    alignSelf: "flex-end", // Align the button to the right
-    marginRight: 20, // Add some margin to the right
-    marginTop: -60,
+    alignSelf: "flex-end",
+    marginTop: 10,
   },
   availabilityContainer: {
-    alignItems: "center",
-    marginBottom: 20,
+    alignItems: "flex-start",
+    marginTop: 10,
   },
   availability: {
     flexDirection: "row",
-    marginBottom: 10,
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  availabilityText: {
+    marginRight: 10,
+    color: "#334155",
+    fontWeight: "600",
+  },
+  addButton: {
+    borderRadius: 10,
+    paddingVertical: 4,
+  },
+  addButtonText: {
+    color: "#ffffff",
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  relatedCard: {
+    marginTop: 12,
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#dce3ef",
+    padding: 14,
+  },
+  relatedTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#10243f",
+    marginBottom: 12,
+  },
+  relatedItem: {
+    width: 140,
+    marginRight: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#dce3ef",
+    backgroundColor: "#ffffff",
+    overflow: "hidden",
+  },
+  relatedImage: {
+    width: "100%",
+    height: 96,
+    backgroundColor: "#eef3fa",
+  },
+  relatedName: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#1e293b",
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    minHeight: 42,
+  },
+  relatedPrice: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0f3f79",
+    paddingHorizontal: 8,
+    paddingBottom: 10,
+    paddingTop: 4,
+  },
+  relatedEmptyText: {
+    color: "#64748b",
+    fontSize: 14,
+  },
+  emptyStateWrap: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f3f6fb",
+  },
+  emptyStateText: {
+    color: "#475569",
+    fontSize: 16,
   },
 });
 
