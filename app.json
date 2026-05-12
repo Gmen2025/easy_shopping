@@ -36,6 +36,7 @@
         "backgroundColor": "#ffffff"
       },
       "permissions": [
+        "POST_NOTIFICATIONS",
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION"
       ]
@@ -47,6 +48,9 @@
       "eas": {
         "projectId": "2aec4a7d-b158-4d0f-986d-f45acf95eff5"
       }
-    }
+    },
+    "plugins": [
+      "expo-notifications"
+    ]
   }
 }
