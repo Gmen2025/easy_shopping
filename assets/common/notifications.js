@@ -24,6 +24,10 @@ const getProjectId = () => {
   );
 };
 
+const isExpoGo = () => {
+  return Constants?.appOwnership === "expo";
+};
+
 const setupAndroidChannel = async () => {
   if (Platform.OS !== "android") {
     return;
@@ -39,6 +43,14 @@ const setupAndroidChannel = async () => {
 
 export const registerForPushNotifications = async () => {
   await setupAndroidChannel();
+
+  if (isExpoGo()) {
+    return {
+      pushToken: null,
+      error:
+        "Remote push notifications are not supported in Expo Go (SDK 53+). Use a development build.",
+    };
+  }
 
   if (!Device.isDevice) {
     return { pushToken: null, error: "Physical device is required" };

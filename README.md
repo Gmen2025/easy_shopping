@@ -319,6 +319,45 @@ console.log('uploaded', result.secure_url);
 
 curl example (after obtaining `signature` + `timestamp` from your signer):
 
+## Push Notifications Backend Example
+
+The mobile app now registers Expo push tokens and calls this backend route:
+
+- `PUT /api/v1/users/:userId/push-token`
+
+To help you wire the server side quickly, a full Express example is included at:
+
+- `scripts/expo_push_server_example.js`
+
+What it includes:
+
+- Token storage route (`PUT /api/v1/users/:userId/push-token`)
+- Token removal route (`DELETE /api/v1/users/:userId/push-token`)
+- Send notification route (`POST /api/v1/notifications/send`)
+- Expo chunking and ticket handling using `expo-server-sdk`
+
+Run the example:
+
+1. `npm install express expo-server-sdk`
+2. `node scripts/expo_push_server_example.js`
+
+Example send payload:
+
+```json
+{
+   "userId": "664e4b9db2a2f6dce8a4d111",
+   "title": "Order update",
+   "body": "Your order has been shipped.",
+   "data": { "orderId": "ABC123" }
+}
+```
+
+Production notes:
+
+- Replace in-memory token storage with your database.
+- Protect all routes with your JWT auth middleware.
+- Remove invalid tokens when Expo receipts return `DeviceNotRegistered`.
+
 ```bash
 curl -X POST "https://api.cloudinary.com/v1_1/<cloud_name>/image/upload" \
    -F "file=@/path/to/photo.jpg" \

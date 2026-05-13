@@ -41,8 +41,9 @@ const linking = {
   },
 };
 
-const NotificationBootstrap = () => {
+const NotificationBootstrap = ({ onNotificationReceived, onNotificationOpened }) => {
   const authContext = useContext(AuthContext);
+  const [setupShown, setSetupShown] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -50,10 +51,59 @@ const NotificationBootstrap = () => {
     let responseSubscription;
 
     const initializeNotifications = async () => {
-      const { pushToken } = await registerForPushNotifications();
+      const { pushToken, error } = await registerForPushNotifications();
 
-      receivedSubscription = addNotificationReceivedListener(() => {});
-      responseSubscription = addNotificationResponseListener(() => {});
+      if (error && !setupShown) {
+        Toast.show({
+          type: "error",
+          text1: "Notifications inactive",
+          text2: error,
+        });
+        setSetupShown(true);
+      }
+
+      if (pushToken) {
+        console.log("Expo push token:", pushToken);
+        if (!setupShown) {
+          Toast.show({
+            type: "success",
+            text1: "Notifications enabled",
+            text2: "Push token registered on this device",
+          });
+          setSetupShown(true);
+        }
+      }
+
+      receivedSubscription = addNotificationReceivedListener((notification) => {
+        const title = notification?.request?.content?.title || "New notification";
+        const body = notification?.request?.content?.body || "You received an update";
+
+        if (typeof onNotificationReceived === "function") {
+          onNotificationReceived(notification);
+        }
+
+        Toast.show({
+          type: "info",
+          text1: title,
+          text2: body,
+          visibilityTime: 4000,
+        });
+      });
+
+      responseSubscription = addNotificationResponseListener((response) => {
+        const title = response?.notification?.request?.content?.title || "Notification opened";
+
+        if (typeof onNotificationOpened === "function") {
+          onNotificationOpened(response?.notification);
+        }
+
+        Toast.show({
+          type: "success",
+          text1: title,
+          text2: "Opened from notification",
+          visibilityTime: 3000,
+        });
+      });
 
       if (!mounted || !pushToken || !authContext?.user?._id) {
         return;
@@ -72,7 +122,7 @@ const NotificationBootstrap = () => {
       removeNotificationSubscription(receivedSubscription);
       removeNotificationSubscription(responseSubscription);
     };
-  }, [authContext?.user?._id]);
+  }, [authContext?.user?._id, onNotificationOpened, onNotificationReceived, setupShown]);
 
   useEffect(() => {
     const syncStoredToken = async () => {
@@ -97,6 +147,8 @@ const NotificationBootstrap = () => {
 
 export default function App() {
   const [dbRefreshKey, setDbRefreshKey] = useState(0);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [notificationItems, setNotificationItems] = useState([]);
 
   useEffect(() => {
     attachDatabaseInterceptor();
@@ -106,15 +158,53 @@ export default function App() {
     setDbRefreshKey((prevKey) => prevKey + 1);
   }, []);
 
+  const addNotificationItem = useCallback((notification, { increaseUnread = false } = {}) => {
+    const title = notification?.request?.content?.title || "New notification";
+    const body = notification?.request?.content?.body || "You have a new update";
+
+    const newItem = {
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      title,
+      body,
+      receivedAt: new Date().toISOString(),
+    };
+
+    setNotificationItems((prevItems) => [newItem, ...prevItems].slice(0, 20));
+
+    if (increaseUnread) {
+      setUnreadNotificationCount((prevCount) => prevCount + 1);
+    }
+  }, []);
+
+  const handleNotificationReceived = useCallback((notification) => {
+    addNotificationItem(notification, { increaseUnread: true });
+  }, [addNotificationItem]);
+
+  const handleNotificationOpened = useCallback((notification) => {
+    addNotificationItem(notification, { increaseUnread: false });
+  }, [addNotificationItem]);
+
+  const handleMarkAllNotificationsRead = useCallback(() => {
+    setUnreadNotificationCount(0);
+  }, []);
+
   return (
     <AuthProvider>
       <Provider store={store}>
         <StripeProvider publishableKey="pk_test_51SHSJmPIAcOeDqNEp78RzlADjQOLU9wqMNAIRJgKcaNRqbuKSpeUT12SL4ggEGHlJzEnYZv7hBqbb7zdGT6naZQM00nES3vyDJ">
           <TelebirrProvider>
-            <NotificationBootstrap />
+            <NotificationBootstrap
+              onNotificationReceived={handleNotificationReceived}
+              onNotificationOpened={handleNotificationOpened}
+            />
             <View style={styles.appContainer}>
               <View style={styles.headerLayer}>
-                <Header onDatabaseChanged={handleDatabaseChanged} />
+                <Header
+                  onDatabaseChanged={handleDatabaseChanged}
+                  notificationCount={unreadNotificationCount}
+                  notifications={notificationItems}
+                  onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
+                />
               </View>
               <View style={styles.navLayer}>
                 <NavigationContainer key={`db-${dbRefreshKey}`} linking={linking}>

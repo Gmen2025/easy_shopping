@@ -117,6 +117,89 @@ const OrderCard = (props) => {
       });
   };
 
+  const getStatusLabel = (statusValue) => {
+    if (statusValue === "1") return "Delivered";
+    if (statusValue === "2") return "Shipped";
+    if (statusValue === "3") return "Pending";
+    return "Updated";
+  };
+
+  const sendManualNotification = async () => {
+    if (!token) {
+      Toast.show({
+        topOffset: 60,
+        type: "error",
+        text1: "Missing auth token",
+        text2: "Please sign in again as admin",
+      });
+      return;
+    }
+
+    const userId = props.user?._id || props.user;
+    if (!userId) {
+      Toast.show({
+        topOffset: 60,
+        type: "error",
+        text1: "Customer not found",
+        text2: "Order user is missing",
+      });
+      return;
+    }
+
+    const statusLabel = getStatusLabel(statusChange || props.status);
+    const config = {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    };
+
+    try {
+      const response = await axios.post(
+        `${baseUrl}notifications/admin/send-user`,
+        {
+          userId,
+          title: "Order update",
+          body: `Your order #${props._id} status is ${statusLabel}.`,
+          data: {
+            type: "admin_manual_order_update",
+            orderId: String(props._id),
+            status: statusLabel,
+          },
+        },
+        config
+      );
+
+      const sentCount = response?.data?.sent || 0;
+      if (sentCount > 0) {
+        Toast.show({
+          topOffset: 60,
+          type: "success",
+          text1: "Notification sent",
+          text2: `Delivered to ${sentCount} device(s)`,
+        });
+      } else {
+        Toast.show({
+          topOffset: 60,
+          type: "info",
+          text1: "No active push tokens",
+          text2: "Customer must open app on a supported build first",
+        });
+      }
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Unable to send notification";
+
+      Toast.show({
+        topOffset: 60,
+        type: "error",
+        text1: "Notification failed",
+        text2: message,
+      });
+    }
+  };
+
   const confirmDeleteOrder = () => {
     Alert.alert(
       "Delete Order",
@@ -274,6 +357,14 @@ const OrderCard = (props) => {
             <View style={styles.buttonContainer}>
               <EasyButton tertiary large onPress={() => updateOrder()}>
                 <Text style={{ color: "white" }}>Update</Text>
+              </EasyButton>
+
+              <EasyButton
+                secondary
+                large
+                onPress={() => sendManualNotification()}
+              >
+                <Text style={{ color: "white" }}>Notify Customer</Text>
               </EasyButton>
 
               <EasyButton

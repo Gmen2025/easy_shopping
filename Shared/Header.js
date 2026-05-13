@@ -25,8 +25,14 @@ const DB_COUNTRY_MAP = {
     E_ShopUSA: "USA",
 };
 
-const Header = ({ onDatabaseChanged }) => {
+const Header = ({
+    onDatabaseChanged,
+    notificationCount = 0,
+    notifications = [],
+    onMarkAllNotificationsRead,
+}) => {
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
+    const [isNotificationModalVisible, setIsNotificationModalVisible] = useState(false);
     const [selectedCountry, setSelectedCountry] = useState('Ethio');
     const context = useContext(AuthContext);
 
@@ -137,6 +143,39 @@ const Header = ({ onDatabaseChanged }) => {
         </TouchableOpacity>
     );
 
+    const handleNotificationBellPress = () => {
+        setIsNotificationModalVisible(true);
+    };
+
+    const closeNotificationModal = () => {
+        setIsNotificationModalVisible(false);
+    };
+
+    const formatNotificationTime = (timestamp) => {
+        if (!timestamp) {
+            return '';
+        }
+
+        try {
+            return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } catch (error) {
+            return '';
+        }
+    };
+
+    const renderNotificationItem = ({ item }) => (
+        <View style={styles.notificationItem}>
+            <View style={styles.notificationItemIconWrap}>
+                <Icon name="bell" size={12} color="#1a237e" />
+            </View>
+            <View style={styles.notificationItemContent}>
+                <Text style={styles.notificationItemTitle}>{item.title}</Text>
+                <Text style={styles.notificationItemBody}>{item.body}</Text>
+                <Text style={styles.notificationItemTime}>{formatNotificationTime(item.receivedAt)}</Text>
+            </View>
+        </View>
+    );
+
     return(
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.header}>
@@ -156,6 +195,21 @@ const Header = ({ onDatabaseChanged }) => {
                 
                 {/* Right side - Admin Controls or Spacer */}
                 <View style={styles.rightContainer}>
+                    <TouchableOpacity
+                        style={styles.notificationButton}
+                        onPress={handleNotificationBellPress}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                        <Icon name="bell" size={16} color="#ffffff" />
+                        {notificationCount > 0 && (
+                            <View style={styles.notificationBadge}>
+                                <Text style={styles.notificationBadgeText}>
+                                    {notificationCount > 99 ? '99+' : notificationCount}
+                                </Text>
+                            </View>
+                        )}
+                    </TouchableOpacity>
+
                     <TouchableOpacity
                         style={styles.countrySelector}
                         onPress={toggleDropdown}
@@ -205,6 +259,53 @@ const Header = ({ onDatabaseChanged }) => {
                             </TouchableWithoutFeedback>
                         </Modal>
                     )}
+
+                    <Modal
+                        transparent
+                        visible={isNotificationModalVisible}
+                        animationType="fade"
+                        onRequestClose={closeNotificationModal}
+                    >
+                        <TouchableWithoutFeedback onPress={closeNotificationModal}>
+                            <View style={styles.notificationBackdrop}>
+                                <TouchableWithoutFeedback>
+                                    <View style={styles.notificationModalCard}>
+                                        <View style={styles.notificationModalHeader}>
+                                            <Text style={styles.notificationModalTitle}>Notifications</Text>
+                                            <TouchableOpacity onPress={closeNotificationModal}>
+                                                <Icon name="times" size={15} color="#1a237e" />
+                                            </TouchableOpacity>
+                                        </View>
+
+                                        {notifications.length > 0 ? (
+                                            <FlatList
+                                                data={notifications}
+                                                renderItem={renderNotificationItem}
+                                                keyExtractor={(item) => item.id}
+                                                style={styles.notificationList}
+                                            />
+                                        ) : (
+                                            <View style={styles.emptyNotificationWrap}>
+                                                <Icon name="bell-slash" size={24} color="#9fa8da" />
+                                                <Text style={styles.emptyNotificationText}>No notifications yet</Text>
+                                            </View>
+                                        )}
+
+                                        <TouchableOpacity
+                                            style={styles.markReadButton}
+                                            onPress={() => {
+                                                if (typeof onMarkAllNotificationsRead === 'function') {
+                                                    onMarkAllNotificationsRead();
+                                                }
+                                            }}
+                                        >
+                                            <Text style={styles.markReadText}>Mark all as read</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </TouchableWithoutFeedback>
+                            </View>
+                        </TouchableWithoutFeedback>
+                    </Modal>
                 </View>
             </View>
         </SafeAreaView>
@@ -235,7 +336,7 @@ const styles = StyleSheet.create({
         elevation: 1000,
     },
     leftSpacer: {
-        width: 92,
+        width: 170,
     },
     logoContainer: {
         flex: 1,
@@ -247,8 +348,9 @@ const styles = StyleSheet.create({
         width: 150,
     },
     rightContainer: {
-        width: 92,
-        alignItems: 'flex-end',
+        width: 170,
+        flexDirection: 'row',
+        alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
         overflow: 'visible',
@@ -257,6 +359,38 @@ const styles = StyleSheet.create({
     },
     rightSpacer: {
         width: 80,
+    },
+    notificationButton: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        marginRight: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)',
+        position: 'relative',
+    },
+    notificationBadge: {
+        position: 'absolute',
+        top: -6,
+        right: -8,
+        minWidth: 18,
+        height: 18,
+        borderRadius: 9,
+        paddingHorizontal: 4,
+        backgroundColor: '#ff3b30',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: '#1a237e',
+    },
+    notificationBadgeText: {
+        color: '#ffffff',
+        fontSize: 10,
+        fontWeight: '700',
+        lineHeight: 12,
     },
     countrySelector: {
         flexDirection: 'row',
@@ -300,6 +434,98 @@ const styles = StyleSheet.create({
         alignItems: 'flex-end',
         paddingHorizontal: 16,
         paddingTop: Platform.OS === 'ios' ? 128 : 98,
+    },
+    notificationBackdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.15)',
+        justifyContent: 'flex-start',
+        alignItems: 'flex-end',
+        paddingHorizontal: 16,
+        paddingTop: Platform.OS === 'ios' ? 118 : 88,
+    },
+    notificationModalCard: {
+        width: 300,
+        maxHeight: 360,
+        backgroundColor: '#ffffff',
+        borderRadius: 14,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.22,
+        shadowRadius: 10,
+        elevation: 8,
+    },
+    notificationModalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eef1ff',
+    },
+    notificationModalTitle: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#1a237e',
+        letterSpacing: 0.3,
+    },
+    notificationList: {
+        maxHeight: 240,
+    },
+    notificationItem: {
+        flexDirection: 'row',
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f4f6ff',
+    },
+    notificationItemIconWrap: {
+        width: 24,
+        marginTop: 1,
+        alignItems: 'center',
+    },
+    notificationItemContent: {
+        flex: 1,
+    },
+    notificationItemTitle: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#1a1a1a',
+    },
+    notificationItemBody: {
+        marginTop: 2,
+        fontSize: 12,
+        color: '#4f5b6b',
+    },
+    notificationItemTime: {
+        marginTop: 4,
+        fontSize: 11,
+        color: '#8590a1',
+    },
+    emptyNotificationWrap: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 28,
+    },
+    emptyNotificationText: {
+        marginTop: 8,
+        fontSize: 12,
+        color: '#6d7a8a',
+    },
+    markReadButton: {
+        borderTopWidth: 1,
+        borderTopColor: '#eef1ff',
+        paddingVertical: 11,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#f7f8ff',
+    },
+    markReadText: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: '#1a237e',
+        letterSpacing: 0.2,
     },
     dropdownHeader: {
         flexDirection: 'row',
