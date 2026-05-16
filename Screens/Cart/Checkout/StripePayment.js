@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 16,
     textAlign: "center",
-    color: "#10243f",
+    color: "#333",
   },
   paymentSuccessSection: {
     backgroundColor: "#ecfdf3",
@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginTop: 16,
     marginBottom: 8,
-    color: "#10243f",
+    color: "#333",
   },
   itemRow: {
     flexDirection: "row",
@@ -572,10 +572,10 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
     textAlign: "center",
-    color: "#114f9d",
+    color: "#8a6c09",
   },
   summaryCard: {
-    backgroundColor: "#0f1f36",
+    backgroundColor: "goldenrod",
     borderRadius: 14,
     padding: 16,
     marginBottom: 12,
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   summaryHint: {
-    color: "#d2dced",
+    color: "#ffffff",
     fontSize: 13,
     lineHeight: 18,
   },
@@ -669,7 +669,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 10,
     borderRadius: 12,
-    backgroundColor: "#0f3f79",
+    backgroundColor: "goldenrod",
     minHeight: 50,
     justifyContent: "center",
   },

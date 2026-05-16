@@ -92,7 +92,7 @@ const ListItem = (props) => {
         onLongPress={() => setModalVisible(true)}
         style={[
           styles.row,
-          { backgroundColor: props.index % 2 === 0 ? "#f8f9ff" : "#fff" },
+          { backgroundColor: props.index % 2 === 0 ? "#faf7ee" : "#fff" },
         ]}
       >
         <Image
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   priceCell: {
-    color: "#1a237e",
+    color: "#8a6c09",
     fontWeight: "700",
   },
   /* Modal */
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
   modalProductPrice: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#1a237e",
+    color: "#8a6c09",
     marginTop: 4,
   },
   modalCloseBtn: {
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   editBtn: {
-    backgroundColor: "#1a237e",
+    backgroundColor: "goldenrod",
     marginRight: 6,
   },
   deleteBtn: {

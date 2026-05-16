@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontSize: 14,
     fontWeight: "700",
-    color: "#0f3f79",
+    color: "#8a6c09",
   },
   emptyStateWrap: {
     alignItems: "center",

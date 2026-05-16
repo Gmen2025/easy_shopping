@@ -108,7 +108,7 @@ const AdvancedFilters = ({
           value={filters.inStockOnly}
           onValueChange={(value) => onFilterChange("inStockOnly", value)}
           trackColor={{ false: "#b0b0b0", true: "#b8d5f5" }}
-          thumbColor={filters.inStockOnly ? "#0f3f79" : "#f4f3f4"}
+          thumbColor={filters.inStockOnly ? "#8a6c09" : "#f4f3f4"}
         />
       </View>
 
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     marginBottom: 10,
-    color: "#10243f",
+    color: "#333",
   },
   row: {
     flexDirection: "row",
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   applyButton: {
-    backgroundColor: "#0f3f79",
+    backgroundColor: "goldenrod",
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 12,

@@ -111,7 +111,7 @@ const ForgotPassword = (props) => {
         {formData.step === "emailSent" ? (
           // Email sent confirmation screen
           <View style={styles.confirmationContainer}>
-            <Icon name="envelope-open-o" size={56} color="#1a237e" />
+            <Icon name="envelope-open-o" size={56} color="#8a6c09" />
             <Text style={styles.confirmationTitle}>Check Your Email</Text>
             <Text style={styles.confirmationText}>
               We've sent password reset instructions to:
@@ -158,7 +158,7 @@ const ForgotPassword = (props) => {
           <View style={styles.formContainer}>
             {/* Header */}
             <View style={styles.header}>
-              <Icon name="lock" size={40} color="#1a237e" />
+              <Icon name="lock" size={40} color="#8a6c09" />
               <Text style={styles.headerTitle}>Reset Password</Text>
               <Text style={styles.headerSubtitle}>We'll send you a reset link</Text>
             </View>
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#1a237e',
+    color: '#8a6c09',
     marginTop: 12,
     letterSpacing: 0.5,
   },
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
   confirmationTitle: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#1a237e',
+    color: '#8a6c09',
     marginTop: 12,
     marginBottom: 16,
     textAlign: 'center',
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   emailText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1a237e',
+    color: '#8a6c09',
     marginVertical: 16,
     textAlign: 'center',
     paddingHorizontal: 12,
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
   },
   backButtonText: {
-    color: '#1a237e',
+    color: '#8a6c09',
     fontSize: 16,
     fontWeight: '600',
     textDecorationLine: 'underline',
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   loginButtonText: {
-    color: '#1a237e',
+    color: '#8a6c09',
     fontSize: 14,
     fontWeight: '600',
     textDecorationLine: 'underline',

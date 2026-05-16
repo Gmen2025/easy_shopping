@@ -5,6 +5,7 @@ import Products from "../Screens/Admin/Products";
 import Orders from "../Screens/Admin/Orders";
 import Categories from "../Screens/Admin/Categories";
 import ProductForm from "../Screens/Admin/ProductForm";
+import BroadcastNotifications from "../Screens/Admin/BroadcastNotifications";
 import SingleProduct from "../Screens/Products/SingleProduct";
 
 const Stack = createStackNavigator();
@@ -32,6 +33,18 @@ function MyStack() {
           headerTitleStyle:{
             color:'#e6c20eff'
           }
+        }}
+      />
+      <Stack.Screen
+        name="BroadcastNotifications"
+        component={BroadcastNotifications}
+        options={{
+          title: 'Broadcast',
+          headerTintColor: '#e6c20eff',
+          headerTitleAlign: 'center',
+          headerTitleStyle: {
+            color: '#e6c20eff',
+          },
         }}
       />
       <Stack.Screen

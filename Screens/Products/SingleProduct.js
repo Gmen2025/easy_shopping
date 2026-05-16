@@ -226,7 +226,7 @@ const SingleProduct = (props) => {
             {typeof item.price === "number" ? formatPrice(item.price) : "No Price Available"}
           </Text>
           <View style={styles.buttonContainer}>
-            <EasyButton onPress={handleAddToCart} secondary medium style={styles.addButton}>
+            <EasyButton onPress={handleAddToCart} tertiary medium style={styles.addButton}>
               <Text style={styles.addButtonText}>Add to Cart</Text>
             </EasyButton>
           </View>
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     width: 18,
     height: 7,
     borderRadius: 4,
-    backgroundColor: "#1a237e",
+    backgroundColor: "#8a6c09",
   },
   detailsCard: {
     marginTop: 12,
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 22,
     fontWeight: "700",
-    color: "#10243f",
+    color: "#333",
     textAlign: "left",
     marginBottom: 4,
   },
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
   },
   price: {
     fontSize: 24,
-    color: "#0f3f79",
+    color: "#8a6c09",
     marginTop: 6,
     fontWeight: "700",
   },
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
   relatedTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#10243f",
+    color: "#333",
     marginBottom: 12,
   },
   relatedItem: {
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
   relatedPrice: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#0f3f79",
+    color: "#8a6c09",
     paddingHorizontal: 8,
     paddingBottom: 10,
     paddingTop: 4,

@@ -86,7 +86,7 @@ const Login = (props) => {
         {/* Divider */}
         <View style={styles.dividerContainer}>
           <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>New to Easy Shopping?</Text>
+          <Text style={styles.dividerText}>New to Addu Genet E_Shopping?</Text>
           <View style={styles.dividerLine} />
         </View>
 
@@ -167,12 +167,12 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 24,
     paddingVertical: 14,
-    backgroundColor: '#1a237e',
+    backgroundColor: 'goldenrod',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#1a237e',
+    borderColor: '#8a6c09',
     elevation: 5,
-    shadowColor: '#1a237e',
+    shadowColor: '#8a6c09',
     shadowOpacity: 0.2,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
@@ -234,11 +234,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: '#1a237e',
+    borderColor: '#8a6c09',
     elevation: 2,
   },
   createAccountText: {
-    color: '#1a237e',
+    color: '#8a6c09',
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.3,
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
   },
   forgotButtonText: {
-    color: '#1a237e',
+    color: '#8a6c09',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -263,10 +263,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 8,
     borderWidth: 1.5,
-    borderColor: '#1a237e',
+    borderColor: '#8a6c09',
   },
   backButtonText: {
-    color: '#1a237e',
+    color: '#8a6c09',
     fontSize: 14,
     fontWeight: '600',
     textDecorationLine: 'underline',

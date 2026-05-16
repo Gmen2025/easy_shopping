@@ -116,7 +116,7 @@ const ResetPassword = (props) => {
     if (formData.tokenValid === null) {
       return (
         <View style={styles.center}>
-          <Icon name="spinner" size={40} color="#1a237e" />
+          <Icon name="spinner" size={40} color="#8a6c09" />
           <Text style={styles.loadingText}>Verifying reset link...</Text>
         </View>
       );
@@ -155,7 +155,7 @@ const ResetPassword = (props) => {
       <ScrollView contentContainerStyle={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <Icon name="key" size={40} color="#1a237e" />
+          <Icon name="key" size={40} color="#8a6c09" />
           <Text style={styles.headerTitle}>Create New Password</Text>
           <Text style={styles.headerSubtitle}>Enter a strong password</Text>
         </View>
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#1a237e',
+    color: '#8a6c09',
     marginTop: 12,
     letterSpacing: 0.5,
   },
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#1a237e',
+    color: '#8a6c09',
     fontWeight: '600',
     marginTop: 12,
   },
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
   },
   cancelButtonText: {
-    color: '#1a237e',
+    color: '#8a6c09',
     fontSize: 16,
     fontWeight: '600',
     textDecorationLine: 'underline',

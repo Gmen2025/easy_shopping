@@ -147,7 +147,6 @@ const NotificationBootstrap = ({ onNotificationReceived, onNotificationOpened })
 
 export default function App() {
   const [dbRefreshKey, setDbRefreshKey] = useState(0);
-  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [notificationItems, setNotificationItems] = useState([]);
 
   useEffect(() => {
@@ -167,13 +166,10 @@ export default function App() {
       title,
       body,
       receivedAt: new Date().toISOString(),
+      isRead: !increaseUnread,
     };
 
     setNotificationItems((prevItems) => [newItem, ...prevItems].slice(0, 20));
-
-    if (increaseUnread) {
-      setUnreadNotificationCount((prevCount) => prevCount + 1);
-    }
   }, []);
 
   const handleNotificationReceived = useCallback((notification) => {
@@ -184,9 +180,29 @@ export default function App() {
     addNotificationItem(notification, { increaseUnread: false });
   }, [addNotificationItem]);
 
-  const handleMarkAllNotificationsRead = useCallback(() => {
-    setUnreadNotificationCount(0);
+  const handleMarkNotificationRead = useCallback((notificationId) => {
+    setNotificationItems((prevItems) =>
+      prevItems.map((item) =>
+        item.id === notificationId ? { ...item, isRead: true } : item
+      )
+    );
   }, []);
+
+  const handleDeleteNotification = useCallback((notificationId) => {
+    setNotificationItems((prevItems) =>
+      prevItems.filter((item) => item.id !== notificationId)
+    );
+  }, []);
+
+  const handleMarkAllNotificationsRead = useCallback(() => {
+    setNotificationItems((prevItems) =>
+      prevItems.map((item) => ({ ...item, isRead: true }))
+    );
+  }, []);
+
+  const unreadNotificationCount = notificationItems.filter(
+    (item) => !item.isRead
+  ).length;
 
   return (
     <AuthProvider>
@@ -204,6 +220,8 @@ export default function App() {
                   notificationCount={unreadNotificationCount}
                   notifications={notificationItems}
                   onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
+                  onMarkNotificationRead={handleMarkNotificationRead}
+                  onDeleteNotification={handleDeleteNotification}
                 />
               </View>
               <View style={styles.navLayer}>

@@ -33,11 +33,13 @@ const UserProfile = (props) => {
 
   useFocusEffect(
     useCallback(() => {
+      const currentUserId = context.user?._id;
+
       //console.log("UserProfile mounted, isAuthenticated:", context.isAuthenticated);
       //console.log("Fetching user profile for:", context);
       //console.log("Context.user value: ", context.user);
 
-      if (!context.isAuthenticated) {
+      if (!context.isAuthenticated || !currentUserId) {
         //  the Login screen replaces the current screen
         // and the user cannot go back to the previous screen
         // with the back button.
@@ -63,7 +65,7 @@ const UserProfile = (props) => {
 
           const data = res.data;
           const userOrders = data.filter(
-            (order) => order.user && order.user._id === context.user._id
+            (order) => order.user && order.user._id === currentUserId
           );
 
           if (isActive) {
@@ -98,14 +100,14 @@ const UserProfile = (props) => {
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         {/* Header */}
         <View style={styles.header}>
-          <Icon name="user-circle" size={56} color="#1a237e" />
+          <Icon name="user-circle" size={56} color="#8a6c09" />
           <Text style={styles.headerTitle}>My Profile</Text>
         </View>
 
         {/* Profile Info Card */}
         <View style={styles.profileCard}>
           <View style={styles.profileItem}>
-            <Icon name="user" size={18} color="#1a237e" style={{ marginRight: 12 }} />
+            <Icon name="user" size={18} color="#8a6c09" style={{ marginRight: 12 }} />
             <View style={{ flex: 1 }}>
               <Text style={styles.profileLabel}>Name</Text>
               <Text style={styles.profileValue}>{context.user ? context.user.name : "—"}</Text>
@@ -115,7 +117,7 @@ const UserProfile = (props) => {
           <View style={styles.divider} />
 
           <View style={styles.profileItem}>
-            <Icon name="envelope" size={18} color="#1a237e" style={{ marginRight: 12 }} />
+            <Icon name="envelope" size={18} color="#8a6c09" style={{ marginRight: 12 }} />
             <View style={{ flex: 1 }}>
               <Text style={styles.profileLabel}>Email</Text>
               <Text style={styles.profileValue}>{context.user ? context.user.user : "—"}</Text>
@@ -125,7 +127,7 @@ const UserProfile = (props) => {
           <View style={styles.divider} />
 
           <View style={styles.profileItem}>
-            <Icon name="phone" size={18} color="#1a237e" style={{ marginRight: 12 }} />
+            <Icon name="phone" size={18} color="#8a6c09" style={{ marginRight: 12 }} />
             <View style={{ flex: 1 }}>
               <Text style={styles.profileLabel}>Phone</Text>
               <Text style={styles.profileValue}>{context.user ? context.user.phone : "—"}</Text>
@@ -159,7 +161,7 @@ const UserProfile = (props) => {
         {/* My Orders Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Icon name="shopping-bag" size={20} color="#1a237e" />
+            <Icon name="shopping-bag" size={20} color="#8a6c09" />
             <Text style={styles.sectionTitle}>My Orders</Text>
           </View>
 
@@ -173,7 +175,7 @@ const UserProfile = (props) => {
             </View>
           ) : (
             <View style={styles.emptyState}>
-              <Icon name="inbox" size={40} color="#9fa8da" />
+              <Icon name="inbox" size={40} color="#888" />
               <Text style={styles.emptyStateText}>No orders yet</Text>
               <Text style={styles.emptyStateSubtext}>Start shopping to see your orders here</Text>
             </View>
@@ -183,7 +185,7 @@ const UserProfile = (props) => {
         {/* Help & Support Section */}
         <View style={styles.supportSection}>
           <View style={styles.sectionHeader}>
-            <Icon name="headphones" size={20} color="#1a237e" />
+            <Icon name="headphones" size={20} color="#8a6c09" />
             <Text style={styles.sectionTitle}>Help & Support</Text>
           </View>
           <Text style={styles.supportSubtitle}>Need assistance? Contact us:</Text>
@@ -192,28 +194,28 @@ const UserProfile = (props) => {
             style={styles.contactItem}
             onPress={() => Linking.openURL('mailto:girma.m.halie19@gmail.com')}
           >
-            <Icon name="envelope" size={16} color="#1a237e" style={{ marginRight: 12 }} />
+            <Icon name="envelope" size={16} color="#8a6c09" style={{ marginRight: 12 }} />
             <View style={{ flex: 1 }}>
               <Text style={styles.contactLabel}>Email</Text>
               <Text style={styles.contactValue}>girma.m.halie19@gmail.com</Text>
             </View>
-            <Icon name="chevron-right" size={14} color="#9fa8da" />
+            <Icon name="chevron-right" size={14} color="#888" />
           </TouchableOpacity>
 
           <TouchableOpacity 
             style={styles.contactItem}
             onPress={() => Linking.openURL('tel:+251910588929')}
           >
-            <Icon name="phone" size={16} color="#1a237e" style={{ marginRight: 12 }} />
+            <Icon name="phone" size={16} color="#8a6c09" style={{ marginRight: 12 }} />
             <View style={{ flex: 1 }}>
               <Text style={styles.contactLabel}>Phone</Text>
               <Text style={styles.contactValue}>+251 910 588 929</Text>
             </View>
-            <Icon name="chevron-right" size={14} color="#9fa8da" />
+            <Icon name="chevron-right" size={14} color="#888" />
           </TouchableOpacity>
 
           <Text style={styles.supportHours}>
-            <Icon name="clock-o" size={14} color="#1a237e" /> Support Hours: Mon-Sat, 9 AM - 6 PM
+            <Icon name="clock-o" size={14} color="#8a6c09" /> Support Hours: Mon-Sat, 9 AM - 6 PM
           </Text>
         </View>
 
@@ -224,6 +226,7 @@ const UserProfile = (props) => {
           onPress={() => {
             dispatch(clearCart());
             context.logout();
+            setOrders([]);
             props.navigation.navigate("Home");
           }}
           style={styles.signOutButton}
@@ -253,17 +256,17 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#1a237e',
+    color: '#333',
     marginTop: 12,
     letterSpacing: 0.5,
   },
   profileCard: {
-    backgroundColor: '#f8f9ff',
+    backgroundColor: '#f9f9f9',
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#e8eaf6',
+    borderColor: '#e0e0e0',
   },
   profileItem: {
     flexDirection: 'row',
@@ -273,7 +276,7 @@ const styles = StyleSheet.create({
   profileLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#7a8a99',
+    color: '#888',
     textTransform: 'uppercase',
     letterSpacing: 0.3,
     marginBottom: 2,
@@ -281,7 +284,7 @@ const styles = StyleSheet.create({
   profileValue: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#1a237e',
+    color: '#333',
   },
   divider: {
     height: 1,
@@ -320,12 +323,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingBottom: 12,
     borderBottomWidth: 2,
-    borderBottomColor: '#e8eaf6',
+    borderBottomColor: '#e0e0e0',
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1a237e',
+    color: '#333',
     marginLeft: 10,
   },
   ordersList: {
@@ -341,26 +344,26 @@ const styles = StyleSheet.create({
   emptyStateText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1a237e',
+    color: '#333',
     marginTop: 12,
   },
   emptyStateSubtext: {
     fontSize: 13,
-    color: '#7a8a99',
+    color: '#888',
     marginTop: 6,
     textAlign: 'center',
   },
   supportSection: {
-    backgroundColor: '#f8f9ff',
+    backgroundColor: '#f9f9f9',
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#e8eaf6',
+    borderColor: '#e0e0e0',
   },
   supportSubtitle: {
     fontSize: 13,
-    color: '#5a6c7d',
+    color: '#666',
     marginBottom: 12,
   },
   contactItem: {
@@ -372,12 +375,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 8,
     borderLeftWidth: 3,
-    borderLeftColor: '#1a237e',
+    borderLeftColor: '#8a6c09',
   },
   contactLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#7a8a99',
+    color: '#888',
     textTransform: 'uppercase',
     letterSpacing: 0.2,
     marginBottom: 2,
@@ -385,11 +388,11 @@ const styles = StyleSheet.create({
   contactValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1a237e',
+    color: '#8a6c09',
   },
   supportHours: {
     fontSize: 12,
-    color: '#5a6c7d',
+    color: '#888',
     marginTop: 12,
     fontStyle: 'italic',
     textAlign: 'center',

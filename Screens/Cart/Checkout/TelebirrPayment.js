@@ -483,7 +483,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   header: {
-    backgroundColor: "#0f1f36",
+    backgroundColor: "goldenrod",
     marginHorizontal: 15,
     marginTop: 14,
     paddingVertical: 18,
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 13,
-    color: "#d2dced",
+    color: "#ffffff",
     lineHeight: 18,
   },
   orderSummary: {
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "700",
     marginBottom: 14,
-    color: "#10243f",
+    color: "#333",
   },
   summaryRow: {
     flexDirection: "row",
@@ -536,7 +536,7 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#0f3f79",
+    color: "#8a6c09",
   },
   form: {
     backgroundColor: "#fff",
@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   payButton: {
-    backgroundColor: "#0f3f79",
+    backgroundColor: "goldenrod",
   },
   payButtonText: {
     fontSize: 15,

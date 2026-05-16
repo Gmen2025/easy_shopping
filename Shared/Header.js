@@ -30,6 +30,8 @@ const Header = ({
     notificationCount = 0,
     notifications = [],
     onMarkAllNotificationsRead,
+    onMarkNotificationRead,
+    onDeleteNotification,
 }) => {
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     const [isNotificationModalVisible, setIsNotificationModalVisible] = useState(false);
@@ -164,14 +166,42 @@ const Header = ({
     };
 
     const renderNotificationItem = ({ item }) => (
-        <View style={styles.notificationItem}>
+        <View style={[
+            styles.notificationItem,
+            !item.isRead && styles.unreadNotificationItem,
+        ]}>
             <View style={styles.notificationItemIconWrap}>
-                <Icon name="bell" size={12} color="#1a237e" />
+                <Icon name={item.isRead ? "bell" : "bell"} size={12} color={item.isRead ? "#333" : "#8a6c09"} />
             </View>
             <View style={styles.notificationItemContent}>
                 <Text style={styles.notificationItemTitle}>{item.title}</Text>
                 <Text style={styles.notificationItemBody}>{item.body}</Text>
                 <Text style={styles.notificationItemTime}>{formatNotificationTime(item.receivedAt)}</Text>
+                <View style={styles.notificationActionsRow}>
+                    {!item.isRead && (
+                        <TouchableOpacity
+                            style={styles.notificationActionButton}
+                            onPress={() => {
+                                if (typeof onMarkNotificationRead === 'function') {
+                                    onMarkNotificationRead(item.id);
+                                }
+                            }}
+                        >
+                            <Text style={styles.notificationActionText}>Mark read</Text>
+                        </TouchableOpacity>
+                    )}
+
+                    <TouchableOpacity
+                        style={styles.notificationDeleteButton}
+                        onPress={() => {
+                            if (typeof onDeleteNotification === 'function') {
+                                onDeleteNotification(item.id);
+                            }
+                        }}
+                    >
+                        <Text style={styles.notificationDeleteText}>Delete</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
         </View>
     );
@@ -200,7 +230,7 @@ const Header = ({
                         onPress={handleNotificationBellPress}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                        <Icon name="bell" size={16} color="#ffffff" />
+                        <Icon name="bell" size={16} color="#333" />
                         {notificationCount > 0 && (
                             <View style={styles.notificationBadge}>
                                 <Text style={styles.notificationBadgeText}>
@@ -222,7 +252,7 @@ const Header = ({
                         <Icon 
                             name={isDropdownVisible ? "chevron-up" : "chevron-down"} 
                             size={10} 
-                            color="#ffffff" 
+                            color="#333" 
                             style={styles.chevron}
                         />
                     </TouchableOpacity>
@@ -243,7 +273,7 @@ const Header = ({
                                                 <TouchableOpacity
                                                     onPress={() => setIsDropdownVisible(false)}
                                                 >
-                                                    <Icon name="times" size={16} color="#ffffff" />
+                                                    <Icon name="times" size={16} color="#666" />
                                                 </TouchableOpacity>
                                             </View>
 
@@ -273,7 +303,7 @@ const Header = ({
                                         <View style={styles.notificationModalHeader}>
                                             <Text style={styles.notificationModalTitle}>Notifications</Text>
                                             <TouchableOpacity onPress={closeNotificationModal}>
-                                                <Icon name="times" size={15} color="#1a237e" />
+                                                <Icon name="times" size={15} color="#666" />
                                             </TouchableOpacity>
                                         </View>
 
@@ -286,7 +316,7 @@ const Header = ({
                                             />
                                         ) : (
                                             <View style={styles.emptyNotificationWrap}>
-                                                <Icon name="bell-slash" size={24} color="#9fa8da" />
+                                                <Icon name="bell-slash" size={24} color="#888" />
                                                 <Text style={styles.emptyNotificationText}>No notifications yet</Text>
                                             </View>
                                         )}
@@ -316,7 +346,7 @@ const styles = StyleSheet.create({
     safeArea: {
         width: '100%',
         alignSelf: 'stretch',
-        backgroundColor: '#1a237e',
+        backgroundColor: 'goldenrod',
         paddingTop: Platform.OS === 'ios' ? 10 : 0,
         overflow: 'visible',
         zIndex: 1000,
@@ -329,7 +359,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 14,
         paddingVertical: Platform.OS === 'ios' ? 12 : 10,
-        backgroundColor: '#1a237e',
+        backgroundColor: 'goldenrod',
         minHeight: Platform.OS === 'ios' ? 72 : 60,
         overflow: 'visible',
         zIndex: 1000,
@@ -367,9 +397,9 @@ const styles = StyleSheet.create({
         marginRight: 10,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(255,255,255,0.15)',
+        backgroundColor: 'rgba(255,255,255,0.95)',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.3)',
+        borderColor: 'rgba(0, 0, 0, 0.1)',
         position: 'relative',
     },
     notificationBadge: {
@@ -384,7 +414,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
-        borderColor: '#1a237e',
+        borderColor: 'goldenrod',
     },
     notificationBadgeText: {
         color: '#ffffff',
@@ -395,12 +425,12 @@ const styles = StyleSheet.create({
     countrySelector: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.15)',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
         paddingHorizontal: 10,
         paddingVertical: 6,
         borderRadius: 20,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.3)',
+        borderColor: 'rgba(0, 0, 0, 0.1)',
     },
     selectedCountryText: {
         fontSize: 15,
@@ -409,7 +439,7 @@ const styles = StyleSheet.create({
     countryCode: {
         fontSize: 11,
         fontWeight: '700',
-        color: '#ffffff',
+        color: '#333',
         marginRight: 4,
         letterSpacing: 0.4,
     },
@@ -462,12 +492,12 @@ const styles = StyleSheet.create({
         paddingHorizontal: 14,
         paddingVertical: 12,
         borderBottomWidth: 1,
-        borderBottomColor: '#eef1ff',
+        borderBottomColor: '#f0f0f0',
     },
     notificationModalTitle: {
         fontSize: 14,
         fontWeight: '700',
-        color: '#1a237e',
+        color: '#333',
         letterSpacing: 0.3,
     },
     notificationList: {
@@ -478,7 +508,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 10,
         borderBottomWidth: 1,
-        borderBottomColor: '#f4f6ff',
+        borderBottomColor: '#f5f5f5',
+    },
+    unreadNotificationItem: {
+        backgroundColor: '#fffaf0',
     },
     notificationItemIconWrap: {
         width: 24,
@@ -503,6 +536,34 @@ const styles = StyleSheet.create({
         fontSize: 11,
         color: '#8590a1',
     },
+    notificationActionsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    notificationActionButton: {
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 999,
+        backgroundColor: '#f5f5f5',
+        marginRight: 8,
+    },
+    notificationActionText: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: '#333',
+    },
+    notificationDeleteButton: {
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 999,
+        backgroundColor: '#fdeceb',
+    },
+    notificationDeleteText: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: '#c62828',
+    },
     emptyNotificationWrap: {
         alignItems: 'center',
         justifyContent: 'center',
@@ -511,20 +572,20 @@ const styles = StyleSheet.create({
     emptyNotificationText: {
         marginTop: 8,
         fontSize: 12,
-        color: '#6d7a8a',
+        color: '#888',
     },
     markReadButton: {
         borderTopWidth: 1,
-        borderTopColor: '#eef1ff',
+        borderTopColor: '#f0f0f0',
         paddingVertical: 11,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#f7f8ff',
+        backgroundColor: '#f8f9fa',
     },
     markReadText: {
         fontSize: 12,
         fontWeight: '700',
-        color: '#1a237e',
+        color: '#333',
         letterSpacing: 0.2,
     },
     dropdownHeader: {
@@ -534,13 +595,13 @@ const styles = StyleSheet.create({
         paddingHorizontal: 18,
         paddingVertical: 14,
         borderBottomWidth: 1,
-        borderBottomColor: '#e8eaf6',
-        backgroundColor: '#1a237e',
+        borderBottomColor: '#f0f0f0',
+        backgroundColor: '#f8f9fa',
     },
     dropdownTitle: {
         fontSize: 15,
         fontWeight: '700',
-        color: '#ffffff',
+        color: '#333',
         letterSpacing: 0.3,
     },
     dropdownList: {
@@ -556,7 +617,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'white',
     },
     selectedItem: {
-        backgroundColor: '#e8eaf6',
+        backgroundColor: '#e3f2fd',
     },
     flagEmoji: {
         fontSize: 26,

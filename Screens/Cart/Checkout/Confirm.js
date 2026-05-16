@@ -90,7 +90,7 @@ const Confirm = (props) => {
           onPress={() => props.navigation.navigate("Shipping")}
           style={styles.emptyButton}
         >
-          <Text style={styles.actionPrimaryText}>Start Checkout</Text>
+          <Text style={styles.emptyPrimaryText}>Start Checkout</Text>
         </EasyButton>
       </View>
     );
@@ -199,7 +199,6 @@ const Confirm = (props) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f3f6fb',
     paddingHorizontal: 16,
     paddingTop: 16,
   },
@@ -219,8 +218,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 4,
   },
+  emptyPrimaryText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 15,
+    letterSpacing: 0.2,
+  },
   headerCard: {
-    backgroundColor: '#0f1f36',
+    backgroundColor: 'goldenrod',
     borderRadius: 14,
     paddingVertical: 16,
     paddingHorizontal: 14,
@@ -234,7 +239,7 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 13,
-    color: '#d2dced',
+    color: '#ffffff',
     lineHeight: 18,
   },
   scrollContent: {
@@ -247,19 +252,17 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#dce3ef',
+    borderColor: '#e0e0e0',
     marginBottom: 40,
   },
   confirmTitle: {
     marginBottom: 12,
     textAlign: 'center',
-    color: '#10243f',
     fontWeight: '700',
   },
   label: {
     fontWeight: 'bold',
     marginTop: 10,
-    color: '#10243f',
   },
   itemRow: {
     flexDirection: 'row',
@@ -268,25 +271,22 @@ const styles = StyleSheet.create({
     marginVertical: 5,
     paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f3f9',
+    borderBottomColor: '#f0f0f0',
   },
   itemName: {
     flex: 2,
     fontSize: 15,
-    color: '#334155',
   },
   itemQty: {
     flex: 1,
     textAlign: 'center',
     fontSize: 15,
-    color: '#475569',
   },
   itemPrice: {
     flex: 1,
     textAlign: 'right',
     fontSize: 15,
     fontWeight: '700',
-    color: '#0f3f79',
   },
   thumbnail: {
     marginRight: 8,
@@ -294,7 +294,6 @@ const styles = StyleSheet.create({
   },
   totalText: {
     fontSize: 19,
-    color: '#114f9d',
     fontWeight: '700',
     textAlign: 'center',
     marginTop: 6,

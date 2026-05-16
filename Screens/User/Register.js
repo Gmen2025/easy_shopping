@@ -168,7 +168,7 @@ const Register = (props) => {
         {formData.registrationStep === "verificationSent" ? (
           // Email verification screen
           <View style={styles.verificationContainer}>
-            <Icon name="envelope-open" size={48} color="#1a237e" style={{ marginBottom: 16 }} />
+            <Icon name="envelope-open" size={48} color="#8a6c09" style={{ marginBottom: 16 }} />
             <Text style={styles.verificationTitle}>Verify Your Email</Text>
             <Text style={styles.verificationText}>
               We've sent a verification link to:
@@ -213,7 +213,7 @@ const Register = (props) => {
           <View style={styles.formContainer}>
             {/* Header */}
             <View style={styles.header}>
-              <Icon name="user-plus" size={40} color="#1a237e" />
+              <Icon name="user-plus" size={40} color="#8a6c09" />
               <Text style={styles.headerTitle}>Create Account</Text>
               <Text style={styles.headerSubtitle}>Join Easy Shopping today</Text>
             </View>
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#1a237e',
+    color: '#8a6c09',
     marginTop: 12,
     letterSpacing: 0.5,
   },
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   verificationTitle: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#1a237e',
+    color: '#8a6c09',
     marginBottom: 16,
     textAlign: 'center',
   },
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
   emailText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1a237e',
+    color: '#8a6c09',
     marginVertical: 16,
     textAlign: 'center',
     paddingHorizontal: 12,
@@ -432,7 +432,7 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
   },
   loginLinkText: {
-    color: '#1a237e',
+    color: '#8a6c09',
     fontSize: 14,
     fontWeight: '600',
     textDecorationLine: 'underline',

@@ -107,7 +107,7 @@ const EditProfile = (props) => {
       <ScrollView contentContainerStyle={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <Icon name="map-marker" size={40} color="#1a237e" />
+          <Icon name="map-marker" size={40} color="#8a6c09" />
           <Text style={styles.headerTitle}>Shipping Address</Text>
           <Text style={styles.headerSubtitle}>Update your delivery information</Text>
         </View>
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#1a237e',
+    color: '#8a6c09',
     marginTop: 12,
     letterSpacing: 0.5,
   },
@@ -217,11 +217,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1a237e',
+    color: '#8a6c09',
     marginBottom: 16,
     paddingBottom: 12,
     borderBottomWidth: 2,
-    borderBottomColor: '#e8eaf6',
+    borderBottomColor: '#e9dfc4',
   },
   fieldLabel: {
     fontSize: 12,
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   cancelButtonText: {
-    color: '#1a237e',
+    color: '#8a6c09',
     fontSize: 16,
     fontWeight: '600',
   },

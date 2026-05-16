@@ -354,27 +354,34 @@ const OrderCard = (props) => {
               <Picker.Item label="Shipped" value="2" />
               <Picker.Item label="Delivered" value="1" />
             </Picker>
-            <View style={styles.buttonContainer}>
-              <EasyButton tertiary large onPress={() => updateOrder()}>
-                <Text style={{ color: "white" }}>Update</Text>
-              </EasyButton>
+            <View style={styles.actionSection}>
+              <View style={styles.buttonRow}>
+                <View style={styles.halfButtonWrap}>
+                  <EasyButton tertiary large onPress={() => updateOrder()}>
+                    <Text style={styles.actionButtonText}>Update</Text>
+                  </EasyButton>
+                </View>
 
-              <EasyButton
-                secondary
-                large
-                onPress={() => sendManualNotification()}
-              >
-                <Text style={{ color: "white" }}>Notify Customer</Text>
-              </EasyButton>
+                <View style={styles.halfButtonWrap}>
+                  <EasyButton
+                    secondary
+                    large
+                    onPress={() => sendManualNotification()}
+                  >
+                    <Text style={styles.actionButtonText}>Notify Customer</Text>
+                  </EasyButton>
+                </View>
+              </View>
 
-              <EasyButton
-                danger
-                large
-                onPress={() => confirmDeleteOrder()}
-                style={{ marginTop: 10 }}
-              >
-                <Text style={{ color: "white" }}>Delete Order</Text>
-              </EasyButton>
+              <View style={styles.deleteButtonWrap}>
+                <EasyButton
+                  danger
+                  large
+                  onPress={() => confirmDeleteOrder()}
+                >
+                  <Text style={styles.actionButtonText}>Delete Order</Text>
+                </EasyButton>
+              </View>
             </View>
             {shouldAutoDelete() && (
               <View style={styles.autoDeleteWarning}>
@@ -434,12 +441,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     flex: 1,
   },
-  buttonContainer: {
+  actionSection: {
     marginTop: 10,
+  },
+  buttonRow: {
     flexDirection: "row",
+    alignItems: "stretch",
     justifyContent: "space-between",
-    alignItems: "center",
-    gap: 10, 
+    columnGap: 10,
+  },
+  halfButtonWrap: {
+    flex: 1,
+  },
+  deleteButtonWrap: {
+    marginTop: 10,
+  },
+  actionButtonText: {
+    color: "white",
+    textAlign: "center",
   },
 });
 

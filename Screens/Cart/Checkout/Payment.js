@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   headerCard: {
-    backgroundColor: "#0f1f36",
+    backgroundColor: "goldenrod",
     borderRadius: 14,
     paddingVertical: 18,
     paddingHorizontal: 16,
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   radioTextActive: {
-    color: "#0f3f79",
+    color: "#8a6c09",
     fontWeight: "700",
   },
   confirmButton: {

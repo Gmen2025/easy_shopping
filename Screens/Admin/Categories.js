@@ -19,7 +19,7 @@ var { width } = Dimensions.get("window");
 const CategoryItem = ({ item, onDelete }) => (
   <View style={styles.categoryCard}>
     <View style={styles.categoryIcon}>
-      <Icon name="tag" size={14} color="#1a237e" />
+      <Icon name="tag" size={14} color="#8a6c09" />
     </View>
     <Text style={styles.categoryName}>{item.name}</Text>
     <TouchableOpacity style={styles.deleteBtn} onPress={() => onDelete(item._id)}>
@@ -112,7 +112,7 @@ const Categories = () => {
       {/* List */}
       {loading ? (
         <View style={styles.spinner}>
-          <ActivityIndicator size="large" color="#1a237e" />
+          <ActivityIndicator size="large" color="#8a6c09" />
         </View>
       ) : (
         <FlatList
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f6fa",
   },
   header: {
-    backgroundColor: "#1a237e",
+    backgroundColor: "#8a6c09",
     paddingHorizontal: 20,
     paddingTop: 18,
     paddingBottom: 16,
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   addBtn: {
-    backgroundColor: "#1a237e",
+    backgroundColor: "goldenrod",
     paddingHorizontal: 18,
     paddingVertical: 9,
     borderRadius: 8,
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: "#e8eaf6",
+    backgroundColor: "#e9dfc4",
     alignItems: "center",
     justifyContent: "center",
   },

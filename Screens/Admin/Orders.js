@@ -77,14 +77,24 @@ const Orders = (props) => {
             {orderList ? `${orderList.length} orders` : "Loading…"}
           </Text>
         </View>
-        <TouchableOpacity style={styles.refreshBtn} onPress={getOrders}>
-          <Icon name="refresh" size={16} color="#fff" />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.broadcastBtn}
+            onPress={() => props.navigation.navigate("BroadcastNotifications")}
+          >
+            <Icon name="bullhorn" size={14} color="#fff" />
+            <Text style={styles.broadcastBtnText}>Broadcast</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.refreshBtn} onPress={getOrders}>
+            <Icon name="refresh" size={16} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {loading ? (
         <View style={styles.spinner}>
-          <ActivityIndicator size="large" color="#1a237e" />
+          <ActivityIndicator size="large" color="#8a6c09" />
           <Text style={styles.loadingText}>Loading orders…</Text>
         </View>
       ) : (
@@ -123,7 +133,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f6fa",
   },
   header: {
-    backgroundColor: "#1a237e",
+    backgroundColor: "#8a6c09",
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -146,6 +156,25 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.15)",
     borderRadius: 20,
     padding: 10,
+    marginLeft: 10,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  broadcastBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  broadcastBtnText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
+    marginLeft: 6,
   },
   spinner: {
     flex: 1,

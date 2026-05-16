@@ -81,9 +81,9 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   active: {
-    backgroundColor: "#0f3f79",
+    backgroundColor: "goldenrod",
     borderWidth: 1,
-    borderColor: "#0f3f79",
+    borderColor: "#8a6c09",
   },
   inactive: {
     backgroundColor: "#ffffff",

@@ -254,7 +254,7 @@ const ProductForm = (props) => {
             </View>
           ))}
           <TouchableOpacity style={styles.addImageBtn} onPress={pickImages}>
-            <Icon name="camera" size={24} color="#1a237e" />
+            <Icon name="camera" size={24} color="#8a6c09" />
             <Text style={styles.addImageText}>Add</Text>
           </TouchableOpacity>
         </View>
@@ -297,7 +297,7 @@ const ProductForm = (props) => {
         <Picker
           selectedValue={pickerValue}
           style={styles.picker}
-          dropdownIconColor="#1a237e"
+          dropdownIconColor="#8a6c09"
           onValueChange={(itemValue) => {
             setPickerValue(itemValue);
             setCategory(itemValue);
@@ -329,13 +329,13 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 4,
     borderLeftWidth: 3,
-    borderLeftColor: "#1a237e",
+    borderLeftColor: "#8a6c09",
     paddingLeft: 10,
   },
   sectionTitle: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#1a237e",
+    color: "#8a6c09",
     textTransform: "uppercase",
     letterSpacing: 0.6,
   },
@@ -351,20 +351,20 @@ const styles = StyleSheet.create({
   picker: {
     width: "100%",
     height: Platform.OS === "ios" ? 180 : 54,
-    color: "#1a237e",
+    color: "#8a6c09",
   },
   submitBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#1a237e",
+    backgroundColor: "#8a6c09",
     borderRadius: 12,
     paddingVertical: 15,
     width: "90%",
     marginTop: 28,
     marginBottom: 40,
     elevation: 3,
-    shadowColor: "#1a237e",
+    shadowColor: "#8a6c09",
     shadowOpacity: 0.3,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
   imagesSectionLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1a237e',
+    color: '#8a6c09',
     marginBottom: 10,
   },
   thumbnailRow: {
@@ -441,13 +441,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 2,
     borderStyle: 'dashed',
-    borderColor: '#1a237e',
+    borderColor: '#8a6c09',
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f0f4ff',
   },
   addImageText: {
-    color: '#1a237e',
+    color: '#8a6c09',
     fontSize: 11,
     fontWeight: '600',
     marginTop: 2,

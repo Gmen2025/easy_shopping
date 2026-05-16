@@ -30,7 +30,7 @@ const ListHeader = () => (
   </View>
 );
 
-const ActionButton = ({ icon, label, onPress, color = "#1a237e" }) => (
+const ActionButton = ({ icon, label, onPress, color = "#8a6c09" }) => (
   <TouchableOpacity style={[styles.actionBtn, { borderColor: color }]} onPress={onPress}>
     <Icon name={icon} size={16} color={color} />
     <Text style={[styles.actionBtnText, { color }]}>{label}</Text>
@@ -100,7 +100,7 @@ const Products = (props) => {
         <ActionButton
           icon="shopping-bag"
           label="Orders"
-          color="#1a237e"
+          color="#8a6c09"
           onPress={() => props.navigation.navigate("Orders")}
         />
         <ActionButton
@@ -142,7 +142,7 @@ const Products = (props) => {
       {/* List */}
       {loading ? (
         <View style={styles.spinner}>
-          <ActivityIndicator size="large" color="#1a237e" />
+          <ActivityIndicator size="large" color="#8a6c09" />
           <Text style={styles.loadingText}>Loading products…</Text>
         </View>
       ) : (
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f6fa",
   },
   header: {
-    backgroundColor: "#1a237e",
+    backgroundColor: "#8a6c09",
     paddingHorizontal: 20,
     paddingTop: 18,
     paddingBottom: 16,
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#e8eaf6",
+    borderBottomColor: "#e9dfc4",
   },
   actionBtn: {
     flexDirection: "row",
@@ -240,14 +240,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingVertical: 10,
     paddingHorizontal: 6,
-    backgroundColor: "#e8eaf6",
+    backgroundColor: "#e9dfc4",
     borderBottomWidth: 1,
     borderBottomColor: "#c5cae9",
   },
   headerItem: {
     fontWeight: "700",
     fontSize: 11,
-    color: "#1a237e",
+    color: "#8a6c09",
     width: width / 6,
     textAlign: "center",
     textTransform: "uppercase",

@@ -58,7 +58,7 @@ const EmailVerification = (props) => {
         return (
           <ScrollView contentContainerStyle={styles.container}>
             <View style={styles.center}>
-              <Icon name="spinner" size={48} color="#1a237e" />
+              <Icon name="spinner" size={48} color="#8a6c09" />
               <Text style={styles.title}>Verifying Email...</Text>
               <Text style={styles.text}>Please wait while we verify your email address.</Text>
             </View>
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1a237e',
+    color: '#8a6c09',
     marginTop: 20,
     marginBottom: 12,
     textAlign: 'center',

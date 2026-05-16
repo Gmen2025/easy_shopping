@@ -68,7 +68,7 @@ const ProductCard = (props) => {
       {countInStock > 0 ? (
         <View style={styles.buttonWrap}>
           <EasyButton
-            secondary
+            primary
             onPress={handleAddToCart}
             medium
             style={styles.addButton}
@@ -134,12 +134,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontWeight: "bold",
     fontSize: 14,
-    color: "#10243f",
+    color: "#333",
     minHeight: 38,
   },
   price: {
     fontSize: 19,
-    color: "#0f3f79",
+    color: "#8a6c09",
     marginTop: 2,
     fontWeight: "700",
   },

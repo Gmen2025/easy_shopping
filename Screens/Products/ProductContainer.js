@@ -328,7 +328,7 @@ const ProductContainer = (props) => {
         </SafeAreaView>
       ) : (
         <View style={[styles.center, { height: "100%" }]}>
-          <ActivityIndicator size="large" color="#0f3f79" />
+          <ActivityIndicator size="large" color="#8a6c09" />
           <Text style={styles.loadingText}>Loading Products...</Text>
         </View>
       )}
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 16,
     paddingHorizontal: 14,
-    backgroundColor: "#0f1f36",
+    backgroundColor: "goldenrod",
   },
   heroTitle: {
     color: "#ffffff",
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   heroSubtitle: {
-    color: "#d2dced",
+    color: "#ffffff",
     fontSize: 13,
     lineHeight: 18,
   },
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
   advancedToggle: {
     marginHorizontal: 10,
     marginTop: 8,
-    backgroundColor: "#0f3f79",
+    backgroundColor: "goldenrod",
     borderRadius: 10,
     alignItems: "center",
     paddingVertical: 11,
