@@ -25,7 +25,12 @@ const getProjectId = () => {
 };
 
 const isExpoGo = () => {
-  return Constants?.appOwnership === "expo";
+  // appOwnership can be unreliable across SDK/runtime combos.
+  // executionEnvironment=storeClient is the most reliable Expo Go signal.
+  return (
+    Constants?.appOwnership === "expo" ||
+    Constants?.executionEnvironment === "storeClient"
+  );
 };
 
 const setupAndroidChannel = async () => {

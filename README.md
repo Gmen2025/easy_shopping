@@ -179,11 +179,18 @@ STRIPE_SECRET_KEY=your_stripe_key
 USE_MOCK_TELEBIRR=true
 TELEBIRR_PRIVATE_KEY=your_telebirr_key
 
+# Email (Resend)
+RESEND_API_KEY=your_resend_api_key
+EMAIL_FROM=noreply@info.addugeneteshop.com
+EMAIL_REPLY_TO=support@addugeneteshop.com
+
 # URLs
 FRONTEND_URL=your_frontend_url
 NOTIFY_URL=your_webhook_url
 REDIRECT_URL=your_redirect_url
 ```
+
+Use a `From` email on the verified Resend subdomain `info.addugeneteshop.com`.
 
 ## 📸 Screenshots
 

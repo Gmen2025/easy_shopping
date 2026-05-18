@@ -50,6 +50,17 @@ NODE_ENV=production
 PORT=3001
 ```
 
+#### 4.1 Email Delivery (Resend)
+Set these for verification and password reset emails:
+```
+RESEND_API_KEY=your-resend-api-key
+EMAIL_FROM=noreply@info.addugeneteshop.com
+EMAIL_REPLY_TO=support@addugeneteshop.com
+```
+
+`EMAIL_FROM` must use your verified Resend subdomain `info.addugeneteshop.com`.
+If your backend currently hardcodes a different sender, replace it with `process.env.EMAIL_FROM`.
+
 #### 5. Cloudinary (Required for Product Image Upload)
 Set these in Render for signed uploads (`POST /api/v1/sign`):
 ```
