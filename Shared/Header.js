@@ -401,6 +401,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(0, 0, 0, 0.1)',
         position: 'relative',
+        marginLeft: Platform.OS === 'ios' ? 6 : 12,
     },
     notificationBadge: {
         position: 'absolute',
