@@ -46,16 +46,18 @@ const OrderCard = (props) => {
 
     if (props.status == "3") {
       setOrderStatus(<TrafficLight unavailable></TrafficLight>);
-      setStatusText("pending");
+      setStatusText("delivered");
       setCardColor("#E74C3C");
+      
     } else if (props.status == "2") {
       setOrderStatus(<TrafficLight limited></TrafficLight>);
       setStatusText("shipped");
       setCardColor("#F1C40F");
     } else {
       setOrderStatus(<TrafficLight available></TrafficLight>);
-      setStatusText("delivered");
+      setStatusText("processing");
       setCardColor("#2ECC71");
+      
     }
 
     return () => {
@@ -118,9 +120,9 @@ const OrderCard = (props) => {
   };
 
   const getStatusLabel = (statusValue) => {
-    if (statusValue === "1") return "Delivered";
+    if (statusValue === "1") return "Processing";
     if (statusValue === "2") return "Shipped";
-    if (statusValue === "3") return "Pending";
+    if (statusValue === "3") return "Delivered";
     return "Updated";
   };
 
@@ -350,9 +352,9 @@ const OrderCard = (props) => {
               onValueChange={(itemValue) => setStatusChange(itemValue)}
             >
               <Picker.Item label="Select Status" value="" />
-              <Picker.Item label="Pending" value="3" />
+              <Picker.Item label="Processing" value="1" />
               <Picker.Item label="Shipped" value="2" />
-              <Picker.Item label="Delivered" value="1" />
+              <Picker.Item label="Delivered" value="3" />
             </Picker>
             <View style={styles.actionSection}>
               <View style={styles.buttonRow}>

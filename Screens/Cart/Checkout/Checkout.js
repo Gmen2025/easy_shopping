@@ -138,7 +138,7 @@ function Checkout(props) {
       orderId: `ORDER_${Date.now()}`, // Add orderId property
       shippingAddress1: address,
       shippingAddress2: address2,
-      status: "3",
+      status: "1",
       city,
       zip,
       country,
