@@ -29,22 +29,22 @@ const ResetPassword = (props) => {
     }
 
     // Verify token validity
-    verifyResetToken();
+    verifyResetToken(resetToken);
   }, [resetToken]);
 
-  const verifyResetToken = async () => {
+  const verifyResetToken = async (token) => {
     try {
-      const response = await axios.get(`${baseUrl}users/verify-reset-token?token=${resetToken}`);
+      const response = await axios.get(`${baseUrl}users/verify-reset-token?token=${token}`);
       
       if (response.status === 200) {
-        setFormData({ ...formData, tokenValid: true });
+        setFormData((prev) => ({ ...prev, tokenValid: true, step: "password" }));
       }
     } catch (error) {
-      setFormData({ 
-        ...formData, 
+      setFormData((prev) => ({ 
+        ...prev, 
         tokenValid: false, 
         error: error.response?.data?.message || "Invalid or expired reset link" 
-      });
+      }));
     }
   };
 
@@ -81,7 +81,7 @@ const ResetPassword = (props) => {
 
     try {
       const response = await axios.post(`${baseUrl}users/reset-password`, {
-        token: resetToken,
+        token: resetToken || formData.manualToken,
         password: formData.password,
       });
 

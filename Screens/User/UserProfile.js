@@ -147,15 +147,15 @@ const UserProfile = (props) => {
             <Text style={styles.buttonText}>Edit Profile</Text>
           </EasyButton>
 
-          <EasyButton
+          {/* <EasyButton
             tertiary
             large
-            onPress={() => props.navigation.navigate("ForgotPassword")}
+            onPress={() => props.navigation.navigate("ResetPassword")}
             style={styles.passwordButton}
           >
             <Icon name="key" size={16} color="white" style={{ marginRight: 8 }} />
             <Text style={styles.buttonText}>Change Password</Text>
-          </EasyButton>
+          </EasyButton> */}
         </View>
 
         {/* My Orders Section */}

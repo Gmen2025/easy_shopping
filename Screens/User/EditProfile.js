@@ -28,8 +28,19 @@ const EditProfile = (props) => {
   const [country, setCountry] = useState("");
 
   useEffect(() => {
-    // Prefill from first order if available
-    const fetchFirstOrder = async () => {
+    // Prefill from saved user profile first; fall back to most recent order
+    const prefillFields = async () => {
+      // If user already has saved address fields, use them directly
+      if (user.street || user.city || user.zip || user.country) {
+        setAddress(user.street || "");
+        setAddress2(user.apartment || "");
+        setCity(user.city || "");
+        setZip(user.zip || "");
+        setCountry(user.country || "");
+        return;
+      }
+
+      // Otherwise try to prefill from the most recent order
       try {
         const token = await AsyncStorage.getItem("token");
         const config = { headers: { Authorization: `Bearer ${token}` } };
@@ -40,66 +51,59 @@ const EditProfile = (props) => {
         const orders = res.data;
         if (orders && orders.length > 0) {
           const firstOrder = orders[0];
-          //console.log("First order found:", firstOrder);
           setAddress(firstOrder.shippingAddress1 || "");
           setAddress2(firstOrder.shippingAddress2 || "");
           setCity(firstOrder.city || "");
           setZip(firstOrder.zip || "");
           setCountry(firstOrder.country || "");
-        } else {
-          // fallback to user profile fields if no orders
-          setAddress(user.shippingAddress1 || "");
-          setAddress2(user.shippingAddress2 || "");
-          setCity(user.city || "");
-          setZip(user.zip || "");
-          setCountry(user.country || "");
         }
       } catch (err) {
-        // fallback to user profile fields if error
-        setAddress(user.shippingAddress1 || "");
-        setAddress2(user.shippingAddress2 || "");
-        setCity(user.city || "");
-        setZip(user.zip || "");
-        setCountry(user.country || "");
+        // no prefill available
       }
     };
 
     if (user._id) {
-      fetchFirstOrder();
+      prefillFields();
     }
-  }, [user]);
+  }, [user._id, user.street, user.apartment, user.city, user.zip, user.country]);
 
   // Add other fields as needed
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Implement save logic (API call to update user profile)
     const updatedUser = {
-      address,
-      address2,
+      street: address,
+      apartment: address2,
       city,
       zip,
       country,
     };
     console.log("Updated user data to save:", updatedUser);
-    // Example API call: add Toast messages for success/error
-    axios
-      .put(`${baseUrl}users/${user._id}`, updatedUser)
-      .then((res) => {
-        Toast.show({
-          type: "success",
-          text1: "Profile updated successfully",
-        });
-      })
-      .catch((err) => {
-        Toast.show({
-          type: "error",
-          text1: "Error updating profile",
-          text2: err.message,
-        });
+    
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      
+      const res = await axios.put(`${baseUrl}users/profile`, updatedUser, config);
+
+      // Refresh the in-memory user so screens show the updated values
+      await context.fetchUser(user._id, token);
+
+      Toast.show({
+        type: "success",
+        text1: "Profile updated successfully",
       });
 
-    // After saving, navigate back
-    props.navigation.goBack();
+      // After saving, navigate back
+      props.navigation.goBack();
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || err.message || "Error updating profile";
+      Toast.show({
+        type: "error",
+        text1: "Error updating profile",
+        text2: errorMessage,
+      });
+    }
   };
 
   return (
@@ -108,8 +112,8 @@ const EditProfile = (props) => {
         {/* Header */}
         <View style={styles.header}>
           <Icon name="map-marker" size={40} color="#8a6c09" />
-          <Text style={styles.headerTitle}>Shipping Address</Text>
-          <Text style={styles.headerSubtitle}>Update your delivery information</Text>
+          <Text style={styles.headerTitle}>Update Profile</Text>
+          <Text style={styles.headerSubtitle}>Update your information</Text>
         </View>
 
         {/* Address Section */}
