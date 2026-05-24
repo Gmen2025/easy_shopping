@@ -1,6 +1,6 @@
 import { StatusBar } from "expo-status-bar";
 import { Text, View, StyleSheet } from "react-native";
-import { useEffect, useState, useCallback, useContext } from "react";
+import { useEffect, useState, useCallback, useContext, useRef } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import Toast from "react-native-toast-message";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -30,6 +30,8 @@ import {
   addNotificationResponseListener,
   removeNotificationSubscription,
 } from "./assets/common/notifications";
+
+const NOTIFICATION_ITEMS_STORAGE_KEY = "notification_items";
 
 const linking = {
   prefixes: ['easyshopping://'],
@@ -148,10 +150,49 @@ const NotificationBootstrap = ({ onNotificationReceived, onNotificationOpened })
 export default function App() {
   const [dbRefreshKey, setDbRefreshKey] = useState(0);
   const [notificationItems, setNotificationItems] = useState([]);
+  const [notificationsHydrated, setNotificationsHydrated] = useState(false);
+  const lastSavedNotificationsJson = useRef(null);
 
   useEffect(() => {
     attachDatabaseInterceptor();
   }, []);
+
+  useEffect(() => {
+    const hydrateNotifications = async () => {
+      try {
+        const savedNotifications = await AsyncStorage.getItem(NOTIFICATION_ITEMS_STORAGE_KEY);
+        if (savedNotifications) {
+          const parsedNotifications = JSON.parse(savedNotifications);
+          if (Array.isArray(parsedNotifications)) {
+            setNotificationItems(parsedNotifications.slice(0, 20));
+            lastSavedNotificationsJson.current = savedNotifications;
+          }
+        }
+      } catch (error) {
+        console.warn("Failed to load saved notifications:", error?.message || error);
+      } finally {
+        setNotificationsHydrated(true);
+      }
+    };
+
+    hydrateNotifications();
+  }, []);
+
+  useEffect(() => {
+    if (!notificationsHydrated) {
+      return;
+    }
+
+    const payload = JSON.stringify(notificationItems.slice(0, 20));
+    if (payload === lastSavedNotificationsJson.current) {
+      return;
+    }
+
+    lastSavedNotificationsJson.current = payload;
+    AsyncStorage.setItem(NOTIFICATION_ITEMS_STORAGE_KEY, payload).catch((error) => {
+      console.warn("Failed to save notifications:", error?.message || error);
+    });
+  }, [notificationItems, notificationsHydrated]);
 
   const handleDatabaseChanged = useCallback(() => {
     setDbRefreshKey((prevKey) => prevKey + 1);
@@ -160,9 +201,13 @@ export default function App() {
   const addNotificationItem = useCallback((notification, { increaseUnread = false } = {}) => {
     const title = notification?.request?.content?.title || "New notification";
     const body = notification?.request?.content?.body || "You have a new update";
+    const notificationId =
+      notification?.request?.identifier ||
+      notification?.request?.content?.data?.orderId ||
+      `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
     const newItem = {
-      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      id: notificationId,
       title,
       body,
       receivedAt: new Date().toISOString(),

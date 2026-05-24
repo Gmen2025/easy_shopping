@@ -1,6 +1,5 @@
 import React, {useContext} from 'react'
-import { View, StyleSheet, Dimensions } from 'react-native';
-import { ScrollView } from 'react-native-gesture-handler';
+import { View, StyleSheet, Dimensions, ScrollView } from 'react-native';
 import { Text, Card, Divider, Avatar } from 'react-native-paper';
 import EasyButton from '../../../Shared/StyledComponenets/EasyButton';
 
