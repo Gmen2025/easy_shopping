@@ -26,6 +26,7 @@
     },
     "android": {
       "package": "com.addugenet.eshop",
+      "googleServicesFile": "./google-services.json",
       "icon": "./assets/addugenet1.png",
       "adaptiveIcon": {
         "foregroundImage": "./assets/addugenet1.png",
