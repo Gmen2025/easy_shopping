@@ -2,7 +2,7 @@
   "expo": {
     "name": "AdduGenet EShop",
     "slug": "AdduGenet-eshop",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/addugenet1.png",
     "userInterfaceStyle": "light",
@@ -14,7 +14,7 @@
     },
     "ios": {
       "bundleIdentifier": "com.addugenet.eshop",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "supportsTablet": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "We need your location to calculate shipping costs and provide relevant product recommendations.",
@@ -24,12 +24,8 @@
       },
       "icon": "./assets/addugenet1.png"
     },
-    "privacy": {
-      "url": "https://gmen2025.github.io/easy_shopping/privacy.html"
-    },
     "android": {
       "package": "com.addugenet.eshop",
-      "versionCode": 1,
       "icon": "./assets/addugenet1.png",
       "adaptiveIcon": {
         "foregroundImage": "./assets/addugenet1.png",
