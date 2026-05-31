@@ -50,7 +50,8 @@ const Orders = (props) => {
     const twoMonthsAgo = new Date();
     twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
     const ordersToDelete = orders.filter(
-      (order) => order.status === "1" && new Date(order.dateOrdered) < twoMonthsAgo
+      //Reminder-check the new status value and update
+      (order) => order.status === "3" && new Date(order.dateOrdered) < twoMonthsAgo
     );
     for (const order of ordersToDelete) {
       try {

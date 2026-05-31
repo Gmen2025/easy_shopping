@@ -66,6 +66,7 @@ const NotificationBootstrap = ({ onNotificationReceived, onNotificationOpened })
 
       if (pushToken) {
         console.log("Expo push token:", pushToken);
+        console.log("[PUSH_TOKEN_FOR_EXPO_TEST]", pushToken);
         if (!setupShown) {
           Toast.show({
             type: "success",
@@ -117,6 +118,9 @@ const NotificationBootstrap = ({ onNotificationReceived, onNotificationOpened })
       }
     };
 
+    //purpose is to ensure that the push token is registered and listeners are set up as soon as the app starts, 
+    // so that the app can receive notifications even if the user hasn't logged in yet. 
+    // The token will be synced with the server once the user logs in and we have their user ID and auth token available.
     initializeNotifications();
 
     return () => {
@@ -136,6 +140,7 @@ const NotificationBootstrap = ({ onNotificationReceived, onNotificationOpened })
       const pushToken = await getStoredPushToken();
 
       if (authToken && pushToken) {
+        console.log("[PUSH_TOKEN_FOR_EXPO_TEST_STORED]", pushToken);
         await syncPushTokenForUser(authContext.user._id, authToken, pushToken);
       }
     };
@@ -175,6 +180,8 @@ export default function App() {
       }
     };
 
+    // This will load the most recent notifications from storage when the app starts, 
+    // ensuring that the user sees their notifications even if they were received while the app was closed.
     hydrateNotifications();
   }, []);
 

@@ -264,8 +264,8 @@ const OrderCard = (props) => {
 
   // Check if order should be auto-deleted (delivered + 2 months old)
   const shouldAutoDelete = () => {
-    if (props.status === "1" && props.dateOrdered) {
-      // status 1 = delivered
+    if (props.status === "3" && props.dateOrdered) {
+      // status 3 = delivered
       const orderDate = new Date(props.dateOrdered);
       const twoMonthsAgo = new Date();
       twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);

@@ -18,7 +18,6 @@ expo-env.d.ts
 *.mobileprovision
 
 # Firebase
-google-services.json
 GoogleService-Info.plist
 
 # Metro

@@ -215,13 +215,13 @@ const Header = ({
                 </View>
 
                 {/* Centered Logo */}
-                <View style={styles.logoContainer}>
+                {/* <View style={styles.logoContainer}>
                     <Image
                         source={require('../assets/addugenet1.png')}
                         style={styles.logo}
                         resizeMode="contain"
                     />
-                </View>
+                </View> */}
                 
                 {/* Right side - Admin Controls or Spacer */}
                 <View style={styles.rightContainer}>

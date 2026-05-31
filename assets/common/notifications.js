@@ -8,6 +8,9 @@ import baseUrl from "./baseUrl";
 
 const PUSH_TOKEN_STORAGE_KEY = "expo_push_token";
 
+// Configure incoming notification behavior (e.g. show alert, play sound, etc.)
+// By default, notifications received while the app is in the foreground will not show an alert, play a sound, or set a badge.
+//  This configuration ensures that all notifications will trigger these behaviors regardless of the app state.
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -33,6 +36,7 @@ const isExpoGo = () => {
   );
 };
 
+// Android requires a notification channel to be set up for notifications to work properly.
 const setupAndroidChannel = async () => {
   if (Platform.OS !== "android") {
     return;
@@ -46,6 +50,7 @@ const setupAndroidChannel = async () => {
   });
 };
 
+// Register the device for push notifications and return the token or an error message.
 export const registerForPushNotifications = async () => {
   await setupAndroidChannel();
 
@@ -78,8 +83,11 @@ export const registerForPushNotifications = async () => {
     return { pushToken: null, error: "Missing EAS projectId in app config" };
   }
 
+  // The returned token is an Expo push token that can be used with Expo's push notification service.
   const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
   const pushToken = tokenResponse?.data || null;
+  
+  console.log("[PUSH_TOKEN_FOR_EXPO]", pushToken);
 
   if (pushToken) {
     await AsyncStorage.setItem(PUSH_TOKEN_STORAGE_KEY, pushToken);
@@ -134,14 +142,25 @@ export const syncPushTokenForUser = async (userId, authToken, pushToken) => {
   }
 };
 
+// This function can be used in the app's main component to sync the stored push token 
+// with the server whenever the user logs in or the app starts.
+// The listener will be called whenever a notification is received while the app is in the foreground (application open). 
 export const addNotificationReceivedListener = (listener) => {
+  JSON.stringify(listener);
+  console.log("Notification recieved while the app is running:", listener);
   return Notifications.addNotificationReceivedListener(listener);
 };
 
+
+// The listener will be called whenever a notification response is received (e.g., when the user taps on a notification).
 export const addNotificationResponseListener = (listener) => {
+  JSON.stringify(listener);
+  console.log("Notification response:", JSON.stringify(listener, null, 2), 
+  JSON.stringify(listener.notification.request.content.data, null, 2));
   return Notifications.addNotificationResponseReceivedListener(listener);
 };
 
+// Use the returned subscription object to remove the listener when it's no longer needed.
 export const removeNotificationSubscription = (subscription) => {
   if (subscription) {
     if (typeof subscription.remove === "function") {
