@@ -34,7 +34,7 @@ import {
 const NOTIFICATION_ITEMS_STORAGE_KEY = "notification_items";
 
 const linking = {
-  prefixes: ['easyshopping://'],
+  prefixes: ['addugeneteshop://', 'easyshopping://'],
   config: {
     screens: {
       PaymentSuccess: 'payment-success',
@@ -114,7 +114,15 @@ const NotificationBootstrap = ({ onNotificationReceived, onNotificationOpened })
 
       const authToken = await AsyncStorage.getItem("token");
       if (authToken) {
-        await syncPushTokenForUser(authContext.user._id, authToken, pushToken);
+        const syncResult = await syncPushTokenForUser(authContext.user._id, authToken, pushToken);
+        if (!syncResult?.ok) {
+          console.warn("Push token sync result:", syncResult);
+          Toast.show({
+            type: "error",
+            text1: "Push token sync failed",
+            text2: syncResult?.message || "Backend rejected push token",
+          });
+        }
       }
     };
 
@@ -141,7 +149,10 @@ const NotificationBootstrap = ({ onNotificationReceived, onNotificationOpened })
 
       if (authToken && pushToken) {
         console.log("[PUSH_TOKEN_FOR_EXPO_TEST_STORED]", pushToken);
-        await syncPushTokenForUser(authContext.user._id, authToken, pushToken);
+        const syncResult = await syncPushTokenForUser(authContext.user._id, authToken, pushToken);
+        if (!syncResult?.ok) {
+          console.warn("Stored push token sync result:", syncResult);
+        }
       }
     };
 

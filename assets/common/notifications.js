@@ -52,48 +52,54 @@ const setupAndroidChannel = async () => {
 
 // Register the device for push notifications and return the token or an error message.
 export const registerForPushNotifications = async () => {
-  await setupAndroidChannel();
+  try {
+    await setupAndroidChannel();
 
-  if (isExpoGo()) {
-    return {
-      pushToken: null,
-      error:
-        "Remote push notifications are not supported in Expo Go (SDK 53+). Use a development build.",
-    };
+    if (isExpoGo()) {
+      return {
+        pushToken: null,
+        error:
+          "Remote push notifications are not supported in Expo Go (SDK 53+). Use a development build.",
+      };
+    }
+
+    if (!Device.isDevice) {
+      return { pushToken: null, error: "Physical device is required" };
+    }
+
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+
+    if (existingStatus !== "granted") {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+
+    if (finalStatus !== "granted") {
+      return { pushToken: null, error: "Notification permission not granted" };
+    }
+
+    const projectId = getProjectId();
+    if (!projectId) {
+      return { pushToken: null, error: "Missing EAS projectId in app config" };
+    }
+
+    // The returned token is an Expo push token that can be used with Expo's push notification service.
+    const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
+    const pushToken = tokenResponse?.data || null;
+
+    console.log("[PUSH_TOKEN_FOR_EXPO]", pushToken);
+
+    if (pushToken) {
+      await AsyncStorage.setItem(PUSH_TOKEN_STORAGE_KEY, pushToken);
+    }
+
+    return { pushToken, error: null };
+  } catch (error) {
+    const message = error?.message || String(error);
+    console.warn("Push registration failed:", message);
+    return { pushToken: null, error: `Push setup failed: ${message}` };
   }
-
-  if (!Device.isDevice) {
-    return { pushToken: null, error: "Physical device is required" };
-  }
-
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
-
-  if (existingStatus !== "granted") {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
-
-  if (finalStatus !== "granted") {
-    return { pushToken: null, error: "Notification permission not granted" };
-  }
-
-  const projectId = getProjectId();
-  if (!projectId) {
-    return { pushToken: null, error: "Missing EAS projectId in app config" };
-  }
-
-  // The returned token is an Expo push token that can be used with Expo's push notification service.
-  const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
-  const pushToken = tokenResponse?.data || null;
-  
-  console.log("[PUSH_TOKEN_FOR_EXPO]", pushToken);
-
-  if (pushToken) {
-    await AsyncStorage.setItem(PUSH_TOKEN_STORAGE_KEY, pushToken);
-  }
-
-  return { pushToken, error: null };
 };
 
 export const getStoredPushToken = async () => {
@@ -102,7 +108,7 @@ export const getStoredPushToken = async () => {
 
 export const syncPushTokenForUser = async (userId, authToken, pushToken) => {
   if (!userId || !authToken || !pushToken) {
-    return false;
+    return { ok: false, message: "Missing user/auth/push token" };
   }
 
   try {
@@ -118,11 +124,16 @@ export const syncPushTokenForUser = async (userId, authToken, pushToken) => {
     });
 
     if (!primaryResponse.ok && primaryResponse.status !== 404) {
-      return false;
+      const text = await primaryResponse.text();
+      return {
+        ok: false,
+        message: `Push token sync failed (${primaryResponse.status})`,
+        details: text,
+      };
     }
 
     if (primaryResponse.ok) {
-      return true;
+      return { ok: true, route: "users/:id/push-token" };
     }
 
     const fallbackResponse = await fetch(`${baseUrl}users/${userId}`, {
@@ -132,13 +143,18 @@ export const syncPushTokenForUser = async (userId, authToken, pushToken) => {
     });
 
     if (!fallbackResponse.ok) {
-      return false;
+      const text = await fallbackResponse.text();
+      return {
+        ok: false,
+        message: `Push token fallback sync failed (${fallbackResponse.status})`,
+        details: text,
+      };
     }
 
-    return true;
+    return { ok: true, route: "users/:id" };
   } catch (error) {
     console.warn("Push token sync failed:", error?.message || error);
-    return false;
+    return { ok: false, message: error?.message || String(error) };
   }
 };
 
@@ -146,18 +162,31 @@ export const syncPushTokenForUser = async (userId, authToken, pushToken) => {
 // with the server whenever the user logs in or the app starts.
 // The listener will be called whenever a notification is received while the app is in the foreground (application open). 
 export const addNotificationReceivedListener = (listener) => {
-  JSON.stringify(listener);
-  console.log("Notification recieved while the app is running:", listener);
-  return Notifications.addNotificationReceivedListener(listener);
+  return Notifications.addNotificationReceivedListener((notification) => {
+    console.log(
+      "Notification received while app is running:",
+      JSON.stringify(notification?.request?.content || {}, null, 2)
+    );
+
+    if (typeof listener === "function") {
+      listener(notification);
+    }
+  });
 };
 
 
 // The listener will be called whenever a notification response is received (e.g., when the user taps on a notification).
 export const addNotificationResponseListener = (listener) => {
-  JSON.stringify(listener);
-  console.log("Notification response:", JSON.stringify(listener, null, 2), 
-  JSON.stringify(listener.notification.request.content.data, null, 2));
-  return Notifications.addNotificationResponseReceivedListener(listener);
+  return Notifications.addNotificationResponseReceivedListener((response) => {
+    console.log(
+      "Notification response: user interacted with notification",
+      JSON.stringify(response?.notification?.request?.content || {}, null, 2)
+    );
+
+    if (typeof listener === "function") {
+      listener(response);
+    }
+  });
 };
 
 // Use the returned subscription object to remove the listener when it's no longer needed.

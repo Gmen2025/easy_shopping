@@ -155,29 +155,67 @@ const OrderCard = (props) => {
       },
     };
 
+    const candidateRoutes = [
+      "notifications/admin/send-user",
+      "admin/notifications/send-user",
+      "notifications/send",
+    ];
+
     try {
-      const response = await axios.post(
-        `${baseUrl}notifications/admin/send-user`,
-        {
-          userId,
-          title: "Order update",
-          body: `Your order #${props._id} status is ${statusLabel}.`,
-          data: {
-            type: "admin_manual_order_update",
-            orderId: String(props._id),
-            status: statusLabel,
-          },
-        },
-        config
-      );
+      let response;
+      let lastError;
+
+      for (const route of candidateRoutes) {
+        try {
+          response = await axios.post(
+            `${baseUrl}${route}`,
+            {
+              userId,
+              title: "Order update",
+              body: `Your order #${props._id} status is ${statusLabel}.`,
+              data: {
+                type: "admin_manual_order_update",
+                orderId: String(props._id),
+                status: statusLabel,
+              },
+            },
+            config
+          );
+          break;
+        } catch (error) {
+          lastError = error;
+          if (error?.response?.status !== 404) {
+            throw error;
+          }
+        }
+      }
+
+      if (!response) {
+        throw lastError || new Error("No notification route matched on backend");
+      }
 
       const sentCount = response?.data?.sent || 0;
-      if (sentCount > 0) {
+      const acceptedCount = response?.data?.accepted ?? sentCount;
+      const failedCount = response?.data?.failed || 0;
+      const firstTicketError = response?.data?.tickets?.find((ticket) => ticket?.status === "error");
+      const ticketErrorMessage =
+        firstTicketError?.details?.error ||
+        firstTicketError?.message ||
+        null;
+
+      if (acceptedCount > 0) {
         Toast.show({
           topOffset: 60,
           type: "success",
           text1: "Notification sent",
-          text2: `Delivered to ${sentCount} device(s)`,
+          text2: `Accepted ${acceptedCount}/${sentCount} device(s)`,
+        });
+      } else if (failedCount > 0) {
+        Toast.show({
+          topOffset: 60,
+          type: "error",
+          text1: "Notification provider rejected request",
+          text2: ticketErrorMessage || `Failed for ${failedCount} device(s)`,
         });
       } else {
         Toast.show({
