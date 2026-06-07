@@ -5,7 +5,7 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
 ## 📱 Features
 
 ### Customer Features
-- **Product Browsing**: Browse products by category with search and filter
+- **Product Browsing**: Browse products by category with search and advanced dropdown filters
 - **Shopping Cart**: Add, remove, and manage cart items
 - **Secure Checkout**: Multi-step checkout with address and payment
 - **Multiple Payment Options**: 
@@ -54,7 +54,7 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/YOUR_USERNAME/easy_shopping.git
+git clone https://github.com/Gmen2025/easy_shopping.git
 cd easy_shopping
 ```
 
@@ -248,13 +248,17 @@ CVC: Any 3 digits
 - [ ] Push notifications
 - [ ] Wishlist functionality
 - [ ] Product reviews and ratings
-- [ ] Advanced search filters
 - [ ] Multiple language support (Amharic, Oromo)
 - [ ] Real-time chat support
 - [ ] Loyalty program
 - [ ] Social media integration
 
 ## 📝 Changelog
+
+### Version 1.1.0 (June 2026)
+- Product search experience refined
+- Advanced filters now open as a dropdown below search controls
+- Improved product listing filter UX and layout stability
 
 ### Version 1.0.0 (December 2025)
 - Initial release
@@ -287,7 +291,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 👥 Authors
 
-- **Your Name** - *Initial work* - [YourGitHub](https://github.com/yourusername)
+- **AdduGenet Team** - *Core development* - [Gmen2025](https://github.com/Gmen2025)
 
 ## 🙏 Acknowledgments
 
@@ -299,7 +303,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 **Built with ❤️ in Ethiopia**
 
-*For the latest updates and documentation, visit our [GitHub repository](https://github.com/YOUR_USERNAME/easy_shopping)*
+*For the latest updates and documentation, visit our [GitHub repository](https://github.com/Gmen2025/easy_shopping)*
 
 ## ☁️ Cloudinary Direct Uploads
 
@@ -325,6 +329,19 @@ console.log('uploaded', result.secure_url);
 ```
 
 curl example (after obtaining `signature` + `timestamp` from your signer):
+
+```bash
+curl -X POST "https://api.cloudinary.com/v1_1/<cloud_name>/image/upload" \
+   -F "file=@/path/to/photo.jpg" \
+   -F "api_key=<api_key>" \
+   -F "timestamp=<timestamp>" \
+   -F "signature=<signature>" \
+   -F "folder=mobile_uploads"
+```
+
+Security notes:
+- Do not embed `CLOUDINARY_API_SECRET` in the app. Issue signatures from server after authenticating the user.
+- The included signer already filters allowed params; restrict further as needed for your app.
 
 ## Push Notifications Backend Example
 
@@ -364,17 +381,4 @@ Production notes:
 - Replace in-memory token storage with your database.
 - Protect all routes with your JWT auth middleware.
 - Remove invalid tokens when Expo receipts return `DeviceNotRegistered`.
-
-```bash
-curl -X POST "https://api.cloudinary.com/v1_1/<cloud_name>/image/upload" \
-   -F "file=@/path/to/photo.jpg" \
-   -F "api_key=<api_key>" \
-   -F "timestamp=<timestamp>" \
-   -F "signature=<signature>" \
-   -F "folder=mobile_uploads"
-```
-
-Security notes:
-- Do not embed `CLOUDINARY_API_SECRET` in the app. Issue signatures from server after authenticating the user.
-- The included signer already filters allowed params; restrict further as needed for your app.
 
