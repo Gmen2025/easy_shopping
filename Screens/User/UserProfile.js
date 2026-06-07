@@ -28,8 +28,22 @@ import UserOrderDisplay from "../../Shared/UserOrderDisplay";
 const UserProfile = (props) => {
   const context = useContext(AuthContext);
   const dispatch = useDispatch();
+  const privacyPolicyUrl = "https://gmen2025.github.io/easy_shopping/privacy.html";
+  const accountDeletionUrl = "https://gmen2025.github.io/easy_shopping/account-deletion.html";
 
   const [orders, setOrders] = useState();
+
+  const openExternalLink = async (url) => {
+    try {
+      await Linking.openURL(url);
+    } catch (error) {
+      Toast.show({
+        type: "error",
+        text1: "Unable to open link",
+        text2: "Please try again in a moment.",
+      });
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -133,6 +147,38 @@ const UserProfile = (props) => {
               <Text style={styles.profileValue}>{context.user ? context.user.phone : "—"}</Text>
             </View>
           </View>
+        </View>
+
+        {/* Privacy & Account Links */}
+        <View style={styles.supportSection}>
+          <View style={styles.sectionHeader}>
+            <Icon name="shield" size={20} color="#8a6c09" />
+            <Text style={styles.sectionTitle}>Privacy & Account</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.contactItem}
+            onPress={() => openExternalLink(privacyPolicyUrl)}
+          >
+            <Icon name="file-text-o" size={16} color="#8a6c09" style={{ marginRight: 12 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.contactLabel}>Policy</Text>
+              <Text style={styles.contactValue}>Privacy Policy</Text>
+            </View>
+            <Icon name="external-link" size={14} color="#888" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.contactItem}
+            onPress={() => openExternalLink(accountDeletionUrl)}
+          >
+            <Icon name="user-times" size={16} color="#8a6c09" style={{ marginRight: 12 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.contactLabel}>Account</Text>
+              <Text style={styles.contactValue}>Account Deletion</Text>
+            </View>
+            <Icon name="external-link" size={14} color="#888" />
+          </TouchableOpacity>
         </View>
 
         {/* Action Buttons */}

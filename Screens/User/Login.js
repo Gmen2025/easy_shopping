@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Linking } from "react-native";
 import { AuthContext } from "../../Context/store/Auth";
 import FormContainer from "../../Shared/Form/FormContainer";
 import Input from "../../Shared/Form/Input";
@@ -9,6 +9,7 @@ import Icon from "react-native-vector-icons/FontAwesome";
 
 const Login = (props) => {
   const { login, loading, isAuthenticated, error: contextError } = useContext(AuthContext);
+  const privacyPolicyUrl = "https://gmen2025.github.io/easy_shopping/privacy.html";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -32,6 +33,14 @@ const Login = (props) => {
       login(email, password);
     } else {
       setError("Please fill in all fields");
+    }
+  };
+
+  const openPrivacyPolicy = async () => {
+    try {
+      await Linking.openURL(privacyPolicyUrl);
+    } catch (linkError) {
+      setError("Unable to open Privacy Policy right now.");
     }
   };
 
@@ -116,6 +125,10 @@ const Login = (props) => {
           >
             <Text style={styles.backButtonText}>Continue as Guest</Text>
           </EasyButton>
+
+          <Text style={styles.privacyText} onPress={openPrivacyPolicy}>
+            Privacy Policy
+          </Text>
         </View>
       </ScrollView>
     </FormContainer>
@@ -268,6 +281,14 @@ const styles = StyleSheet.create({
   backButtonText: {
     color: '#8a6c09',
     fontSize: 14,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  privacyText: {
+    marginTop: 12,
+    textAlign: 'center',
+    color: '#5a6c7d',
+    fontSize: 13,
     fontWeight: '600',
     textDecorationLine: 'underline',
   },

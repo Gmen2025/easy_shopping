@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from "react";
-import { View, Text, TextInput, Button, StyleSheet, ScrollView, Platform } from "react-native";
+import { View, Text, Alert, StyleSheet, ScrollView, Platform } from "react-native";
 import { AuthContext } from "../../Context/store/Auth";
 import Input from "../../Shared/Form/Input";
 import EasyButton from "../../Shared/StyledComponenets/EasyButton";
@@ -18,6 +18,7 @@ const EditProfile = (props) => {
   const context = useContext(AuthContext);
   //console.log("EditProfile context user:", context.user);
   const user = context.user || {};
+  const currentUserId = user._id || user.id || user?.user?._id || user?.user?.id;
   //const [name, setName] = useState(user.name || "");
   //const [phone, setPhone] = useState(user.phone || "");
   //const [email, setEmail] = useState(user.user || "");
@@ -26,6 +27,7 @@ const EditProfile = (props) => {
   const [city, setCity] = useState("");
   const [zip, setZip] = useState("");
   const [country, setCountry] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   useEffect(() => {
     // Prefill from saved user profile first; fall back to most recent order
@@ -45,7 +47,7 @@ const EditProfile = (props) => {
         const token = await AsyncStorage.getItem("token");
         const config = { headers: { Authorization: `Bearer ${token}` } };
         const res = await axios.get(
-          `${baseUrl}orders/get/userorders/${user._id}`,
+          `${baseUrl}orders/get/userorders/${currentUserId}`,
           config
         );
         const orders = res.data;
@@ -62,10 +64,10 @@ const EditProfile = (props) => {
       }
     };
 
-    if (user._id) {
+    if (currentUserId) {
       prefillFields();
     }
-  }, [user._id, user.street, user.apartment, user.city, user.zip, user.country]);
+  }, [currentUserId, user.street, user.apartment, user.city, user.zip, user.country]);
 
   // Add other fields as needed
 
@@ -87,7 +89,9 @@ const EditProfile = (props) => {
       const res = await axios.put(`${baseUrl}users/profile`, updatedUser, config);
 
       // Refresh the in-memory user so screens show the updated values
-      await context.fetchUser(user._id, token);
+      if (currentUserId) {
+        await context.fetchUser(currentUserId, token);
+      }
 
       Toast.show({
         type: "success",
@@ -104,6 +108,116 @@ const EditProfile = (props) => {
         text2: errorMessage,
       });
     }
+  };
+
+  const performDeleteAccount = async () => {
+    if (!currentUserId) {
+      Toast.show({
+        type: "error",
+        text1: "Delete failed",
+        text2: "User session is missing. Please log in again.",
+      });
+      return;
+    }
+
+    setDeletingAccount(true);
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        throw new Error("Authentication token not found");
+      }
+
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const deleteEndpoints = [
+        `${baseUrl}users/${currentUserId}`,
+        `${baseUrl}users/me`,
+        `${baseUrl}users/profile`,
+      ];
+
+      let deleted = false;
+      let lastError = null;
+
+      for (const endpoint of deleteEndpoints) {
+        try {
+          await axios.delete(endpoint, config);
+          deleted = true;
+          break;
+        } catch (error) {
+          lastError = error;
+          const status = error?.response?.status;
+          const backendMessage = String(error?.response?.data?.message || "").toLowerCase();
+
+          // Some backends return authorization-like responses on unsupported self-delete routes.
+          // Continue to the next endpoint until one matches the server's expected contract.
+          if (
+            status === 401 ||
+            status === 403 ||
+            backendMessage.includes("only delete your account") ||
+            backendMessage.includes("not authorized")
+          ) {
+            continue;
+          }
+
+          if (status === 404 || status === 405) {
+            continue;
+          }
+          throw error;
+        }
+      }
+
+      if (!deleted) {
+        throw lastError || new Error("No matching delete account endpoint found");
+      }
+
+      await AsyncStorage.removeItem("token");
+      context.logout();
+
+      Toast.show({
+        type: "success",
+        text1: "Account deleted",
+        text2: "Your account has been removed successfully.",
+      });
+
+      props.navigation.reset({
+        index: 0,
+        routes: [{ name: "Home" }],
+      });
+    } catch (err) {
+      const errorMessage =
+        err.response?.data?.message ||
+        err.message ||
+        "We could not delete your account right now.";
+
+      Toast.show({
+        type: "error",
+        text1: "Delete failed",
+        text2: errorMessage,
+      });
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
+
+  const confirmDeleteAccount = () => {
+    if (deletingAccount) {
+      return;
+    }
+
+    Alert.alert(
+      "Delete Account",
+      "This action is permanent and cannot be undone. Are you sure you want to delete your account?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: performDeleteAccount,
+        },
+      ]
+    );
   };
 
   return (
@@ -186,6 +300,15 @@ const EditProfile = (props) => {
             style={styles.cancelButton}
           >
             <Text style={styles.cancelButtonText}>Cancel</Text>
+          </EasyButton>
+
+          <EasyButton
+            onPress={confirmDeleteAccount}
+            style={[styles.deleteButton, deletingAccount && styles.deleteButtonDisabled]}
+          >
+            <Text style={styles.deleteButtonText}>
+              {deletingAccount ? "Deleting Account..." : "Delete Account"}
+            </Text>
           </EasyButton>
         </View>
       </ScrollView>
@@ -276,6 +399,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },
+  deleteButton: {
+    marginTop: 10,
+    paddingVertical: 14,
+    backgroundColor: '#c0392b',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#9e2f23',
+  },
+  deleteButtonDisabled: {
+    opacity: 0.65,
+  },
   buttonText: {
     color: 'white',
     fontSize: 16,
@@ -285,6 +419,11 @@ const styles = StyleSheet.create({
     color: '#8a6c09',
     fontSize: 16,
     fontWeight: '600',
+  },
+  deleteButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
   },
   buttnGroup: {
     width: "80%",

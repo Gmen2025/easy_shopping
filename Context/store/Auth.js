@@ -1,4 +1,4 @@
-import React, { createContext, useReducer } from "react";
+import React, { createContext, useReducer, useEffect } from "react";
 import axios from "axios";
 import baseUrl from "../../assets/common/baseUrl";
 import AsyncStorage from "@react-native-async-storage/async-storage"; //Store data in the device
@@ -64,6 +64,31 @@ const authReducer = (state, action) => {
 export const AuthProvider = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
+  const restoreSession = async () => {
+    dispatch({ type: "FETCH_USER_START" });
+    try {
+      const token = await AsyncStorage.getItem("token");
+
+      if (!token) {
+        dispatch({ type: "LOGOUT" });
+        return;
+      }
+
+      const profileResponse = await axios.get(`${baseUrl}users/profile`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      dispatch({ type: "LOGIN_SUCCESS", payload: profileResponse.data });
+    } catch (error) {
+      await AsyncStorage.removeItem("token");
+      dispatch({ type: "LOGOUT" });
+    }
+  };
+
+  useEffect(() => {
+    restoreSession();
+  }, []);
+
   const login = async (email, password) => {
     dispatch({ type: "LOGIN_START" });
     try {
@@ -72,7 +97,7 @@ export const AuthProvider = ({ children }) => {
         password,
       });
       dispatch({ type: "LOGIN_SUCCESS", payload: res.data });
-      AsyncStorage.setItem("token", res.data.token);
+      await AsyncStorage.setItem("token", res.data.token);
     } catch (error) {
       dispatch({
         type: "LOGIN_FAIL",
@@ -115,7 +140,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ ...state, login, register, logout, fetchUser }}>
+    <AuthContext.Provider value={{ ...state, login, register, logout, fetchUser, restoreSession }}>
       {children}
     </AuthContext.Provider>
   );
