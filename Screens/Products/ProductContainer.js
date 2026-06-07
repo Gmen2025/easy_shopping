@@ -7,6 +7,9 @@ import {
   Text,
   Dimensions,
   TouchableOpacity,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
@@ -26,6 +29,10 @@ import getImageUrl from "../../assets/common/getImageUrl";
 //const productsCategories = require("../../assets/data/categories.json");
 
 var { width } = Dimensions.get("window");
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const ProductContainer = (props) => {
   const defaultAdvancedFilters = {
@@ -132,6 +139,11 @@ const ProductContainer = (props) => {
   const clearSearch = () => {
     setSearchKeyword("");
     setFocus(false);
+  };
+
+  const toggleAdvancedFilters = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setShowAdvancedFilters((prev) => !prev);
   };
 
   const handleAdvancedFilterChange = (key, value) => {
@@ -264,13 +276,13 @@ const ProductContainer = (props) => {
             />
             <TouchableOpacity
               style={styles.advancedToggle}
-              onPress={() => setShowAdvancedFilters((prev) => !prev)}
+              onPress={toggleAdvancedFilters}
             >
-              <Text style={styles.advancedToggleText}>
-                {showAdvancedFilters ? "Hide Filters" : "Advanced Filters"}
-              </Text>
+              <View style={styles.advancedToggleInner}>
+                <Text style={styles.advancedToggleText}>Advanced Filters</Text>
+                <Text style={styles.advancedToggleIcon}>{showAdvancedFilters ? "▲" : "▼"}</Text>
+              </View>
             </TouchableOpacity>
-            <Text style={styles.resultMeta}>{filteredProducts.length} products found</Text>
             <AdvancedFilters
               visible={showAdvancedFilters}
               filters={advancedFilters}
@@ -279,6 +291,7 @@ const ProductContainer = (props) => {
               onReset={resetAdvancedFilters}
               onToggle={() => setShowAdvancedFilters(false)}
             />
+            <Text style={styles.resultMeta}>{filteredProducts.length} products found</Text>
             {focus == true ? (
               <SearchedProducts
                 productsFiltered={filteredProducts}
@@ -343,7 +356,6 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1, // Ensure the container takes up the full screen
-    flexWrap: "wrap",
     backgroundColor: "#f3f6fb",
   },
   heroHeader: {
@@ -393,14 +405,24 @@ const styles = StyleSheet.create({
     marginTop: 8,
     backgroundColor: "goldenrod",
     borderRadius: 10,
-    alignItems: "center",
     paddingVertical: 11,
+    paddingHorizontal: 12,
+  },
+  advancedToggleInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   advancedToggleText: {
     color: "white",
     fontWeight: "700",
     fontSize: 14,
     letterSpacing: 0.2,
+  },
+  advancedToggleIcon: {
+    color: "white",
+    fontWeight: "700",
+    fontSize: 13,
   },
   resultMeta: {
     marginHorizontal: 12,

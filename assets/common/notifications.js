@@ -88,7 +88,7 @@ export const registerForPushNotifications = async () => {
     const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
     const pushToken = tokenResponse?.data || null;
 
-    console.log("[PUSH_TOKEN_FOR_EXPO]", pushToken);
+    console.log("Push token obtained:", pushToken);
 
     if (pushToken) {
       await AsyncStorage.setItem(PUSH_TOKEN_STORAGE_KEY, pushToken);

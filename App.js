@@ -65,8 +65,6 @@ const NotificationBootstrap = ({ onNotificationReceived, onNotificationOpened })
       }
 
       if (pushToken) {
-        console.log("Expo push token:", pushToken);
-        console.log("[PUSH_TOKEN_FOR_EXPO_TEST]", pushToken);
         if (!setupShown) {
           Toast.show({
             type: "success",
@@ -148,7 +146,6 @@ const NotificationBootstrap = ({ onNotificationReceived, onNotificationOpened })
       const pushToken = await getStoredPushToken();
 
       if (authToken && pushToken) {
-        console.log("[PUSH_TOKEN_FOR_EXPO_TEST_STORED]", pushToken);
         const syncResult = await syncPushTokenForUser(authContext.user._id, authToken, pushToken);
         if (!syncResult?.ok) {
           console.warn("Stored push token sync result:", syncResult);

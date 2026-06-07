@@ -87,6 +87,7 @@ const styles = StyleSheet.create({
   container: {
     width: width / 2 - 20,
     minHeight: width / 1.38,
+    // height: 150,
     padding: 10,
     borderRadius: 14,
     marginTop: 18,
@@ -132,15 +133,14 @@ const styles = StyleSheet.create({
   },
   title: {
     marginTop: 8,
-    fontWeight: "bold",
-    fontSize: 14,
+    fontWeight: "multi",
+    fontSize: 10,
     color: "#333",
     minHeight: 38,
   },
   price: {
-    fontSize: 19,
+    fontSize: 10,
     color: "#8a6c09",
-    marginTop: 2,
     fontWeight: "700",
   },
   buttonWrap: {
@@ -159,9 +159,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   unavailableText: {
-    marginTop: 10,
+    marginTop: 2,
     color: "#7a8699",
-    fontWeight: "600",
+    fontWeight: "multi",
   },
 });
 

@@ -58,6 +58,7 @@ const AdvancedFilters = ({
         <Text style={styles.label}>Brand</Text>
         <View style={styles.pickerWrapper}>
           <Picker
+            mode="dropdown"
             selectedValue={filters.brand}
             onValueChange={(value) => onFilterChange("brand", value)}
           >
@@ -73,6 +74,7 @@ const AdvancedFilters = ({
         <Text style={styles.label}>Minimum Rating</Text>
         <View style={styles.pickerWrapper}>
           <Picker
+            mode="dropdown"
             selectedValue={filters.minRating}
             onValueChange={(value) => onFilterChange("minRating", value)}
           >
@@ -90,6 +92,7 @@ const AdvancedFilters = ({
         <Text style={styles.label}>Sort By</Text>
         <View style={styles.pickerWrapper}>
           <Picker
+            mode="dropdown"
             selectedValue={filters.sortBy}
             onValueChange={(value) => onFilterChange("sortBy", value)}
           >
@@ -128,8 +131,8 @@ const AdvancedFilters = ({
 const styles = StyleSheet.create({
   container: {
     marginHorizontal: 10,
-    marginTop: 8,
-    marginBottom: 20,
+    marginTop: 0,
+    marginBottom: 8,
     padding: 12,
     borderRadius: 12,
     backgroundColor: "#ffffff",
