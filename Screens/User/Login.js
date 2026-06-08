@@ -38,7 +38,8 @@ const Login = (props) => {
 
   const openPrivacyPolicy = async () => {
     try {
-      await Linking.openURL(privacyPolicyUrl);
+      const cacheBustedUrl = `${privacyPolicyUrl}${privacyPolicyUrl.includes("?") ? "&" : "?"}v=${Date.now()}`;
+      await Linking.openURL(cacheBustedUrl);
     } catch (linkError) {
       setError("Unable to open Privacy Policy right now.");
     }

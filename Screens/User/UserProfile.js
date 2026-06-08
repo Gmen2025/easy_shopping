@@ -35,7 +35,8 @@ const UserProfile = (props) => {
 
   const openExternalLink = async (url) => {
     try {
-      await Linking.openURL(url);
+      const cacheBustedUrl = `${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}`;
+      await Linking.openURL(cacheBustedUrl);
     } catch (error) {
       Toast.show({
         type: "error",
