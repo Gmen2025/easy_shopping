@@ -28,6 +28,43 @@ const OrderCard = (props) => {
   const [cardColor, setCardColor] = useState();
   const [orderItemValues, setOrderItemValues] = useState([]);
   const { formatPrice } = useCurrency();
+  const orderItemsCount = Array.isArray(props.orderItems)
+    ? props.orderItems.length
+    : 0;
+
+  const formatOrderDateTime = (value) => {
+    if (!value) {
+      return "N/A";
+    }
+
+    const parsedDate = new Date(value);
+    if (Number.isNaN(parsedDate.getTime())) {
+      return "N/A";
+    }
+
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+
+    const day = String(parsedDate.getDate()).padStart(2, "0");
+    const month = months[parsedDate.getMonth()];
+    const year = parsedDate.getFullYear();
+    const hours = String(parsedDate.getHours()).padStart(2, "0");
+    const minutes = String(parsedDate.getMinutes()).padStart(2, "0");
+
+    return `${day} ${month} ${year}, ${hours}:${minutes}`;
+  };
 
   const order = props.order || {};
 
@@ -352,7 +389,7 @@ const OrderCard = (props) => {
           Status: {statusText} {orderStatus}
         </Text>
         <Text style={styles.label}>
-          Date Ordered: {props.dateOrdered.split("T")[0]}
+          Date Ordered: {formatOrderDateTime(props.dateOrdered)}
         </Text>
         {props.editMode && (
           <>
@@ -367,7 +404,7 @@ const OrderCard = (props) => {
         <Text>City: {props.city || "N/A"}</Text>
         <Text>Country: {props.country || "N/A"}</Text>
         <Text variant="bodyLarge" style={styles.label}>
-          Order Items: {props.orderItems}
+          Order Items: {orderItemsCount}
         </Text>
         <UserOrderItems orderId={props._id} />
         <View style={styles.priceContainer}>
