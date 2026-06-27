@@ -7,7 +7,7 @@ import {
   ScrollView,
   Dimensions,
 } from "react-native";
-import { CardField, useStripe } from "@stripe/stripe-react-native";
+import Constants from "expo-constants";
 import { Card, Button, Divider, Avatar } from "react-native-paper";
 import EasyButton from "../../../Shared/StyledComponenets/EasyButton";
 import FormContainer from "../../../Shared/Form/FormContainer";
@@ -24,7 +24,60 @@ import { useCurrency } from "../../../assets/common/currency";
 
 const width = Dimensions.get("window").width;
 
-const StripePayment = (props) => {
+const isExpoGo = () => {
+  return (
+    Constants?.appOwnership === "expo" ||
+    Constants?.executionEnvironment === "storeClient"
+  );
+};
+
+const stripeModule = (() => {
+  if (isExpoGo()) {
+    return null;
+  }
+
+  try {
+    return require("@stripe/stripe-react-native");
+  } catch (error) {
+    console.warn("Stripe module unavailable:", error?.message || error);
+    return null;
+  }
+})();
+
+const CardField = stripeModule?.CardField;
+const useStripe = stripeModule?.useStripe;
+
+const StripeUnavailable = ({ navigation }) => {
+  return (
+    <FormContainer title="Stripe Payment">
+      <View style={styles.container}>
+        <View style={styles.summaryCard}>
+          <Text style={styles.paymentTitle}>Card Payment Unavailable</Text>
+          <Text style={styles.summaryHint}>
+            Stripe checkout is not supported inside Expo Go for this app.
+          </Text>
+        </View>
+
+        <View style={styles.inputCard}>
+          <Text style={styles.emptyStateText}>
+            Open the project in a development build to use card payments, or go back and choose another payment method.
+          </Text>
+        </View>
+
+        <EasyButton
+          secondary
+          large
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
+          <Text style={styles.backButtonText}>Back</Text>
+        </EasyButton>
+      </View>
+    </FormContainer>
+  );
+};
+
+const StripePaymentSupported = (props) => {
   const { confirmPayment } = useStripe();
   const [loading, setLoading] = useState(false);
   const [orderProcessing, setOrderProcessing] = useState(false);
@@ -478,6 +531,14 @@ const StripePayment = (props) => {
       </View>
     </FormContainer>
   );
+};
+
+const StripePayment = (props) => {
+  if (!CardField || !useStripe) {
+    return <StripeUnavailable navigation={props.navigation} />;
+  }
+
+  return <StripePaymentSupported {...props} />;
 };
 
 const styles = StyleSheet.create({

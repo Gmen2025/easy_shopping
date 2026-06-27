@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useContext, useRef } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import Toast from "react-native-toast-message";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
 
 //Redux
 import { Provider } from "react-redux";
@@ -12,7 +13,6 @@ import { store } from "./store/redux/store"; // Adjust the path as necessary
 //Context API
 import { AuthProvider } from "./Context/store/Auth";
 import { AuthContext } from "./Context/store/Auth";
-import { StripeProvider } from "@stripe/stripe-react-native";
 import { TelebirrProvider } from "./Context/store/Telebirr";
 
 import { Linking } from 'react-native';
@@ -32,6 +32,28 @@ import {
 } from "./assets/common/notifications";
 
 const NOTIFICATION_ITEMS_STORAGE_KEY = "notification_items";
+
+const isExpoGo = () => {
+  return (
+    Constants?.appOwnership === "expo" ||
+    Constants?.executionEnvironment === "storeClient"
+  );
+};
+
+const createStripeProvider = () => {
+  if (isExpoGo()) {
+    return ({ children }) => children;
+  }
+
+  try {
+    return require("@stripe/stripe-react-native").StripeProvider;
+  } catch (error) {
+    console.warn("Stripe provider unavailable:", error?.message || error);
+    return ({ children }) => children;
+  }
+};
+
+const StripeProvider = createStripeProvider();
 
 const linking = {
   prefixes: ['addugeneteshop://', 'easyshopping://'],
