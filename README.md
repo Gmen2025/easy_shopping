@@ -7,10 +7,12 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
 ### Customer Features
 - **Product Browsing**: Browse products by category with search and advanced dropdown filters
 - **Shopping Cart**: Add, remove, and manage cart items
+- **Live Stock Visibility**: Product cards and product detail screens show current inventory left
 - **Secure Checkout**: Multi-step checkout with address and payment
 - **Multiple Payment Options**: 
   - Credit/Debit cards via Stripe
   - Telebirr mobile money
+- **Checkout Stock Guard**: Prevents checkout/payment when requested quantity exceeds available stock
 - **User Accounts**: Registration, login, email verification
 - **Order Tracking**: View order history and status
 - **Profile Management**: Edit profile and manage addresses
@@ -20,6 +22,8 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
 - **Product Management**: Add, edit, delete products
 - **Category Management**: Manage product categories
 - **Order Management**: View all orders, update status, delete orders
+- **Low Stock Monitor**: Dedicated low-stock screen with configurable minimum threshold
+- **Low Stock Badge**: Admin tab badge shows current low-stock count
 - **Auto Cleanup**: Automatic deletion of old delivered orders (2+ months)
 
 ### Security Features
@@ -29,6 +33,7 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
 - Secure payment processing
 - Cart persistence per user
 - HTTPS encryption
+- Order-time stock validation before payment/transaction proceeds
 
 ## 🛠️ Tech Stack
 
@@ -242,6 +247,7 @@ CVC: Any 3 digits
 
 - Free tier Render backend may sleep after inactivity (30-60s wake up time)
 - First API call may be slow on cold start
+- During backend wake-up, temporary `503` errors may occur; app now retries transient failures with backoff and shows friendly status messages
 
 ## 🔮 Future Enhancements
 
@@ -254,6 +260,16 @@ CVC: Any 3 digits
 - [ ] Social media integration
 
 ## 📝 Changelog
+
+### Version 1.2.0 (June 2026)
+- Fixed cart visibility/state consistency issues across product and cart screens
+- Added inventory-aware checkout validation to block over-quantity orders before transaction
+- Added post-order inventory deduction in checkout completion flows
+- Added admin low-stock workflow:
+   - Dedicated Low Stock screen
+   - Configurable minimum stock threshold
+   - Admin tab low-stock badge with instant refresh on threshold updates
+- Added resilient API retry handling for transient `503/5xx` backend responses
 
 ### Version 1.1.0 (June 2026)
 - Product search experience refined
