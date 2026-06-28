@@ -12,6 +12,7 @@ import baseUrl from '../../../assets/common/baseUrl';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCheckout } from '../../../Context/store/CheckoutContext'; // Import the useCheckout hook
 import { useCurrency } from '../../../assets/common/currency';
+import { deductInventoryFromOrder, validateOrderStock } from '../../../assets/common/inventory';
 
 
 
@@ -36,6 +37,22 @@ const Confirm = (props) => {
       // For example, you might want to dispatch an action to save the order in your Redux store
       // or navigate to a different screen after placing the order
       
+      const token = await AsyncStorage.getItem("token");
+      const stockValidation = await validateOrderStock({
+        orderItems: order.orderItems,
+        token,
+      });
+
+      if (!stockValidation.ok) {
+        Toast.show({
+          topOffset: 60,
+          type: "error",
+          text1: "Reduce item quantity",
+          text2: stockValidation.message || "Some items exceed available stock.",
+        });
+        return;
+      }
+
       //const orderInfo = order.order;
       const orderItem = {
         ...order,
@@ -48,13 +65,26 @@ const Confirm = (props) => {
 
       
       console.log("Order to submit: ", orderItem);
-      const token = await AsyncStorage.getItem("token");
       axios
       .post(`${baseUrl}orders`, orderItem, {
         headers: {Authorization: `Bearer ${token}`}
       })
-      .then((res) => {
+      .then(async (res) => {
         if(res.status == 200 || res.status == 201){
+          const inventoryResult = await deductInventoryFromOrder({
+            orderItems: order.orderItems,
+            token,
+          });
+
+          if (!inventoryResult.ok) {
+            Toast.show({
+              topOffset: 60,
+              type: "info",
+              text1: "Order placed",
+              text2: "Some stock counts could not be updated",
+            });
+          }
+
           Toast.show({
             topOffset: 60,
             type: "success",

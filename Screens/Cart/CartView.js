@@ -35,20 +35,21 @@ const CartView = (props) => {
   // Clear cart when user changes (different user logs in)
   useEffect(() => {
     const checkAndClearCart = async () => {
-      const currentUserId = context.user?._id;
+      const currentUserId = context.user?._id ?? null;
       const cartUserId = await AsyncStorage.getItem('cartUserId');
       
-      // If there's a different user or user logged out, clear cart
-      if (currentUserId !== cartUserId) {
+      // Clear only when there is a previously tracked user and it changed/logged out
+      if (cartUserId !== null && currentUserId !== cartUserId) {
         if (cartItems.length > 0) {
           dispatch(clearCart());
         }
-        // Update the stored user ID
-        if (currentUserId) {
-          await AsyncStorage.setItem('cartUserId', currentUserId);
-        } else {
-          await AsyncStorage.removeItem('cartUserId');
-        }
+      }
+
+      // Update the stored user ID for authenticated users only
+      if (currentUserId) {
+        await AsyncStorage.setItem('cartUserId', currentUserId);
+      } else {
+        await AsyncStorage.removeItem('cartUserId');
       }
     };
     
@@ -74,9 +75,14 @@ const CartView = (props) => {
   }, []);
 
   // Access the cart items from the Redux store
-  const productsData = products.filter(product => 
-    cartItems.some(cartItem => cartItem.id === product._id)  
-  ); // Filter products to match cart items
+  const productsData = products.length > 0
+    ? products.filter(product =>
+        cartItems.some(cartItem => cartItem.id === product._id)
+      )
+    : cartItems.map((cartItem) => ({
+        ...cartItem,
+        _id: cartItem._id || cartItem.id,
+      }));
 
   //console.log('cartItems:', cartItems.map(i => i.id));
   //console.log('products:', products.map(p => p._id));
@@ -113,8 +119,9 @@ return (
       <FlatList
         data={productsData}
         renderItem={({ item }) => {
+          const itemId = item._id || item.id;
           const quantity =
-            cartItems.find((cartItem) => cartItem.id === item._id)?.quantity ||
+            cartItems.find((cartItem) => cartItem.id === itemId)?.quantity ||
             1;
           return (
             <View style={styles.rowItem}>
@@ -135,7 +142,7 @@ return (
               </View>
               <View style={styles.actions}>
                 <Button
-                  onPress={() => handleDeductQuantity(item._id)}
+                  onPress={() => handleDeductQuantity(itemId)}
                   mode="outlined"
                 >
                   -
@@ -144,7 +151,7 @@ return (
             </View>
           );
         }}
-        keyExtractor={(item) => item._id}
+        keyExtractor={(item) => String(item._id || item.id)}
         contentContainerStyle={styles.listContent}
       />
     )}
@@ -154,8 +161,9 @@ return (
           Grand Total: {currencySymbol} 
           {productsData
             .reduce((total, item) => {
+              const itemId = item._id || item.id;
               const quantity =
-                cartItems.find((cartItem) => cartItem.id === item._id)
+                cartItems.find((cartItem) => cartItem.id === itemId)
                   ?.quantity || 1;
               return total + item.price * quantity;
             }, 0)

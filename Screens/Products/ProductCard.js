@@ -20,6 +20,7 @@ const ProductCard = (props) => {
   const imageUrl = getImageUrl(props);
   const dispatch = useDispatch(); // Import the action to add items to the cart
   const { formatPrice } = useCurrency();
+  const stockCount = Number(countInStock || 0);
 
   const handleAddToCart = () => {
     const product = {
@@ -55,17 +56,17 @@ const ProductCard = (props) => {
         <Text
           style={[
             styles.stockBadge,
-            countInStock > 0 ? styles.stockIn : styles.stockOut,
+            stockCount > 0 ? styles.stockIn : styles.stockOut,
           ]}
         >
-          {countInStock > 0 ? "In Stock" : "Out of Stock"}
+          {stockCount > 0 ? `${stockCount} left` : "Out of Stock"}
         </Text>
       </View>
       <Text style={styles.title}>
         {name.length > 32 ? name.substring(0, 29) + "..." : name}
       </Text>
       <Text style={styles.price}>{formatPrice(price)}</Text>
-      {countInStock > 0 ? (
+      {stockCount > 0 ? (
         <View style={styles.buttonWrap}>
           <EasyButton
             primary

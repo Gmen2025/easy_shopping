@@ -13,6 +13,7 @@ import { useSelector } from "react-redux"; // Assuming you are using Redux to ma
 import axios from "axios";
 import baseUrl from "../../../assets/common/baseUrl";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { validateOrderStock } from "../../../assets/common/inventory";
 
 function Checkout(props) {
   const context = useContext(AuthContext);
@@ -110,7 +111,7 @@ function Checkout(props) {
     return items.reduce((acc, item) => acc + item.price * item.quantity, 0);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Validate form fields
     if (!address || !city || !zip || !country || !phone) {
       Toast.show({
@@ -128,6 +129,21 @@ function Checkout(props) {
         type: "error",
         text1: "Your cart is empty",
         text2: "Add items to your cart before checking out",
+      });
+      return;
+    }
+
+    const stockValidation = await validateOrderStock({
+      orderItems,
+      token,
+    });
+
+    if (!stockValidation.ok) {
+      Toast.show({
+        topOffset: 60,
+        type: "error",
+        text1: "Reduce item quantity",
+        text2: stockValidation.message || "Some items exceed available stock.",
       });
       return;
     }

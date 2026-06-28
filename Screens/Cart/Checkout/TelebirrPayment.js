@@ -17,6 +17,7 @@ import Toast from "react-native-toast-message";
 import axios from "axios";
 import baseUrl from "../../../assets/common/baseUrl";
 import { useCurrency } from "../../../assets/common/currency";
+import { deductInventoryFromOrder, validateOrderStock } from "../../../assets/common/inventory";
 
 const TelebirrPayment = (props) => {
   // Change from destructured props to props
@@ -80,6 +81,20 @@ const TelebirrPayment = (props) => {
       });
 
       if (response.status === 200 || response.status === 201) {
+        const inventoryResult = await deductInventoryFromOrder({
+          orderItems: orderData.orderItems,
+          token,
+        });
+
+        if (!inventoryResult.ok) {
+          Toast.show({
+            topOffset: 60,
+            type: "info",
+            text1: "Order placed",
+            text2: "Some stock counts could not be updated",
+          });
+        }
+
         Toast.show({
           topOffset: 60,
           type: "success",
@@ -133,6 +148,20 @@ const TelebirrPayment = (props) => {
       const token = await AsyncStorage.getItem("token");
       if (!token) {
         Alert.alert("Error", "Please login first");
+        setLoading(false);
+        return;
+      }
+
+      const stockValidation = await validateOrderStock({
+        orderItems: orderData.orderItems,
+        token,
+      });
+
+      if (!stockValidation.ok) {
+        Alert.alert(
+          "Reduce item quantity",
+          stockValidation.message || "Some items exceed available stock."
+        );
         setLoading(false);
         return;
       }

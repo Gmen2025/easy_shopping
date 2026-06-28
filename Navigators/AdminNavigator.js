@@ -6,6 +6,7 @@ import Orders from "../Screens/Admin/Orders";
 import Categories from "../Screens/Admin/Categories";
 import ProductForm from "../Screens/Admin/ProductForm";
 import BroadcastNotifications from "../Screens/Admin/BroadcastNotifications";
+import LowStock from "../Screens/Admin/LowStock";
 import SingleProduct from "../Screens/Products/SingleProduct";
 
 const Stack = createStackNavigator();
@@ -66,6 +67,18 @@ function MyStack() {
           title: 'Product Form',
           headerTintColor: '#e6c20eff',
           headerTitleAlign: 'center', // This centers the title on both Android and iOS
+          headerTitleStyle:{
+            color:'#e6c20eff'
+          }
+        }}
+      />
+      <Stack.Screen
+        name="LowStock"
+        component={LowStock}
+        options={{
+          title: 'Low Stock',
+          headerTintColor: '#e6c20eff',
+          headerTitleAlign: 'center',
           headerTitleStyle:{
             color:'#e6c20eff'
           }

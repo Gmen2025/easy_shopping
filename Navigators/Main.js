@@ -4,6 +4,7 @@ import {View} from 'react-native'
 import Icon from 'react-native-vector-icons/FontAwesome'
 
 import CartIcon from '../Shared/CartIcon'
+import AdminLowStockBadge from '../Shared/AdminLowStockBadge'
 import {AuthContext} from '../Context/store/Auth'
 
 import HomeNavigator from './HomeNavigator'
@@ -70,11 +71,14 @@ const Main = () => {
           options={{
             tabBarIcon: ({ color }) => {
               return (
-                <Icon
-                  name="cog"
-                  color={color}
-                  size={30}
-                />
+                <View style={{ width: 30, height: 30 }}>
+                  <Icon
+                    name="cog"
+                    color={color}
+                    size={30}
+                  />
+                  <AdminLowStockBadge />
+                </View>
               );
             },
           }}

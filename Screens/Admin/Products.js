@@ -17,6 +17,7 @@ import axios from "axios";
 import baseUrl from "../../assets/common/baseUrl";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import getImageUrl from "../../assets/common/getImageUrl";
+import { getWithRetry, isServiceUnavailableError } from "../../assets/common/requestRetry";
 
 var { height, width } = Dimensions.get("window");
 
@@ -43,16 +44,25 @@ const Products = (props) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState();
   const [search, setSearch] = useState("");
+  const [loadError, setLoadError] = useState("");
 
   useFocusEffect(
     useCallback(() => {
+      let mounted = true;
       AsyncStorage.getItem("token")
         .then((res) => setToken(res))
         .catch((error) => console.log(error));
 
-      axios
-        .get(`${baseUrl}products`)
-        .then((res) => {
+      const loadProducts = async () => {
+        setLoading(true);
+        setLoadError("");
+
+        try {
+          const res = await getWithRetry(`${baseUrl}products`, {}, { retries: 2, delayMs: 1200 });
+          if (!mounted) {
+            return;
+          }
+
           const fetchedProducts = Array.isArray(res.data) ? res.data : res.data.products;
           const normalizedProducts = (fetchedProducts || []).map((product) => ({
             ...product,
@@ -60,14 +70,33 @@ const Products = (props) => {
           }));
           setProductList(normalizedProducts);
           setProductFilter(normalizedProducts);
-          setLoading(false);
-        })
-        .catch(() => console.log("Api call error"));
+        } catch (error) {
+          if (!mounted) {
+            return;
+          }
+
+          if (isServiceUnavailableError(error)) {
+            setLoadError("Server is waking up. Please retry in a few seconds.");
+          } else {
+            setLoadError("Could not load products right now.");
+          }
+          setProductList([]);
+          setProductFilter([]);
+        } finally {
+          if (mounted) {
+            setLoading(false);
+          }
+        }
+      };
+
+      loadProducts();
 
       return () => {
+        mounted = false;
         setProductList();
         setProductFilter();
         setLoading(true);
+        setLoadError("");
       };
     }, [])
   );
@@ -93,6 +122,7 @@ const Products = (props) => {
         <Text style={styles.headerSubtitle}>
           {productFilter ? `${productFilter.length} products` : "Loading…"}
         </Text>
+        {loadError ? <Text style={styles.headerError}>{loadError}</Text> : null}
       </View>
 
       {/* Action buttons */}
@@ -114,6 +144,12 @@ const Products = (props) => {
           label="Categories"
           color="#e65100"
           onPress={() => props.navigation.navigate("Categories")}
+        />
+        <ActionButton
+          icon="exclamation-triangle"
+          label="Low Stock"
+          color="#9c1c1c"
+          onPress={() => props.navigation.navigate("LowStock")}
         />
       </View>
 
@@ -189,24 +225,34 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 2,
   },
+  headerError: {
+    color: "#ffe0e0",
+    fontSize: 12,
+    marginTop: 6,
+    fontWeight: "600",
+  },
   actionRow: {
     flexDirection: "row",
-    justifyContent: "space-around",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
     backgroundColor: "#fff",
     paddingVertical: 12,
     paddingHorizontal: 10,
     borderBottomWidth: 1,
     borderBottomColor: "#e9dfc4",
+    rowGap: 8,
   },
   actionBtn: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 6,
     paddingVertical: 7,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     borderRadius: 20,
     borderWidth: 1.5,
     backgroundColor: "#fff",
+    width: "48%",
   },
   actionBtnText: {
     fontSize: 13,

@@ -15,7 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 
 import baseUrl from "../../assets/common/baseUrl";
-import axios from "axios";
+import { getWithRetry, isServiceUnavailableError } from "../../assets/common/requestRetry";
 
 import { Searchbar } from "react-native-paper";
 import ProductList from "./ProductList";
@@ -54,6 +54,7 @@ const ProductContainer = (props) => {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [advancedFilters, setAdvancedFilters] = useState(defaultAdvancedFilters);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   const extractId = (value) => {
     if (!value) {
@@ -74,44 +75,64 @@ const ProductContainer = (props) => {
   //initializing the products when the applivation is loaded
   useFocusEffect((
     useCallback(() => {
+    let mounted = true;
+
     // Reset state variables
     setFocus(false); //initial value when loaded the application
     setActive(-1);
+    setLoadError("");
 
-    // Fetch products from the API
-    axios
-      .get(`${baseUrl}products`)
-      .then((res) => {
-        const fetchedProducts = Array.isArray(res.data)
-          ? res.data
-          : res.data.products;
+    const loadCatalog = async () => {
+      if (mounted) {
+        setLoading(true);
+      }
+
+      try {
+        const [productsRes, categoriesRes] = await Promise.all([
+          getWithRetry(`${baseUrl}products`, {}, { retries: 2, delayMs: 1200 }),
+          getWithRetry(`${baseUrl}categories`, {}, { retries: 1, delayMs: 800 }),
+        ]);
+
+        if (!mounted) {
+          return;
+        }
+
+        const fetchedProducts = Array.isArray(productsRes.data)
+          ? productsRes.data
+          : productsRes.data.products;
         const normalizedProducts = (fetchedProducts || []).map((product) => ({
           ...product,
           image: getImageUrl(product),
         }));
         setProducts(normalizedProducts);
-        setLoading(false); // Set loading to false after fetching products
-      })
-      .catch((err) => {
-        console.log("API call error: ", err);
-        console.log("url is: ", `${baseUrl}products`);
-        setLoading(false);
-      });
 
-      //Categories API call
-      axios
-      .get(`${baseUrl}categories`)
-      .then((res) => {
-        const fetchedCategories = Array.isArray(res.data)
-          ? res.data
-          : res.data.categories;
+        const fetchedCategories = Array.isArray(categoriesRes.data)
+          ? categoriesRes.data
+          : categoriesRes.data.categories;
         setCategories(fetchedCategories || []);
-      }).catch((err) => {
-        console.log("API call error: ", err);
-      });
+        setLoadError("");
+      } catch (err) {
+        if (!mounted) {
+          return;
+        }
+
+        if (isServiceUnavailableError(err)) {
+          setLoadError("Server is waking up. Please retry in a few seconds.");
+        } else {
+          setLoadError("Could not load products right now. Please try again.");
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadCatalog();
 
 
     return () => {
+      mounted = false;
       // cleanup to avoid memory leaks or remaining cach in the browser
       setProducts([]);
       setFocus(false);
@@ -121,6 +142,7 @@ const ProductContainer = (props) => {
       setSelectedCategoryId(null);
       setShowAdvancedFilters(false);
       setAdvancedFilters(defaultAdvancedFilters);
+      setLoadError("");
     };
     }, 
     [],
@@ -291,6 +313,11 @@ const ProductContainer = (props) => {
               onReset={resetAdvancedFilters}
               onToggle={() => setShowAdvancedFilters(false)}
             />
+            {loadError ? (
+              <View style={styles.errorBanner}>
+                <Text style={styles.errorText}>{loadError}</Text>
+              </View>
+            ) : null}
             <Text style={styles.resultMeta}>{filteredProducts.length} products found</Text>
             {focus == true ? (
               <SearchedProducts
@@ -428,6 +455,21 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginTop: 8,
     color: "#5b6778",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  errorBanner: {
+    marginHorizontal: 10,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "#f4c7c3",
+    borderRadius: 10,
+    backgroundColor: "#fff1f0",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  errorText: {
+    color: "#a73f38",
     fontSize: 12,
     fontWeight: "600",
   },

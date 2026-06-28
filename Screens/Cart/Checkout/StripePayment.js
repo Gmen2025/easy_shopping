@@ -21,6 +21,7 @@ import axios from "axios";
 import { useContext } from "react";
 import { AuthContext } from "../../../Context/store/Auth";
 import { useCurrency } from "../../../assets/common/currency";
+import { deductInventoryFromOrder, validateOrderStock } from "../../../assets/common/inventory";
 
 const width = Dimensions.get("window").width;
 
@@ -158,6 +159,20 @@ const StripePaymentSupported = (props) => {
       });
 
       if (response.status === 200 || response.status === 201) {
+        const inventoryResult = await deductInventoryFromOrder({
+          orderItems: orderData.orderItems,
+          token,
+        });
+
+        if (!inventoryResult.ok) {
+          Toast.show({
+            topOffset: 60,
+            type: "info",
+            text1: "Order placed",
+            text2: "Some stock counts could not be updated",
+          });
+        }
+
         Toast.show({
           topOffset: 60,
           type: "success",
@@ -210,6 +225,19 @@ const StripePaymentSupported = (props) => {
 
       if (!token) {
         throw new Error("Authentication token not found");
+      }
+
+      const stockValidation = await validateOrderStock({
+        orderItems: orderData.orderItems,
+        token,
+      });
+
+      if (!stockValidation.ok) {
+        Alert.alert(
+          "Reduce item quantity",
+          stockValidation.message || "Some items exceed available stock."
+        );
+        return;
       }
 
       let intentResponse;

@@ -141,8 +141,9 @@ const SingleProduct = (props) => {
   // The useDispatch hook is used to dispatch the addToCart action
 
   const dispatch = useDispatch();
+  const stockCount = Number(item?.countInStock || 0);
   const handleAddToCart = () => {
-    if (item) {
+    if (item && stockCount > 0) {
       const product = {
         id: item._id, // Assuming each product has a unique id
         name: item.name,
@@ -219,6 +220,7 @@ const SingleProduct = (props) => {
               {availabality}
             </View>
           </View>
+          <Text style={styles.stockCountText}>{stockCount} left in stock</Text>
           <Text style={styles.description}>
             {item.description || "No Description Available"}
           </Text>
@@ -226,9 +228,13 @@ const SingleProduct = (props) => {
             {typeof item.price === "number" ? formatPrice(item.price) : "No Price Available"}
           </Text>
           <View style={styles.buttonContainer}>
-            <EasyButton onPress={handleAddToCart} tertiary medium style={styles.addButton}>
-              <Text style={styles.addButtonText}>Add to Cart</Text>
-            </EasyButton>
+            {stockCount > 0 ? (
+              <EasyButton onPress={handleAddToCart} tertiary medium style={styles.addButton}>
+                <Text style={styles.addButtonText}>Add to Cart</Text>
+              </EasyButton>
+            ) : (
+              <Text style={styles.outOfStockText}>Out of stock</Text>
+            )}
           </View>
         </View>
 
@@ -361,6 +367,12 @@ const styles = StyleSheet.create({
     color: "#334155",
     fontWeight: "600",
   },
+  stockCountText: {
+    color: "#1f7a45",
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 2,
+  },
   addButton: {
     borderRadius: 10,
     paddingVertical: 4,
@@ -369,6 +381,11 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontWeight: "700",
     fontSize: 13,
+  },
+  outOfStockText: {
+    color: "#c0392b",
+    fontWeight: "700",
+    fontSize: 14,
   },
   relatedCard: {
     marginTop: 12,
