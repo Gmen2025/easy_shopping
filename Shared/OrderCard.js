@@ -277,6 +277,131 @@ const OrderCard = (props) => {
     }
   };
 
+  const sendOrderDeletionNotification = async (config) => {
+    const userId = props.user?._id || props.user;
+    if (!userId) {
+      return { sent: false, reason: "missing_user_id" };
+    }
+
+    const candidateRoutes = [
+      "notifications/admin/send-user",
+      "admin/notifications/send-user",
+      "notifications/send",
+    ];
+
+    let lastError;
+    for (const route of candidateRoutes) {
+      try {
+        await axios.post(
+          `${baseUrl}${route}`,
+          {
+            userId,
+            title: "Order deleted",
+            body: `Your order #${props._id} was deleted. Contact support if this was unexpected.`,
+            data: {
+              type: "order_deleted",
+              orderId: String(props._id),
+            },
+          },
+          config
+        );
+        return { sent: true };
+      } catch (error) {
+        lastError = error;
+        if (error?.response?.status !== 404) {
+          break;
+        }
+      }
+    }
+
+    console.log(
+      "Order deletion notification failed:",
+      lastError?.response?.data || lastError?.message || "Unknown error"
+    );
+    return { sent: false, reason: "request_failed" };
+  };
+
+  const resolveOrderUserEmail = async (config) => {
+    const directEmail =
+      props.user?.email ||
+      props.email ||
+      (typeof props.user === "object" ? props.user?.user : null);
+
+    if (directEmail) {
+      return directEmail;
+    }
+
+    const userId = props.user?._id || (typeof props.user === "string" ? props.user : null);
+    if (!userId) {
+      return null;
+    }
+
+    try {
+      const response = await axios.get(`${baseUrl}users/${userId}`, config);
+      const user = response?.data?.user || response?.data || {};
+      return user?.email || user?.user || null;
+    } catch (error) {
+      console.log(
+        "Could not resolve user email for deletion:",
+        error?.response?.data || error?.message || "Unknown error"
+      );
+      return null;
+    }
+  };
+
+  const sendOrderDeletionEmail = async (config) => {
+    const userEmail = await resolveOrderUserEmail(config);
+    if (!userEmail) {
+      return { sent: false, reason: "missing_user_email" };
+    }
+
+    const userId = props.user?._id || (typeof props.user === "string" ? props.user : null);
+
+    const candidateRoutes = [
+      "notifications/admin/send-email",
+      "admin/notifications/send-email",
+      "notifications/send-email",
+      "emails/send",
+      "admin/send-email",
+      "admin/emails/send",
+    ];
+
+    let lastError;
+    for (const route of candidateRoutes) {
+      try {
+        const text = `Your order #${props._id} was deleted. If this was not expected, please contact support.`;
+        await axios.post(
+          `${baseUrl}${route}`,
+          {
+            to: userEmail,
+            email: userEmail,
+            recipient: userEmail,
+            userId,
+            orderId: String(props._id),
+            subject: "Order deleted",
+            text,
+            body: text,
+            message: text,
+            html: `<p>Your order <strong>#${props._id}</strong> was deleted.</p><p>If this was not expected, please contact support.</p>`,
+          },
+          config
+        );
+        return { sent: true };
+      } catch (error) {
+        lastError = error;
+        if (error?.response?.status !== 404) {
+          break;
+        }
+      }
+    }
+
+    console.log(
+      "Order deletion email failed:",
+      lastError?.response?.data || lastError?.message || "Unknown error"
+    );
+    return { sent: false, reason: "request_failed" };
+  };
+
   const confirmDeleteOrder = () => {
     Alert.alert(
       "Delete Order",
@@ -297,25 +422,58 @@ const OrderCard = (props) => {
   };
 
   const deleteOrder = async () => {
+    const fallbackEmail =
+      props.user?.email ||
+      props.email ||
+      props.customerEmail ||
+      null;
+    const fallbackName = props.user?.name || props.customerName || null;
+
     const config = {
       headers: {
         Authorization: `Bearer ${token}`,
+      },
+      data: {
+        notifyCustomer: true,
+        customerEmail: fallbackEmail,
+        customerName: fallbackName,
       },
     };
 
     try {
       const response = await axios.delete(
-        `${baseUrl}orders/${props._id}`,
+        `${baseUrl}orders/${props._id}?notifyCustomer=true`,
         config
       );
 
       if (response.status === 200) {
+        const [notificationResult, emailResult] = await Promise.all([
+          sendOrderDeletionNotification(config),
+          sendOrderDeletionEmail(config),
+        ]);
+
         Toast.show({
           topOffset: 60,
           type: "success",
           text1: "Order deleted",
           text2: "Order has been successfully deleted",
         });
+
+        if (notificationResult.sent || emailResult.sent) {
+          Toast.show({
+            topOffset: 60,
+            type: "success",
+            text1: "Customer notified",
+            text2: "Order deletion notification/email sent",
+          });
+        } else {
+          Toast.show({
+            topOffset: 60,
+            type: "info",
+            text1: "Order deleted",
+            text2: "Could not send email/notification",
+          });
+        }
 
         // Refresh the orders list if callback provided
         if (props.onDelete) {
@@ -361,14 +519,29 @@ const OrderCard = (props) => {
   const autoDeleteOrder = async () => {
     if (!token) return;
 
+    const fallbackEmail =
+      props.user?.email ||
+      props.email ||
+      props.customerEmail ||
+      null;
+    const fallbackName = props.user?.name || props.customerName || null;
+
     const config = {
       headers: {
         Authorization: `Bearer ${token}`,
       },
+      data: {
+        notifyCustomer: true,
+        customerEmail: fallbackEmail,
+        customerName: fallbackName,
+      },
     };
 
     try {
-      await axios.delete(`${baseUrl}orders/${props._id}`, config);
+      await axios.delete(
+        `${baseUrl}orders/${props._id}?notifyCustomer=true`,
+        config
+      );
       console.log(`Auto-deleted order ${props._id}`);
 
       if (props.onDelete) {

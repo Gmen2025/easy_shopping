@@ -24,6 +24,8 @@ import { useCurrency } from "../../../assets/common/currency";
 import { deductInventoryFromOrder, validateOrderStock } from "../../../assets/common/inventory";
 
 const width = Dimensions.get("window").width;
+const stripeCurrency =
+  Constants?.expoConfig?.extra?.stripeCurrency || "usd";
 
 const isExpoGo = () => {
   return (
@@ -246,7 +248,7 @@ const StripePaymentSupported = (props) => {
           `${baseUrl}stripe/create-payment-intent`,
           {
             amount: Math.round(Number(orderData.totalPrice || 0) * 100),
-            currency: "usd",
+            currency: String(stripeCurrency).toLowerCase(),
             orderId:
               orderData.orderId ||
               (typeof orderData._id === "string" &&

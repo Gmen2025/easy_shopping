@@ -2,6 +2,24 @@ const appJson = require("./app.json");
 
 module.exports = ({ config }) => {
   const baseConfig = appJson.expo || config || {};
+  const existingExtra = baseConfig.extra || {};
+
+  const stripePublishableKey =
+    process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
+    existingExtra.stripePublishableKey ||
+    "";
+
+  const stripeCurrency =
+    process.env.EXPO_PUBLIC_STRIPE_CURRENCY ||
+    existingExtra.stripeCurrency ||
+    "usd";
+
+  const telebirrMockEnabledRaw =
+    process.env.EXPO_PUBLIC_TELEBIRR_MOCK_ENABLED ??
+    existingExtra.telebirrMockEnabled ??
+    false;
+
+  const telebirrMockEnabled = String(telebirrMockEnabledRaw).toLowerCase() === "true";
 
   return {
     ...baseConfig,
@@ -12,6 +30,12 @@ module.exports = ({ config }) => {
         process.env.GOOGLE_SERVICES_JSON ||
         baseConfig.android?.googleServicesFile ||
         "./google-services.json",
+    },
+    extra: {
+      ...existingExtra,
+      stripePublishableKey,
+      stripeCurrency,
+      telebirrMockEnabled,
     },
   };
 };

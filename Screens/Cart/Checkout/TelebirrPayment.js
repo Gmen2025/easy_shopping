@@ -10,6 +10,7 @@ import {
   ScrollView,
   Linking,
 } from "react-native";
+import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useDispatch } from "react-redux";
 import { clearCart } from "../../../store/cartSlice";
@@ -25,8 +26,12 @@ const TelebirrPayment = (props) => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [orderProcessing, setOrderProcessing] = useState(false);
+  const [pendingTransactionId, setPendingTransactionId] = useState(null);
   const dispatch = useDispatch();
   const { formatPrice } = useCurrency();
+  const allowMockTelebirr =
+    String(Constants?.expoConfig?.extra?.telebirrMockEnabled || "false").toLowerCase() ===
+    "true";
 
   // Get order data from navigation params
   const orderData = props.route?.params?.order;
@@ -216,31 +221,25 @@ const TelebirrPayment = (props) => {
         // Check if response is JSON
         if (contentType && contentType.includes("application/json")) {
           const result = await response.json();
-          // In the initiatePayment function, update the success handling
           if (result.success) {
             console.log("Payment initiation successful:", result);
 
+            const transactionId =
+              result.transactionId ||
+              result.data?.transactionId ||
+              result.data?.prepayId ||
+              `TXN_${Date.now()}`;
+
+            setPendingTransactionId(transactionId);
+
             Alert.alert(
               "Payment Initiated",
-              `Payment request sent to ${phoneNumber}. Please complete the payment on your phone.`,
+              `Payment request sent to ${phoneNumber}. Complete payment in Telebirr, then tap \"Check Payment Status\".`,
               [
                 {
-                  text: "OK",
+                  text: "Open Telebirr",
                   onPress: () => {
-                    // Make sure we pass the correct transaction ID
-                    const transactionId =
-                      result.transactionId ||
-                      result.data?.transactionId ||
-                      `TXN_${Date.now()}`;
-                    console.log(
-                      "Using transaction ID for verification:",
-                      transactionId
-                    );
-
-                    handlePaymentInitiated({
-                      ...result,
-                      transactionId: transactionId,
-                    });
+                    handlePaymentInitiated({ ...result, transactionId });
                   },
                 },
               ]
@@ -271,23 +270,30 @@ const TelebirrPayment = (props) => {
           console.log("Network error - server might be down");
         }
 
-        // Mock payment for testing when API is not available
-        Alert.alert(
-          "Telebirr Payment Simulation",
-          `API Error: ${apiError.message}\n\nUsing mock payment for testing:\n\nCustomer: ${customerName}\nPhone: ${phoneNumber}\nAmount: ${formatPrice(orderData.totalPrice)}`,
-          [
-            {
-              text: "Cancel",
-              style: "cancel",
-            },
-            {
-              text: "Complete Mock Payment",
-              onPress: () => {
-                const mockTransactionId = `telebirr_mock_${Date.now()}`;
-                handlePaymentSuccess({ transactionId: mockTransactionId });
+        if (allowMockTelebirr) {
+          Alert.alert(
+            "Telebirr Payment Simulation",
+            `API Error: ${apiError.message}\n\nUsing mock payment for testing:\n\nCustomer: ${customerName}\nPhone: ${phoneNumber}\nAmount: ${formatPrice(orderData.totalPrice)}`,
+            [
+              {
+                text: "Cancel",
+                style: "cancel",
               },
-            },
-          ]
+              {
+                text: "Complete Mock Payment",
+                onPress: () => {
+                  const mockTransactionId = `telebirr_mock_${Date.now()}`;
+                  handlePaymentSuccess({ transactionId: mockTransactionId });
+                },
+              },
+            ]
+          );
+          return;
+        }
+
+        Alert.alert(
+          "Payment initiation failed",
+          apiError.message || "Could not start Telebirr payment"
         );
       }
     } catch (error) {
@@ -310,10 +316,7 @@ const TelebirrPayment = (props) => {
 
     console.log("Extracted transaction ID for verification:", transactionId);
 
-    // For demo purposes, we'll simulate success after 3 seconds
-    setTimeout(() => {
-      verifyPayment(paymentResult.transactionId);
-    }, 3000);
+    openPaymentUrl(paymentResult);
   };
 
   //Open payment URL in browser
@@ -326,9 +329,6 @@ const TelebirrPayment = (props) => {
         }
       }
 
-      setTimeout(() => {
-        verifyPayment(paymentData.transactionId);
-      }, 5000);
     } catch (error) {
       console.error("Error opening payment URL:", error);
       Alert.alert("Error", "Failed to open payment URL");
@@ -357,6 +357,7 @@ const TelebirrPayment = (props) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${await AsyncStorage.getItem("token")}`,
         },
         body: JSON.stringify(verificationData),
       });
@@ -383,13 +384,20 @@ const TelebirrPayment = (props) => {
     } catch (error) {
       console.error("Verification error:", error.message);
 
-      // For testing, assume success when verification fails
-      console.log("Verification failed, using mock success for testing");
-      handlePaymentSuccess({
-        transactionId: transactionId,
-        status: "completed",
-        message: "Mock verification due to API error",
-      });
+      if (allowMockTelebirr) {
+        console.log("Verification failed, using mock success for testing");
+        handlePaymentSuccess({
+          transactionId: transactionId,
+          status: "completed",
+          message: "Mock verification due to API error",
+        });
+        return;
+      }
+
+      Alert.alert(
+        "Verification failed",
+        error.message || "Could not verify Telebirr payment"
+      );
     }
   };
 
@@ -493,6 +501,18 @@ const TelebirrPayment = (props) => {
           )}
         </TouchableOpacity>
       </View>
+
+      {pendingTransactionId ? (
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[styles.button, styles.payButton, { width: "100%" }]}
+            onPress={() => verifyPayment(pendingTransactionId)}
+            disabled={loading || orderProcessing}
+          >
+            <Text style={styles.payButtonText}>Check Payment Status</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
     </ScrollView>
   );
 };

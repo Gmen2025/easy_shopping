@@ -30,13 +30,20 @@ const UserProfile = (props) => {
   const dispatch = useDispatch();
   const privacyPolicyUrl = "https://gmen2025.github.io/easy_shopping/privacy.html";
   const accountDeletionUrl = "https://gmen2025.github.io/easy_shopping/account-deletion.html";
+  const supportPhoneNumber = "251954141473";
+  const supportTelegramNumber = "251910588929";
+  const whatsappUrl = `https://wa.me/${supportPhoneNumber}`;
+  const telegramPhoneUrl = `tg://resolve?phone=%2B${supportTelegramNumber}`;
 
   const [orders, setOrders] = useState();
 
   const openExternalLink = async (url) => {
     try {
-      const cacheBustedUrl = `${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}`;
-      await Linking.openURL(cacheBustedUrl);
+      const isWebUrl = url.startsWith("http://") || url.startsWith("https://");
+      const finalUrl = isWebUrl
+        ? `${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}`
+        : url;
+      await Linking.openURL(finalUrl);
     } catch (error) {
       Toast.show({
         type: "error",
@@ -239,24 +246,48 @@ const UserProfile = (props) => {
           
           <TouchableOpacity 
             style={styles.contactItem}
-            onPress={() => Linking.openURL('mailto:girma.m.halie19@gmail.com')}
+            onPress={() => Linking.openURL('mailto:girmahalie2026@gmail.com')}
           >
             <Icon name="envelope" size={16} color="#8a6c09" style={{ marginRight: 12 }} />
             <View style={{ flex: 1 }}>
               <Text style={styles.contactLabel}>Email</Text>
-              <Text style={styles.contactValue}>girma.m.halie19@gmail.com</Text>
+              <Text style={styles.contactValue}>girmahalie2026@gmail.com</Text>
             </View>
             <Icon name="chevron-right" size={14} color="#888" />
           </TouchableOpacity>
 
           <TouchableOpacity 
             style={styles.contactItem}
-            onPress={() => Linking.openURL('tel:+251910588929')}
+            onPress={() => Linking.openURL('tel:+251954141473')}
           >
             <Icon name="phone" size={16} color="#8a6c09" style={{ marginRight: 12 }} />
             <View style={{ flex: 1 }}>
               <Text style={styles.contactLabel}>Phone</Text>
-              <Text style={styles.contactValue}>+251 910 588 929</Text>
+              <Text style={styles.contactValue}>+251 954 141 473</Text>
+            </View>
+            <Icon name="chevron-right" size={14} color="#888" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.contactItem}
+            onPress={() => openExternalLink(whatsappUrl)}
+          >
+            <Icon name="whatsapp" size={16} color="#8a6c09" style={{ marginRight: 12 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.contactLabel}>WhatsApp</Text>
+              <Text style={styles.contactValue}>Chat on WhatsApp</Text>
+            </View>
+            <Icon name="chevron-right" size={14} color="#888" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.contactItem}
+            onPress={() => openExternalLink(telegramPhoneUrl)}
+          >
+            <Icon name="telegram" size={16} color="#8a6c09" style={{ marginRight: 12 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.contactLabel}>Telegram</Text>
+              <Text style={styles.contactValue}>Message on Telegram</Text>
             </View>
             <Icon name="chevron-right" size={14} color="#888" />
           </TouchableOpacity>

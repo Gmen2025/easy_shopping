@@ -180,8 +180,9 @@ MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret
 
 # Payment
-STRIPE_SECRET_KEY=your_stripe_key
-USE_MOCK_TELEBIRR=true
+STRIPE_SECRET_KEY=sk_live_your_stripe_secret_key
+USE_MOCK_TELEBIRR=false
+USE_MOCK_SIGNING=false
 TELEBIRR_PRIVATE_KEY=your_telebirr_key
 
 # Email (Resend)
@@ -193,7 +194,14 @@ EMAIL_REPLY_TO=support@addugeneteshop.com
 FRONTEND_URL=your_frontend_url
 NOTIFY_URL=your_webhook_url
 REDIRECT_URL=your_redirect_url
+
+# Mobile app runtime (EAS/Expo)
+EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_your_stripe_publishable_key
+EXPO_PUBLIC_STRIPE_CURRENCY=usd
+EXPO_PUBLIC_TELEBIRR_MOCK_ENABLED=false
 ```
+
+For real transactions, do not use `sk_test_` or `pk_test_` keys in production builds.
 
 Use a `From` email on the verified Resend subdomain `info.addugeneteshop.com`.
 

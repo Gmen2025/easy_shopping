@@ -55,8 +55,13 @@ const Orders = (props) => {
     );
     for (const order of ordersToDelete) {
       try {
-        await axios.delete(`${baseUrl}orders/${order._id}`, {
+        await axios.delete(`${baseUrl}orders/${order._id}?notifyCustomer=true`, {
           headers: { Authorization: `Bearer ${token}` },
+          data: {
+            notifyCustomer: true,
+            customerEmail: order?.user?.email || order?.customerEmail || null,
+            customerName: order?.user?.name || null,
+          },
         });
       } catch (error) {
         console.log(`Failed to auto-delete order ${order._id}:`, error.message);

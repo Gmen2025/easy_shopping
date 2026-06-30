@@ -54,6 +54,9 @@ const createStripeProvider = () => {
 };
 
 const StripeProvider = createStripeProvider();
+const stripePublishableKey =
+  Constants?.expoConfig?.extra?.stripePublishableKey ||
+  "";
 
 const linking = {
   prefixes: ['addugeneteshop://', 'easyshopping://'],
@@ -289,7 +292,7 @@ export default function App() {
   return (
     <AuthProvider>
       <Provider store={store}>
-        <StripeProvider publishableKey="pk_test_51SHSJmPIAcOeDqNEp78RzlADjQOLU9wqMNAIRJgKcaNRqbuKSpeUT12SL4ggEGHlJzEnYZv7hBqbb7zdGT6naZQM00nES3vyDJ">
+        <StripeProvider publishableKey={stripePublishableKey}>
           <TelebirrProvider>
             <NotificationBootstrap
               onNotificationReceived={handleNotificationReceived}

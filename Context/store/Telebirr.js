@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState } from "react";
+import Constants from "expo-constants";
 import baseUrl from "../../assets/common/baseUrl";
 
 const TelebirrContext = createContext();
@@ -6,6 +7,9 @@ const TelebirrContext = createContext();
 export const TelebirrProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState(null);
+  const allowMockTelebirr =
+    String(Constants?.expoConfig?.extra?.telebirrMockEnabled || "false").toLowerCase() ===
+    "true";
 
   const initiateTelebirrPayment = async (paymentData, token) => {
     setLoading(true);
@@ -37,7 +41,10 @@ export const TelebirrProvider = ({ children }) => {
         }
 
         if (response.status === 403) {
-          // Handle forbidden access
+          if (!allowMockTelebirr) {
+            throw new Error("Forbidden: Telebirr payment endpoint is not accessible");
+          }
+
           console.log("403 Forbidden - using mock response for testing");
           const mockResponse = {
             success: true,
@@ -50,6 +57,10 @@ export const TelebirrProvider = ({ children }) => {
         }
 
         if (response.status === 404) {
+          if (!allowMockTelebirr) {
+            throw new Error("Telebirr payment endpoint not found");
+          }
+
           // Mock response for testing when API doesn't exist
           const mockResponse = {
             success: true,
@@ -71,8 +82,9 @@ export const TelebirrProvider = ({ children }) => {
 
       // Handle network errors by returning mock response
       if (
+        allowMockTelebirr &&
         error.message.includes("Network request failed") ||
-        error.message.includes("Failed to fetch")
+        (allowMockTelebirr && error.message.includes("Failed to fetch"))
       ) {
         console.log("Network error - using mock response");
         return {
@@ -107,6 +119,10 @@ export const TelebirrProvider = ({ children }) => {
           throw new Error("Unauthorized - Please login again");
         }
         if (response.status === 404 || response.status === 403) {
+          if (!allowMockTelebirr) {
+            throw new Error("Telebirr verification endpoint not available");
+          }
+
           // Mock verification for testing
           return {
             success: true,
@@ -124,8 +140,9 @@ export const TelebirrProvider = ({ children }) => {
     } catch (error) {
       // Return mock verification if API doesn't exist
       if (
+        allowMockTelebirr &&
         error.message.includes("Network request failed") ||
-        error.message.includes("404")
+        (allowMockTelebirr && error.message.includes("404"))
       ) {
         return {
           success: true,
