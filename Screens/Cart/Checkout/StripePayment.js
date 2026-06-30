@@ -6,6 +6,8 @@ import {
   StyleSheet,
   ScrollView,
   Dimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import Constants from "expo-constants";
 import { Card, Button, Divider, Avatar } from "react-native-paper";
@@ -125,6 +127,26 @@ const StripePaymentSupported = (props) => {
 
   const orderData = order || props.route?.params?.order;
 
+  const isMissingPaymentIntentError = (message) => {
+    if (!message) {
+      return false;
+    }
+
+    const normalized = String(message).toLowerCase();
+    return (
+      normalized.includes("no such payment_intent") ||
+      normalized.includes("no such payment intent") ||
+      normalized.includes("resource_missing")
+    );
+  };
+
+  const buildPaymentIntentOrderId = (suffix = "") => {
+    const baseOrderId =
+      orderData?.orderId ||
+      (typeof orderData?._id === "string" ? orderData._id : "checkout");
+    return `${baseOrderId}-${Date.now()}${suffix}`;
+  };
+
   console.log("Order in StripePayment:", orderData);
 
   // Function to place the order directly
@@ -242,20 +264,13 @@ const StripePaymentSupported = (props) => {
         return;
       }
 
-      let intentResponse;
-      try {
-        intentResponse = await axios.post(
+      const requestPaymentIntent = async (intentOrderId) => {
+        return axios.post(
           `${baseUrl}stripe/create-payment-intent`,
           {
             amount: Math.round(Number(orderData.totalPrice || 0) * 100),
             currency: String(stripeCurrency).toLowerCase(),
-            orderId:
-              orderData.orderId ||
-              (typeof orderData._id === "string" &&
-              orderData._id.startsWith("temp_order_")
-                ? Date.now().toString()
-                : orderData._id) ||
-              Date.now().toString(),
+            orderId: intentOrderId,
           },
           {
             headers: {
@@ -263,50 +278,84 @@ const StripePaymentSupported = (props) => {
             },
           }
         );
-      } catch (requestError) {
-        const responseStatus = requestError?.response?.status;
-        const responseData = requestError?.response?.data;
-        const errorCode = responseData?.code;
-        const errorMessage =
-          responseData?.message || responseData?.error || requestError?.message;
+      };
 
-        if (
-          responseStatus === 503 &&
-          (errorCode === "STRIPE_NOT_CONFIGURED" ||
-            isStripeConfigurationError(errorMessage))
-        ) {
-          showStripeUnavailableAlert();
-          return;
+      const getIntentResponse = async (intentOrderId) => {
+        try {
+          return await requestPaymentIntent(intentOrderId);
+        } catch (requestError) {
+          const responseStatus = requestError?.response?.status;
+          const responseData = requestError?.response?.data;
+          const errorCode = responseData?.code;
+          const errorMessage =
+            responseData?.message || responseData?.error || requestError?.message;
+
+          if (
+            responseStatus === 503 &&
+            (errorCode === "STRIPE_NOT_CONFIGURED" ||
+              isStripeConfigurationError(errorMessage))
+          ) {
+            showStripeUnavailableAlert();
+            return null;
+          }
+
+          if (
+            (responseStatus === 500 || responseStatus === 400) &&
+            isStripeConfigurationError(errorMessage)
+          ) {
+            showStripeUnavailableAlert();
+            return null;
+          }
+
+          if (responseStatus === 404) {
+            Alert.alert(
+              "Stripe Endpoint Missing",
+              "The card payment service endpoint was not found on the server. Please contact support or use another payment method."
+            );
+            return null;
+          }
+
+          throw new Error(errorMessage || "Failed to create payment intent");
         }
+      };
 
-        if (
-          (responseStatus === 500 || responseStatus === 400) &&
-          isStripeConfigurationError(errorMessage)
-        ) {
-          showStripeUnavailableAlert();
-          return;
-        }
-
-        if (responseStatus === 404) {
-          Alert.alert(
-            "Stripe Endpoint Missing",
-            "The card payment service endpoint was not found on the server. Please contact support or use another payment method."
-          );
-          return;
-        }
-
-        throw new Error(errorMessage || "Failed to create payment intent");
+      let intentResponse = await getIntentResponse(buildPaymentIntentOrderId());
+      if (!intentResponse) {
+        return;
       }
 
-      const { client_secret } = intentResponse?.data || {};
+      let { client_secret } = intentResponse?.data || {};
 
       if (!client_secret) {
         throw new Error("No client secret received");
       }
 
-      const { error, paymentIntent } = await confirmPayment(client_secret, {
+      let { error, paymentIntent } = await confirmPayment(client_secret, {
         paymentMethodType: "Card",
       });
+
+      if (error && isMissingPaymentIntentError(error?.message)) {
+        const retryIntentResponse = await getIntentResponse(
+          buildPaymentIntentOrderId("-retry")
+        );
+
+        if (!retryIntentResponse) {
+          return;
+        }
+
+        client_secret = retryIntentResponse?.data?.client_secret;
+
+        if (!client_secret) {
+          throw new Error("No client secret received");
+        }
+
+        const retryResult = await confirmPayment(client_secret, {
+          paymentMethodType: "Card",
+        });
+
+        error = retryResult.error;
+        paymentIntent = retryResult.paymentIntent;
+      }
 
       if (error) {
         // Handle specific card validation errors
@@ -482,83 +531,95 @@ const StripePaymentSupported = (props) => {
   // Payment Form View
   return (
     <FormContainer title="Stripe Payment">
-      <View style={styles.container}>
-        <View style={styles.summaryCard}>
-          <Text style={styles.paymentTitle}>Secure Card Payment</Text>
-          <Text style={styles.orderInfo}>Total: {formatPrice(orderData.totalPrice || 0)}</Text>
-          <Text style={styles.summaryHint}>Your card details are securely handled by Stripe.</Text>
-        </View>
-
-        <View style={styles.inputCard}>
-          <Text style={styles.cardFieldLabel}>Card Details</Text>
-          <View style={styles.cardFieldContainer}>
-            <CardField
-              postalCodeEnabled={false}
-              placeholders={{
-                number: "4242 4242 4242 4242",
-                expiry: "MM/YY",
-                cvc: "CVC",
-              }}
-              cardStyle={{
-                backgroundColor: "#FFFFFF",
-                textColor: "#0f172a",
-                borderColor: "#d7dce5",
-                borderWidth: 1,
-                borderRadius: 8,
-                fontSize: 16,
-                placeholderColor: "#94a3b8",
-              }}
-              style={{
-                width: "100%",
-                height: 50,
-              }}
-              onCardChange={(details) => {
-                setCardDetails(details);
-                console.log("Card details:", details);
-              }}
-            />
-          </View>
-
-          {cardDetails && (
-            <View style={styles.cardStatus}>
-              <Text
-                style={[
-                  styles.cardStatusText,
-                  cardDetails.complete ? styles.cardStatusSuccess : styles.cardStatusPending,
-                ]}
-              >
-                {cardDetails.complete ? "Card details complete" : "Please complete card details"}
-              </Text>
+      <KeyboardAvoidingView
+        style={styles.formWrapper}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 20}
+      >
+        <ScrollView
+          contentContainerStyle={styles.formScrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.container}>
+            <View style={styles.summaryCard}>
+              <Text style={styles.paymentTitle}>Secure Card Payment</Text>
+              <Text style={styles.orderInfo}>Total: {formatPrice(orderData.totalPrice || 0)}</Text>
+              <Text style={styles.summaryHint}>Your card details are securely handled by Stripe.</Text>
             </View>
-          )}
-        </View>
 
-        <EasyButton
-          primary
-          large
-          onPress={handlePayment}
-          disabled={loading || orderProcessing}
-          style={styles.payButton}
-        >
-          <Text style={styles.payButtonText}>
-            {loading
-              ? "Processing..."
-              : orderProcessing
-              ? "Placing Order..."
-              : "Pay Now"}
-          </Text>
-        </EasyButton>
+            <View style={styles.inputCard}>
+              <Text style={styles.cardFieldLabel}>Card Details</Text>
+              <View style={styles.cardFieldContainer}>
+                <CardField
+                  postalCodeEnabled={false}
+                  placeholders={{
+                    number: "4242 4242 4242 4242",
+                    expiry: "MM/YY",
+                    cvc: "CVC",
+                  }}
+                  cardStyle={{
+                    backgroundColor: "#FFFFFF",
+                    textColor: "#0f172a",
+                    borderColor: "#d7dce5",
+                    borderWidth: 1,
+                    borderRadius: 8,
+                    fontSize: 16,
+                    placeholderColor: "#94a3b8",
+                  }}
+                  style={{
+                    width: "100%",
+                    height: 50,
+                  }}
+                  onCardChange={(details) => {
+                    setCardDetails(details);
+                    console.log("Card details:", details);
+                  }}
+                />
+              </View>
 
-        <EasyButton
-          secondary
-          large
-          onPress={() => props.navigation.goBack()}
-          style={styles.backButton}
-          disabled={loading || orderProcessing}
-        >
-          <Text style={styles.backButtonText}>Back</Text>
-        </EasyButton>
-      </View>
+              {cardDetails && (
+                <View style={styles.cardStatus}>
+                  <Text
+                    style={[
+                      styles.cardStatusText,
+                      cardDetails.complete ? styles.cardStatusSuccess : styles.cardStatusPending,
+                    ]}
+                  >
+                    {cardDetails.complete ? "Card details complete" : "Please complete card details"}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <EasyButton
+              primary
+              large
+              onPress={handlePayment}
+              disabled={loading || orderProcessing}
+              style={styles.payButton}
+            >
+              <Text style={styles.payButtonText}>
+                {loading
+                  ? "Processing..."
+                  : orderProcessing
+                  ? "Placing Order..."
+                  : "Pay Now"}
+              </Text>
+            </EasyButton>
+
+            <EasyButton
+              secondary
+              large
+              onPress={() => props.navigation.goBack()}
+              style={styles.backButton}
+              disabled={loading || orderProcessing}
+            >
+              <Text style={styles.backButtonText}>Back</Text>
+            </EasyButton>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </FormContainer>
   );
 };
@@ -572,6 +633,13 @@ const StripePayment = (props) => {
 };
 
 const styles = StyleSheet.create({
+  formWrapper: {
+    flex: 1,
+  },
+  formScrollContent: {
+    flexGrow: 1,
+    paddingBottom: 24,
+  },
   container: {
     padding: 16,
     backgroundColor: "#f3f6fb",
