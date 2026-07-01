@@ -39,6 +39,7 @@ const Payment = (props) => {
   const [selected, setSelected] = useState();
   const [card, setCard] = useState();
   const [isCardPaymentAvailable, setIsCardPaymentAvailable] = useState(false);
+  const [isTelebirrAvailable, setIsTelebirrAvailable] = useState(true);
 
   useFocusEffect(
     useCallback(() => {
@@ -48,6 +49,7 @@ const Payment = (props) => {
         const dbName = await getDatabaseNameFromStorage();
         if (isMounted) {
           setIsCardPaymentAvailable(dbName === "E_ShopUSA");
+          setIsTelebirrAvailable(dbName !== "E_ShopUSA");
         }
       };
 
@@ -64,11 +66,22 @@ const Payment = (props) => {
       setSelected();
       setCard();
     }
-  }, [isCardPaymentAvailable, selected]);
+    if (!isTelebirrAvailable && selected === 4) {
+      setSelected();
+    }
+  }, [isCardPaymentAvailable, isTelebirrAvailable, selected]);
 
-  const visibleMethods = isCardPaymentAvailable
-    ? methods
-    : methods.filter((method) => method.value !== 3);
+  const visibleMethods = methods.filter((method) => {
+    if (method.value === 3) {
+      return isCardPaymentAvailable;
+    }
+
+    if (method.value === 4) {
+      return isTelebirrAvailable;
+    }
+
+    return true;
+  });
 
   const handleConfirm = () => {
   if (!selected) {
@@ -140,6 +153,10 @@ const Payment = (props) => {
 
         {!isCardPaymentAvailable && (
           <Text style={styles.infoText}>Card payment is available only when USA is selected.</Text>
+        )}
+
+        {!isTelebirrAvailable && (
+          <Text style={styles.infoText}>Telebirr is not available when USA is selected.</Text>
         )}
       </View>
 
