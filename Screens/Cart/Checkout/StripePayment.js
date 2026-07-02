@@ -28,6 +28,25 @@ import { deductInventoryFromOrder, validateOrderStock } from "../../../assets/co
 const width = Dimensions.get("window").width;
 const stripeCurrency =
   Constants?.expoConfig?.extra?.stripeCurrency || "usd";
+const stripePublishableKey = (() => {
+  const configKey = Constants?.expoConfig?.extra?.stripePublishableKey;
+  const envKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+
+  if (typeof configKey === "string" && configKey.trim()) {
+    return configKey;
+  }
+
+  if (typeof envKey === "string") {
+    return envKey;
+  }
+
+  return "";
+})();
+
+const hasValidStripePublishableKey = (key) => {
+  const normalized = typeof key === "string" ? key.trim() : "";
+  return normalized.startsWith("pk_");
+};
 
 const isExpoGo = () => {
   return (
@@ -65,7 +84,7 @@ const StripeUnavailable = ({ navigation }) => {
 
         <View style={styles.inputCard}>
           <Text style={styles.emptyStateText}>
-            Open the project in a development build to use card payments, or go back and choose another payment method.
+            Open the project in a development build and configure a valid Stripe publishable key, or go back and choose another payment method.
           </Text>
         </View>
 
@@ -625,7 +644,7 @@ const StripePaymentSupported = (props) => {
 };
 
 const StripePayment = (props) => {
-  if (!CardField || !useStripe) {
+  if (!CardField || !useStripe || !hasValidStripePublishableKey(stripePublishableKey)) {
     return <StripeUnavailable navigation={props.navigation} />;
   }
 

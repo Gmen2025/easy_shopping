@@ -51,6 +51,7 @@
       }
     },
     "plugins": [
+      "@stripe/stripe-react-native",
       [
         "expo-notifications",
         {

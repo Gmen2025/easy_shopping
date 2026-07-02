@@ -33,6 +33,16 @@ import {
 
 const NOTIFICATION_ITEMS_STORAGE_KEY = "notification_items";
 
+const getStripePublishableKey = () => {
+  const configKey = Constants?.expoConfig?.extra?.stripePublishableKey;
+  const envKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+  return typeof configKey === "string" && configKey.trim()
+    ? configKey
+    : typeof envKey === "string"
+    ? envKey
+    : "";
+};
+
 const isExpoGo = () => {
   return (
     Constants?.appOwnership === "expo" ||
@@ -40,8 +50,18 @@ const isExpoGo = () => {
   );
 };
 
-const createStripeProvider = () => {
+const isValidStripePublishableKey = (key) => {
+  const normalized = typeof key === "string" ? key.trim() : "";
+  return normalized.startsWith("pk_");
+};
+
+const createStripeProvider = (publishableKey) => {
   if (isExpoGo()) {
+    return ({ children }) => children;
+  }
+
+  if (!isValidStripePublishableKey(publishableKey)) {
+    console.warn("Stripe provider disabled: missing or invalid publishable key.");
     return ({ children }) => children;
   }
 
@@ -53,10 +73,9 @@ const createStripeProvider = () => {
   }
 };
 
-const StripeProvider = createStripeProvider();
 const stripePublishableKey =
-  Constants?.expoConfig?.extra?.stripePublishableKey ||
-  "";
+  getStripePublishableKey();
+const StripeProvider = createStripeProvider(stripePublishableKey);
 
 const linking = {
   prefixes: ['addugeneteshop://', 'easyshopping://'],

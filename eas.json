@@ -6,10 +6,18 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "environment": "development",
+      "env": {
+        "EXPO_PUBLIC_STRIPE_CURRENCY": "usd"
+      }
     },
     "preview": {
       "distribution": "internal",
+      "environment": "preview",
+      "env": {
+        "EXPO_PUBLIC_STRIPE_CURRENCY": "usd"
+      },
       "android": {
         "buildType": "apk"
       }
@@ -17,12 +25,20 @@
     "internal-testing": {
       "distribution": "store",
       "autoIncrement": true,
+      "environment": "preview",
+      "env": {
+        "EXPO_PUBLIC_STRIPE_CURRENCY": "usd"
+      },
       "android": {
         "buildType": "app-bundle"
       }
     },
     "production": {
       "autoIncrement": true,
+      "environment": "production",
+      "env": {
+        "EXPO_PUBLIC_STRIPE_CURRENCY": "usd"
+      },
       "android": {
         "buildType": "app-bundle"
       }

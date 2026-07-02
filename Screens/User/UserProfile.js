@@ -142,7 +142,13 @@ const UserProfile = (props) => {
             <Icon name="envelope" size={18} color="#8a6c09" style={{ marginRight: 12 }} />
             <View style={{ flex: 1 }}>
               <Text style={styles.profileLabel}>Email</Text>
-              <Text style={styles.profileValue}>{context.user ? context.user.user : "—"}</Text>
+              <Text style={styles.profileValue}>
+                {typeof context.user?.email === "string"
+                  ? context.user.email
+                  : typeof context.user?.user?.email === "string"
+                  ? context.user.user.email
+                  : "—"}
+              </Text>
             </View>
           </View>
 
