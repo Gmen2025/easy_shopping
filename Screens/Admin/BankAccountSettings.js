@@ -27,6 +27,8 @@ const BankAccountSettings = (props) => {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
 
+  useFocusEffect(
+    React.useCallback(() => {
       fetchBankAccountInfo();
     }, [])
   );
