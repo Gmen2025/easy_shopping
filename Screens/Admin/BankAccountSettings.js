@@ -47,10 +47,12 @@ const BankAccountSettings = (props) => {
       }
     } catch (error) {
       console.error("Error fetching bank account info:", error);
+      console.error("Error response status:", error.response?.status);
+      console.error("Error response data:", error.response?.data);
       Toast.show({
         type: "error",
         text1: "Error",
-        text2: error.response?.data?.message || "Failed to load bank account information",
+        text2: error.response?.data?.message || error.message || "Failed to load bank account information",
       });
     } finally {
       setFetching(false);
