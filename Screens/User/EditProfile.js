@@ -19,9 +19,9 @@ const EditProfile = (props) => {
   //console.log("EditProfile context user:", context.user);
   const user = context.user || {};
   const currentUserId = user._id || user.id || user?.user?._id || user?.user?.id;
-  //const [name, setName] = useState(user.name || "");
-  //const [phone, setPhone] = useState(user.phone || "");
-  //const [email, setEmail] = useState(user.user || "");
+  const [name, setName] = useState(user.name || "");
+  const [phone, setPhone] = useState(user.phone || "");
+  const [email, setEmail] = useState(user.email || "");
   const [address, setAddress] = useState("");
   const [address2, setAddress2] = useState("");
   const [city, setCity] = useState("");
@@ -74,6 +74,9 @@ const EditProfile = (props) => {
   const handleSave = async () => {
     // Implement save logic (API call to update user profile)
     const updatedUser = {
+      name,
+      email,
+      phone,
       street: address,
       apartment: address2,
       city,
@@ -230,6 +233,39 @@ const EditProfile = (props) => {
           <Text style={styles.headerSubtitle}>Update your information</Text>
         </View>
 
+        {/* Personal Information Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Personal Information</Text>
+
+          <Text style={styles.fieldLabel}>Full Name</Text>
+          <Input
+            id="name"
+            value={name}
+            onChangeText={setName}
+            placeholder="Your full name"
+          />
+
+          <Text style={styles.fieldLabel}>Email Address</Text>
+          <Input
+            id="email"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="Your email address"
+            keyboardType="email-address"
+            editable={false}
+          />
+          <Text style={styles.fieldNote}>Email cannot be changed</Text>
+
+          <Text style={styles.fieldLabel}>Phone Number</Text>
+          <Input
+            id="phone"
+            value={phone}
+            onChangeText={setPhone}
+            placeholder="Your phone number"
+            keyboardType="phone-pad"
+          />
+        </View>
+
         {/* Address Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Address Details</Text>
@@ -358,6 +394,13 @@ const styles = StyleSheet.create({
     marginTop: 14,
     textTransform: 'uppercase',
     letterSpacing: 0.3,
+  },
+  fieldNote: {
+    fontSize: 11,
+    color: '#888888',
+    marginTop: -4,
+    marginBottom: 12,
+    fontStyle: 'italic',
   },
   pickerContainer: {
     marginTop: 6,
