@@ -110,7 +110,7 @@ const TelebirrPayment = (props) => {
         // Clear cart and navigate back
         setTimeout(() => {
           dispatch(clearCart());
-          props.navigation.navigate("Cart");
+          props.navigation.navigate("CartHome");
         }, 1500);
       }
     } catch (error) {

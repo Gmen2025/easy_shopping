@@ -62,10 +62,7 @@ const UserProfile = (props) => {
       //console.log("Context.user value: ", context.user);
 
       if (!context.isAuthenticated || !currentUserId) {
-        //  the Login screen replaces the current screen
-        // and the user cannot go back to the previous screen
-        // with the back button.
-        props.navigation.navigate("Login");
+        // UserNavigator will automatically switch to auth screens when unauthenticated.
         return;
       }
 
@@ -97,7 +94,6 @@ const UserProfile = (props) => {
           if (error?.response?.status === 401) {
             await AsyncStorage.removeItem("token");
             context.logout();
-            props.navigation.navigate("Login");
             return;
           }
 

@@ -15,6 +15,7 @@ function MyTabs() {
   return (
     <Tab.Navigator
       screenOptions={{
+        lazy: true,
         tabBarStyle: { backgroundColor: "white" },
         tabBarLabelStyle: { fontSize: 12 },
         tabBarIndicatorStyle: { backgroundColor: "#8a6c09ff" },

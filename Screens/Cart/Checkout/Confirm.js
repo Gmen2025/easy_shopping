@@ -93,7 +93,7 @@ const Confirm = (props) => {
           });
           setTimeout(() => {
             dispatch(clearCart()); // Clear the cart after placing the order
-            props.navigation.navigate("Cart");
+            props.navigation.navigate("CartHome");
           }, 500); // Simulate a delay for placing the order
         }
       })

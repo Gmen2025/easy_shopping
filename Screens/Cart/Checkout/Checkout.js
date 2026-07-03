@@ -89,7 +89,7 @@ function Checkout(props) {
           .catch((error) => console.log("User data error: ", error));
       });
     } else {
-      props.navigation.navigate("Cart");
+      props.navigation.navigate("CartHome");
       Toast.show({
         topOffset: 60,
         type: "error",

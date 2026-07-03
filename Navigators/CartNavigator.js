@@ -14,7 +14,7 @@ function MyStack() {
       }}
     >
       <Stack.Screen
-        name="Cart"
+        name="CartHome"
         component={CartView}  
         options={{
           headerShown: false,
