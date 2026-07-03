@@ -18,7 +18,7 @@ const MaintenanceScreen = ({ navigation: navProp, isAdmin = false }) => {
   const navigation = navProp || navigationHook;
 
   const handleLogout = () => {
-    navigation.navigate('Login');
+    navigation.navigate('Maintenance');
   };
 
   const handleAdminPanel = () => {

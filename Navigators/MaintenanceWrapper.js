@@ -4,6 +4,11 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { AuthContext } from '../Context/store/Auth';
 import { useMaintenance } from '../Context/store/MaintenanceContext';
 import MaintenanceScreen from '../Screens/MaintenanceScreen';
+import Login from '../Screens/User/Login';
+import Register from '../Screens/User/Register';
+import EmailVerification from '../Screens/User/EmailVerification';
+import ForgotPassword from '../Screens/User/ForgotPassword';
+import ResetPassword from '../Screens/User/ResetPassword';
 import Main from './Main';
 
 const Stack = createStackNavigator();
@@ -16,6 +21,11 @@ const MaintenanceNavigator = () => {
       }}
     >
       <Stack.Screen name="Maintenance" component={MaintenanceScreen} />
+      <Stack.Screen name="Login" component={Login} />
+      <Stack.Screen name="Register" component={Register} />
+      <Stack.Screen name="EmailVerification" component={EmailVerification} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
+      <Stack.Screen name="ResetPassword" component={ResetPassword} />
     </Stack.Navigator>
   );
 };
