@@ -124,6 +124,9 @@ export const AuthProvider = ({ children }) => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
+      // Log user profile data for debugging
+      console.log('User profile data:', profileResponse.data);
+
       dispatch({ type: "LOGIN_SUCCESS", payload: profileResponse.data });
       // Update last activity time on successful session restore
       await updateLastActivity();
