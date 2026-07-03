@@ -40,6 +40,7 @@ const Payment = (props) => {
   const [card, setCard] = useState();
   const [isCardPaymentAvailable, setIsCardPaymentAvailable] = useState(false);
   const [isTelebirrAvailable, setIsTelebirrAvailable] = useState(true);
+  const [isUSAStore, setIsUSAStore] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -48,7 +49,9 @@ const Payment = (props) => {
       const syncPaymentAvailability = async () => {
         const dbName = await getDatabaseNameFromStorage();
         if (isMounted) {
-          setIsCardPaymentAvailable(dbName === "E_ShopUSA");
+          const isUSA = dbName === "E_ShopUSA";
+          setIsUSAStore(isUSA);
+          setIsCardPaymentAvailable(isUSA);
           setIsTelebirrAvailable(dbName !== "E_ShopUSA");
         }
       };
@@ -69,14 +72,22 @@ const Payment = (props) => {
     if (!isTelebirrAvailable && selected === 4) {
       setSelected();
     }
-  }, [isCardPaymentAvailable, isTelebirrAvailable, selected]);
+    // Remove Cash on delivery if selected and USA store
+    if (isUSAStore && selected === 1) {
+      setSelected();
+    }
+  }, [isCardPaymentAvailable, isTelebirrAvailable, selected, isUSAStore]);
 
   const visibleMethods = methods.filter((method) => {
+    if (method.value === 1) {
+      // Hide Cash on delivery for USA store
+      return !isUSAStore;
+    }
     if (method.value === 3) {
       return isCardPaymentAvailable;
     }
 
-    // Always show Telebirr, but it will be disabled if not available
+    // Always show other methods (Bank Transfer, Telebirr)
     return true;
   });
 
@@ -184,6 +195,10 @@ const Payment = (props) => {
 
         {!isCardPaymentAvailable && (
           <Text style={styles.infoText}>Card payment is available only when USA is selected.</Text>
+        )}
+
+        {isUSAStore && (
+          <Text style={styles.infoText}>Cash on delivery is not available for USA orders.</Text>
         )}
 
         {!isTelebirrAvailable && (
