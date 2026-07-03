@@ -52,7 +52,8 @@ const Payment = (props) => {
           const isUSA = dbName === "E_ShopUSA";
           setIsUSAStore(isUSA);
           setIsCardPaymentAvailable(isUSA);
-          setIsTelebirrAvailable(dbName !== "E_ShopUSA");
+          // Telebirr now also only available for USA (inactive for Ethiopia)
+          setIsTelebirrAvailable(isUSA);
         }
       };
 
