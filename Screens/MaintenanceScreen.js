@@ -25,6 +25,10 @@ const MaintenanceScreen = ({ navigation: navProp, isAdmin = false }) => {
     navigation.navigate('Admin');
   };
 
+  const handleAdminLogin = () => {
+    navigation.navigate('Login');
+  };
+
   return (
     <ScrollView
       contentContainerStyle={styles.container}
@@ -80,6 +84,17 @@ const MaintenanceScreen = ({ navigation: navProp, isAdmin = false }) => {
             style={styles.adminButton}
           >
             <Text style={styles.adminButtonText}>Admin Panel</Text>
+          </EasyButton>
+        )}
+
+        {!isAdmin && (
+          <EasyButton
+            tertiary
+            large
+            onPress={handleAdminLogin}
+            style={styles.adminButton}
+          >
+            <Text style={styles.adminButtonText}>Admin Login</Text>
           </EasyButton>
         )}
 

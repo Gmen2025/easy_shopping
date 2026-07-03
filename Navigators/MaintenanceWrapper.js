@@ -33,8 +33,9 @@ const MaintenanceWrapper = () => {
     );
   }
 
-  // If maintenance is enabled and user is not admin, show maintenance screen
-  if (maintenanceEnabled && !user?.isAdmin) {
+  // If maintenance is enabled and user is logged in AND not admin, show maintenance screen
+  // Unauthenticated users (user === null) can still access login screens
+  if (maintenanceEnabled && user && !user?.isAdmin) {
     return <MaintenanceNavigator />;
   }
 
