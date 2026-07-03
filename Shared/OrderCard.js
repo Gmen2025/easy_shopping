@@ -125,6 +125,12 @@ const OrderCard = (props) => {
       totalPrice: props.totalPrice,
       user: props.user,
       zip: props.zip,
+      methodName: props.methodName,
+      paymentMethod: props.paymentMethod,
+      cardType: props.cardType,
+      bankName: props.bankName,
+      transferReference: props.transferReference,
+      senderName: props.senderName,
     };
 
     axios
@@ -576,6 +582,19 @@ const OrderCard = (props) => {
         <Text>Zip: {props.zip || "N/A"}</Text>
         <Text>City: {props.city || "N/A"}</Text>
         <Text>Country: {props.country || "N/A"}</Text>
+        <Text style={styles.paymentLabel}>Payment Method:</Text>
+        <Text>{props.methodName || props.paymentMethod || "N/A"}</Text>
+        {props.cardType && (
+          <Text>Card Type: {props.cardType}</Text>
+        )}
+        {props.bankName && (
+          <>
+            <Text style={styles.bankDetailLabel}>Bank Transfer Details:</Text>
+            <Text>Bank Name: {props.bankName}</Text>
+            <Text>Transfer Reference: {props.transferReference}</Text>
+            <Text>Sender Name: {props.senderName}</Text>
+          </>
+        )}
         <Text variant="bodyLarge" style={styles.label}>
           Order Items: {orderItemsCount}
         </Text>
@@ -674,6 +693,18 @@ const styles = StyleSheet.create({
   label: {
     fontWeight: "bold",
     marginTop: 10,
+  },
+  paymentLabel: {
+    fontWeight: "bold",
+    marginTop: 10,
+    color: "#1d72d6",
+    fontSize: 14,
+  },
+  bankDetailLabel: {
+    fontWeight: "bold",
+    marginTop: 8,
+    color: "#2E7D32",
+    fontSize: 13,
   },
   autoDeleteWarning: {
     flexDirection: "row",

@@ -61,6 +61,12 @@ const Confirm = (props) => {
           product: item._id,
           quantity: item.quantity || 1,
         })),
+        paymentMethod: order.paymentMethod,
+        methodName: order.methodName,
+        cardType: order.cardType,
+        bankName: order.bankName,
+        transferReference: order.transferReference,
+        senderName: order.senderName,
       };
 
       
@@ -158,17 +164,23 @@ const Confirm = (props) => {
                 Phone:
               </Text>
               <Text>{order.phone}</Text>
+              <Divider style={{ marginVertical: 10 }} />
+              
               <Text variant="bodyLarge" style={styles.label}>
                 Payment Method:
               </Text>
-              <Text>{order.methodName || order.method || "Not specified"}</Text>
-              {order.cardType ? <Text>Card Type: {order.cardType}</Text> : null}
+              <Text style={styles.paymentMethodText}>{order.methodName || order.method || "Not specified"}</Text>
+              {order.cardType && (
+                <Text style={styles.detailText}>Card Type: {order.cardType}</Text>
+              )}
               {order.bankName && (
                 <>
-                  <Text style={styles.bankDetailLabel}>Bank Transfer Details:</Text>
-                  <Text>Bank Name: {order.bankName}</Text>
-                  <Text>Transfer Reference: {order.transferReference}</Text>
-                  <Text>Sender Name: {order.senderName}</Text>
+                  <Text style={styles.bankDetailLabel}>Bank Transfer Information:</Text>
+                  <View style={styles.bankDetailsContainer}>
+                    <Text style={styles.detailText}>Bank Name: <Text style={styles.detailValue}>{order.bankName}</Text></Text>
+                    <Text style={styles.detailText}>Sender Name: <Text style={styles.detailValue}>{order.senderName}</Text></Text>
+                    <Text style={styles.detailText}>Transfer Reference: <Text style={styles.detailValue}>{order.transferReference}</Text></Text>
+                  </View>
                 </>
               )}
 
@@ -304,8 +316,31 @@ const styles = StyleSheet.create({
   bankDetailLabel: {
     fontWeight: 'bold',
     marginTop: 10,
-    color: '#1d72d6',
+    color: '#2E7D32',
     fontSize: 14,
+  },
+  bankDetailsContainer: {
+    backgroundColor: '#f0f7f0',
+    borderLeftWidth: 3,
+    borderLeftColor: '#2E7D32',
+    padding: 12,
+    marginTop: 8,
+    borderRadius: 4,
+  },
+  paymentMethodText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1d72d6',
+    marginTop: 4,
+  },
+  detailText: {
+    fontSize: 14,
+    color: '#374151',
+    marginVertical: 4,
+  },
+  detailValue: {
+    fontWeight: '600',
+    color: '#152642',
   },
   itemRow: {
     flexDirection: 'row',
