@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -11,12 +11,38 @@ import { Text, Card } from "react-native-paper";
 import EasyButton from "../../../Shared/StyledComponenets/EasyButton";
 import FormContainer from "../../../Shared/Form/FormContainer";
 import Input from "../../../Shared/Form/Input";
+import axios from "axios";
+import baseUrl from "../../../assets/common/baseUrl";
+import Icon from "react-native-vector-icons/FontAwesome";
 
 const BankTransferDetails = (props) => {
   const { order } = props.route.params || {};
   const [bankName, setBankName] = useState("");
   const [transferReference, setTransferReference] = useState("");
   const [senderName, setSenderName] = useState("");
+  const [bankAccountInfo, setBankAccountInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchBankAccountInfo = async () => {
+      try {
+        const response = await axios.get(`${baseUrl}settings/bank-account`);
+        if (response.data.success) {
+          setBankAccountInfo(response.data);
+          // Pre-fill bank name if available
+          if (response.data.bankName) {
+            setBankName(response.data.bankName);
+          }
+        }
+      } catch (error) {
+        console.warn("Error fetching bank account info:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBankAccountInfo();
+  }, []);
 
   const handleConfirm = () => {
     if (!bankName.trim()) {
@@ -62,6 +88,50 @@ const BankTransferDetails = (props) => {
 
         <Card style={styles.formCard}>
           <Card.Content>
+            {/* Bank Account Info Display */}
+            {bankAccountInfo && (
+              <View style={styles.bankInfoSection}>
+                <View style={styles.bankInfoHeader}>
+                  <Icon name="bank" size={20} color="#2E7D32" />
+                  <Text style={styles.bankInfoTitle}>Bank Account Details</Text>
+                </View>
+
+                <View style={styles.bankInfoBox}>
+                  {bankAccountInfo.accountHolderName && (
+                    <View style={styles.bankInfoRow}>
+                      <Text style={styles.bankInfoLabel}>Account Holder:</Text>
+                      <Text style={styles.bankInfoValue}>{bankAccountInfo.accountHolderName}</Text>
+                    </View>
+                  )}
+
+                  {bankAccountInfo.accountNumber && (
+                    <View style={styles.bankInfoRow}>
+                      <Text style={styles.bankInfoLabel}>Account Number:</Text>
+                      <Text style={[styles.bankInfoValue, styles.accountNumber]}>
+                        {bankAccountInfo.accountNumber}
+                      </Text>
+                    </View>
+                  )}
+
+                  {bankAccountInfo.bankCode && (
+                    <View style={styles.bankInfoRow}>
+                      <Text style={styles.bankInfoLabel}>Bank Code:</Text>
+                      <Text style={styles.bankInfoValue}>{bankAccountInfo.bankCode}</Text>
+                    </View>
+                  )}
+
+                  {bankAccountInfo.additionalInfo && (
+                    <View style={styles.bankInfoRow}>
+                      <Text style={styles.bankInfoLabel}>Additional Info:</Text>
+                      <Text style={styles.bankInfoValue}>{bankAccountInfo.additionalInfo}</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            )}
+
+            <View style={styles.divider} />
+
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Bank Name *</Text>
               <Input
@@ -166,7 +236,51 @@ const styles = StyleSheet.create({
   inputGroup: {
     marginBottom: 18,
   },
-  label: {
+  bankInfoSection: {
+    marginBottom: 20,
+  },
+  bankInfoHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  bankInfoTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#2E7D32",
+    marginLeft: 8,
+  },
+  bankInfoBox: {
+    backgroundColor: "#f0f9f5",
+    borderWidth: 2,
+    borderColor: "#2E7D32",
+    borderRadius: 8,
+    padding: 12,
+  },
+  bankInfoRow: {
+    marginBottom: 10,
+  },
+  bankInfoLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#2E7D32",
+    marginBottom: 2,
+  },
+  bankInfoValue: {
+    fontSize: 13,
+    color: "#152642",
+    fontWeight: "500",
+  },
+  accountNumber: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1d72d6",
+    letterSpacing: 1,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#e9dfc4",
+    marginVertical: 16,
     fontSize: 14,
     fontWeight: "600",
     color: "#152642",
