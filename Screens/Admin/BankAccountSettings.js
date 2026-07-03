@@ -27,34 +27,33 @@ const BankAccountSettings = (props) => {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
 
-  useFocusEffect(
-    React.useCallback(() => {
-      const fetchBankAccountInfo = async () => {
-        setFetching(true);
-        try {
-          const response = await axios.get(`${baseUrl}settings/bank-account`);
-          if (response.data.success) {
-            setBankName(response.data.bankName || "");
-            setAccountNumber(response.data.accountNumber || "");
-            setAccountHolderName(response.data.accountHolderName || "");
-            setBankCode(response.data.bankCode || "");
-            setAdditionalInfo(response.data.additionalInfo || "");
-          }
-        } catch (error) {
-          console.error("Error fetching bank account info:", error);
-          Toast.show({
-            type: "error",
-            text1: "Error",
-            text2: "Failed to load bank account information",
-          });
-        } finally {
-          setFetching(false);
-        }
-      };
-
       fetchBankAccountInfo();
     }, [])
   );
+
+  const fetchBankAccountInfo = async () => {
+    setFetching(true);
+    try {
+      const response = await axios.get(`${baseUrl}settings/bank-account`);
+      console.log('Bank account response:', response.data);
+      if (response.data.success) {
+        setBankName(response.data.bankName || "");
+        setAccountNumber(response.data.accountNumber || "");
+        setAccountHolderName(response.data.accountHolderName || "");
+        setBankCode(response.data.bankCode || "");
+        setAdditionalInfo(response.data.additionalInfo || "");
+      }
+    } catch (error) {
+      console.error("Error fetching bank account info:", error);
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: error.response?.data?.message || "Failed to load bank account information",
+      });
+    } finally {
+      setFetching(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!bankName.trim() || !accountNumber.trim() || !accountHolderName.trim()) {
@@ -97,7 +96,9 @@ const BankAccountSettings = (props) => {
         });
       }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || error.message;
+      console.error("Error saving bank account info:", error);
+      console.error("Error response:", error.response?.data);
+      const errorMessage = error.response?.data?.message || error.message || "Failed to save changes";
       Toast.show({
         type: "error",
         text1: "Error",
