@@ -72,26 +72,21 @@ const Payment = (props) => {
     if (!isTelebirrAvailable && selected === 4) {
       setSelected();
     }
-    // Remove Cash on delivery if selected and USA store
-    if (isUSAStore && selected === 1) {
-      setSelected();
-    }
-  }, [isCardPaymentAvailable, isTelebirrAvailable, selected, isUSAStore]);
+  }, [isCardPaymentAvailable, isTelebirrAvailable, selected]);
 
   const visibleMethods = methods.filter((method) => {
-    if (method.value === 1) {
-      // Hide Cash on delivery for USA store
-      return !isUSAStore;
-    }
     if (method.value === 3) {
       return isCardPaymentAvailable;
     }
 
-    // Always show other methods (Bank Transfer, Telebirr)
+    // Always show other methods (Cash on Delivery, Bank Transfer, Telebirr)
     return true;
   });
 
   const isMethodDisabled = (methodValue) => {
+    if (methodValue === 1) {
+      return isUSAStore;
+    }
     if (methodValue === 3) {
       return !isCardPaymentAvailable;
     }
@@ -187,6 +182,7 @@ const Payment = (props) => {
                 ]}
               >
                 {m.name}
+                {isDisabled && m.value === 1 && " (Unavailable)"}
                 {isDisabled && m.value === 4 && " (Coming Soon)"}
               </Text>
             </TouchableOpacity>
@@ -197,9 +193,7 @@ const Payment = (props) => {
           <Text style={styles.infoText}>Card payment is available only when USA is selected.</Text>
         )}
 
-        {isUSAStore && (
-          <Text style={styles.infoText}>Cash on delivery is not available for USA orders.</Text>
-        )}
+
 
         {!isTelebirrAvailable && (
           <Text style={styles.infoText}>Telebirr payment is temporarily unavailable. Please check back soon.</Text>
