@@ -7,6 +7,7 @@ import Categories from "../Screens/Admin/Categories";
 import ProductForm from "../Screens/Admin/ProductForm";
 import BroadcastNotifications from "../Screens/Admin/BroadcastNotifications";
 import LowStock from "../Screens/Admin/LowStock";
+import MaintenanceSettings from "../Screens/Admin/MaintenanceSettings";
 import SingleProduct from "../Screens/Products/SingleProduct";
 
 const Stack = createStackNavigator();
@@ -77,6 +78,18 @@ function MyStack() {
         component={LowStock}
         options={{
           title: 'Low Stock',
+          headerTintColor: '#e6c20eff',
+          headerTitleAlign: 'center',
+          headerTitleStyle:{
+            color:'#e6c20eff'
+          }
+        }}
+      />
+      <Stack.Screen
+        name="MaintenanceSettings"
+        component={MaintenanceSettings}
+        options={{
+          title: 'Maintenance Mode',
           headerTintColor: '#e6c20eff',
           headerTitleAlign: 'center',
           headerTitleStyle:{

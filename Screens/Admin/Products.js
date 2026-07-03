@@ -151,6 +151,12 @@ const Products = (props) => {
           color="#9c1c1c"
           onPress={() => props.navigation.navigate("LowStock")}
         />
+        <ActionButton
+          icon="tools"
+          label="Maintenance"
+          color="#d97706"
+          onPress={() => props.navigation.navigate("MaintenanceSettings")}
+        />
       </View>
 
       {/* Search */}

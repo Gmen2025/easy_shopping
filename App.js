@@ -14,11 +14,13 @@ import { store } from "./store/redux/store"; // Adjust the path as necessary
 import { AuthProvider } from "./Context/store/Auth";
 import { AuthContext } from "./Context/store/Auth";
 import { TelebirrProvider } from "./Context/store/Telebirr";
+import { MaintenanceProvider } from "./Context/store/MaintenanceContext";
 
 import { Linking } from 'react-native';
 
 //Navigators
 import Main from "./Navigators/Main";
+import MaintenanceWrapper from "./Navigators/MaintenanceWrapper";
 
 import Header from "./Shared/Header";
 import { attachDatabaseInterceptor } from "./assets/common/attachDatabaseInterceptor";
@@ -311,32 +313,34 @@ export default function App() {
   return (
     <AuthProvider>
       <Provider store={store}>
-        <StripeProvider publishableKey={stripePublishableKey}>
-          <TelebirrProvider>
-            <NotificationBootstrap
-              onNotificationReceived={handleNotificationReceived}
-              onNotificationOpened={handleNotificationOpened}
-            />
-            <View style={styles.appContainer}>
-              <View style={styles.headerLayer}>
-                <Header
-                  onDatabaseChanged={handleDatabaseChanged}
-                  notificationCount={unreadNotificationCount}
-                  notifications={notificationItems}
-                  onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
-                  onMarkNotificationRead={handleMarkNotificationRead}
-                  onDeleteNotification={handleDeleteNotification}
-                />
+        <MaintenanceProvider>
+          <StripeProvider publishableKey={stripePublishableKey}>
+            <TelebirrProvider>
+              <NotificationBootstrap
+                onNotificationReceived={handleNotificationReceived}
+                onNotificationOpened={handleNotificationOpened}
+              />
+              <View style={styles.appContainer}>
+                <View style={styles.headerLayer}>
+                  <Header
+                    onDatabaseChanged={handleDatabaseChanged}
+                    notificationCount={unreadNotificationCount}
+                    notifications={notificationItems}
+                    onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
+                    onMarkNotificationRead={handleMarkNotificationRead}
+                    onDeleteNotification={handleDeleteNotification}
+                  />
+                </View>
+                <View style={styles.navLayer}>
+                  <NavigationContainer key={`db-${dbRefreshKey}`} linking={linking}>
+                    <MaintenanceWrapper />
+                    <Toast />
+                  </NavigationContainer>
+                </View>
               </View>
-              <View style={styles.navLayer}>
-                <NavigationContainer key={`db-${dbRefreshKey}`} linking={linking}>
-                  <Main />
-                  <Toast />
-                </NavigationContainer>
-              </View>
-            </View>
-          </TelebirrProvider>
-        </StripeProvider>
+            </TelebirrProvider>
+          </StripeProvider>
+        </MaintenanceProvider>
       </Provider>
     </AuthProvider>
   );
