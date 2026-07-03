@@ -8,6 +8,7 @@ import Confirm from '../Screens/Cart/Checkout/Confirm';
 import Checkout from '../Screens/Cart/Checkout/Checkout';
 import StripePayment from '../Screens/Cart/Checkout/StripePayment';
 import TelebirrPayment from '../Screens/Cart/Checkout/TelebirrPayment';
+import BankTransferDetails from '../Screens/Cart/Checkout/BankTransferDetails';
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -26,6 +27,7 @@ function MyTabs() {
       <Tab.Screen name="Confirm" component={Confirm} />
       <Tab.Screen name="StripePayment" component={StripePayment} />
       <Tab.Screen name="TelebirrPayment" component={TelebirrPayment} />
+      <Tab.Screen name="BankTransferDetails" component={BankTransferDetails} />
     </Tab.Navigator>
   );
 }

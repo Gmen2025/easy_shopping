@@ -163,6 +163,14 @@ const Confirm = (props) => {
               </Text>
               <Text>{order.methodName || order.method || "Not specified"}</Text>
               {order.cardType ? <Text>Card Type: {order.cardType}</Text> : null}
+              {order.bankName && (
+                <>
+                  <Text style={styles.bankDetailLabel}>Bank Transfer Details:</Text>
+                  <Text>Bank Name: {order.bankName}</Text>
+                  <Text>Transfer Reference: {order.transferReference}</Text>
+                  <Text>Sender Name: {order.senderName}</Text>
+                </>
+              )}
 
               <Divider style={{ marginVertical: 10 }} />
 
@@ -292,6 +300,12 @@ const styles = StyleSheet.create({
   label: {
     fontWeight: 'bold',
     marginTop: 10,
+  },
+  bankDetailLabel: {
+    fontWeight: 'bold',
+    marginTop: 10,
+    color: '#1d72d6',
+    fontSize: 14,
   },
   itemRow: {
     flexDirection: 'row',

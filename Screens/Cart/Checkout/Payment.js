@@ -116,13 +116,16 @@ const Payment = (props) => {
 
   // Handle different payment methods
   switch (selected) {
+    case 2: // Bank Transfer
+      props.navigation.navigate("BankTransferDetails", { order: orderWithPayment });
+      break;
     case 3: // Card Payment
       props.navigation.navigate("StripePayment", { order: orderWithPayment });
       break;
     case 4: // Telebirr Payment
       props.navigation.navigate("TelebirrPayment", { order: orderWithPayment });
       break;
-    default: // Cash on Delivery, Bank Payment
+    default: // Cash on Delivery
       props.navigation.navigate("Confirm", { order: orderWithPayment });
       break;
   }
