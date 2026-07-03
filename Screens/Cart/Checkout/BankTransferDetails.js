@@ -6,8 +6,10 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  FlatList,
 } from "react-native";
 import { Text, Card } from "react-native-paper";
+import { Picker } from "@react-native-picker/picker";
 import EasyButton from "../../../Shared/StyledComponenets/EasyButton";
 import FormContainer from "../../../Shared/Form/FormContainer";
 import Input from "../../../Shared/Form/Input";
@@ -17,41 +19,47 @@ import Icon from "react-native-vector-icons/FontAwesome";
 
 const BankTransferDetails = (props) => {
   const { order } = props.route.params || {};
-  const [bankName, setBankName] = useState("");
+  const [bankAccounts, setBankAccounts] = useState([]);
+  const [selectedBankId, setSelectedBankId] = useState(null);
+  const [selectedBank, setSelectedBank] = useState(null);
   const [transferReference, setTransferReference] = useState("");
   const [senderName, setSenderName] = useState("");
-  const [bankAccountInfo, setBankAccountInfo] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchBankAccountInfo = async () => {
+    const fetchBankAccounts = async () => {
       try {
-        console.log("Fetching bank account from:", `${baseUrl}settings/bank-account`);
+        console.log("Fetching bank accounts from:", `${baseUrl}settings/bank-account`);
         const response = await axios.get(`${baseUrl}settings/bank-account`);
-        console.log("Bank account response:", response.data);
-        if (response.data.success) {
-          setBankAccountInfo(response.data);
-          // Pre-fill bank name if available
-          if (response.data.bankName) {
-            setBankName(response.data.bankName);
+        console.log("Bank accounts response:", response.data);
+        if (response.data.success && response.data.bankAccounts) {
+          setBankAccounts(response.data.bankAccounts);
+          // Auto-select first bank if available
+          if (response.data.bankAccounts.length > 0) {
+            setSelectedBankId(response.data.bankAccounts[0]._id);
+            setSelectedBank(response.data.bankAccounts[0]);
           }
-        } else {
-          console.warn("Bank account response not successful:", response.data);
         }
       } catch (error) {
-        console.error("Error fetching bank account info:", error);
+        console.error("Error fetching bank accounts:", error);
         console.error("Error response:", error.response?.data);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchBankAccountInfo();
+    fetchBankAccounts();
   }, []);
 
+  const handleBankSelection = (bankId) => {
+    setSelectedBankId(bankId);
+    const bank = bankAccounts.find((b) => b._id === bankId);
+    setSelectedBank(bank);
+  };
+
   const handleConfirm = () => {
-    if (!bankName.trim()) {
-      Alert.alert("Error", "Please enter the bank name");
+    if (!selectedBank) {
+      Alert.alert("Error", "Please select a bank account");
       return;
     }
 
@@ -67,7 +75,10 @@ const BankTransferDetails = (props) => {
 
     const orderWithBankDetails = {
       ...order,
-      bankName: bankName.trim(),
+      bankName: selectedBank.bankName,
+      accountNumber: selectedBank.accountNumber,
+      accountHolderName: selectedBank.accountHolderName,
+      bankCode: selectedBank.bankCode,
       transferReference: transferReference.trim(),
       senderName: senderName.trim(),
     };
@@ -87,14 +98,37 @@ const BankTransferDetails = (props) => {
         <View style={styles.headerCard}>
           <Text style={styles.title}>Bank Transfer Details</Text>
           <Text style={styles.subtitle}>
-            Please provide your bank transfer information for this order.
+            Select a bank account and provide your transfer information
           </Text>
         </View>
 
         <Card style={styles.formCard}>
           <Card.Content>
-            {/* Bank Account Info Display */}
-            {bankAccountInfo && bankAccountInfo.hasData ? (
+            {/* Bank Selection */}
+            {bankAccounts.length > 0 ? (
+              <View>
+                <Text style={styles.sectionLabel}>Select Bank Account *</Text>
+                <View style={styles.pickerContainer}>
+                  <Picker
+                    selectedValue={selectedBankId}
+                    onValueChange={handleBankSelection}
+                    style={styles.picker}
+                  >
+                    <Picker.Item label="Choose a bank account..." value={null} />
+                    {bankAccounts.map((bank) => (
+                      <Picker.Item
+                        key={bank._id}
+                        label={`${bank.bankName} - ${bank.accountHolderName}`}
+                        value={bank._id}
+                      />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
+            ) : null}
+
+            {/* Selected Bank Details Display */}
+            {selectedBank ? (
               <View style={styles.bankInfoSection}>
                 <View style={styles.bankInfoHeader}>
                   <Icon name="bank" size={20} color="#2E7D32" />
@@ -102,65 +136,48 @@ const BankTransferDetails = (props) => {
                 </View>
 
                 <View style={styles.bankInfoBox}>
-                  {bankAccountInfo.bankName && (
-                    <View style={styles.bankInfoRow}>
-                      <Text style={styles.bankInfoLabel}>Bank Name:</Text>
-                      <Text style={styles.bankInfoValue}>{bankAccountInfo.bankName}</Text>
-                    </View>
-                  )}
+                  <View style={styles.bankInfoRow}>
+                    <Text style={styles.bankInfoLabel}>Bank Name:</Text>
+                    <Text style={styles.bankInfoValue}>{selectedBank.bankName}</Text>
+                  </View>
 
-                  {bankAccountInfo.accountHolderName && (
-                    <View style={styles.bankInfoRow}>
-                      <Text style={styles.bankInfoLabel}>Account Holder:</Text>
-                      <Text style={styles.bankInfoValue}>{bankAccountInfo.accountHolderName}</Text>
-                    </View>
-                  )}
+                  <View style={styles.bankInfoRow}>
+                    <Text style={styles.bankInfoLabel}>Account Holder:</Text>
+                    <Text style={styles.bankInfoValue}>{selectedBank.accountHolderName}</Text>
+                  </View>
 
-                  {bankAccountInfo.accountNumber && (
-                    <View style={styles.bankInfoRow}>
-                      <Text style={styles.bankInfoLabel}>Account Number:</Text>
-                      <Text style={[styles.bankInfoValue, styles.accountNumber]}>
-                        {bankAccountInfo.accountNumber}
-                      </Text>
-                    </View>
-                  )}
+                  <View style={styles.bankInfoRow}>
+                    <Text style={styles.bankInfoLabel}>Account Number:</Text>
+                    <Text style={[styles.bankInfoValue, styles.accountNumber]}>
+                      {selectedBank.accountNumber}
+                    </Text>
+                  </View>
 
-                  {bankAccountInfo.bankCode && (
+                  {selectedBank.bankCode && (
                     <View style={styles.bankInfoRow}>
                       <Text style={styles.bankInfoLabel}>Bank Code:</Text>
-                      <Text style={styles.bankInfoValue}>{bankAccountInfo.bankCode}</Text>
+                      <Text style={styles.bankInfoValue}>{selectedBank.bankCode}</Text>
                     </View>
                   )}
 
-                  {bankAccountInfo.additionalInfo && (
+                  {selectedBank.additionalInfo && (
                     <View style={styles.bankInfoRow}>
                       <Text style={styles.bankInfoLabel}>Additional Info:</Text>
-                      <Text style={styles.bankInfoValue}>{bankAccountInfo.additionalInfo}</Text>
+                      <Text style={styles.bankInfoValue}>{selectedBank.additionalInfo}</Text>
                     </View>
                   )}
                 </View>
               </View>
-            ) : (
+            ) : bankAccounts.length === 0 ? (
               <View style={styles.noBankInfoAlert}>
                 <Icon name="exclamation-circle" size={24} color="#E74C3C" />
                 <Text style={styles.noBankInfoText}>
-                  Bank account information is not yet configured. Please contact support.
+                  No bank accounts are currently available. Please contact support.
                 </Text>
               </View>
-            )}
+            ) : null}
 
             <View style={styles.divider} />
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Bank Name *</Text>
-              <Input
-                placeholder="e.g., Commercial Bank of Ethiopia"
-                name="bankName"
-                id="bankName"
-                value={bankName}
-                onChangeText={(text) => setBankName(text)}
-              />
-            </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Transfer Reference *</Text>
@@ -254,6 +271,23 @@ const styles = StyleSheet.create({
   },
   inputGroup: {
     marginBottom: 18,
+  },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#152642",
+    marginBottom: 10,
+  },
+  pickerContainer: {
+    backgroundColor: "#f8f9fa",
+    borderWidth: 1,
+    borderColor: "#dce3ef",
+    borderRadius: 8,
+    marginBottom: 20,
+    overflow: "hidden",
+  },
+  picker: {
+    height: 50,
   },
   bankInfoSection: {
     marginBottom: 20,
