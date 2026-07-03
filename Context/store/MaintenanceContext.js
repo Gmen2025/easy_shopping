@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
-import baseUrl from '../assets/common/baseUrl';
+import baseUrl from '../../assets/common/baseUrl';
 
 const MaintenanceContext = createContext();
 
