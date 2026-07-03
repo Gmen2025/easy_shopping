@@ -94,7 +94,7 @@ const BankTransferDetails = (props) => {
         <Card style={styles.formCard}>
           <Card.Content>
             {/* Bank Account Info Display */}
-            {bankAccountInfo && bankAccountInfo.success ? (
+            {bankAccountInfo && bankAccountInfo.hasData ? (
               <View style={styles.bankInfoSection}>
                 <View style={styles.bankInfoHeader}>
                   <Icon name="bank" size={20} color="#2E7D32" />
