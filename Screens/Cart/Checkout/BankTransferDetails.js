@@ -26,16 +26,21 @@ const BankTransferDetails = (props) => {
   useEffect(() => {
     const fetchBankAccountInfo = async () => {
       try {
+        console.log("Fetching bank account from:", `${baseUrl}settings/bank-account`);
         const response = await axios.get(`${baseUrl}settings/bank-account`);
+        console.log("Bank account response:", response.data);
         if (response.data.success) {
           setBankAccountInfo(response.data);
           // Pre-fill bank name if available
           if (response.data.bankName) {
             setBankName(response.data.bankName);
           }
+        } else {
+          console.warn("Bank account response not successful:", response.data);
         }
       } catch (error) {
-        console.warn("Error fetching bank account info:", error);
+        console.error("Error fetching bank account info:", error);
+        console.error("Error response:", error.response?.data);
       } finally {
         setLoading(false);
       }
@@ -89,7 +94,7 @@ const BankTransferDetails = (props) => {
         <Card style={styles.formCard}>
           <Card.Content>
             {/* Bank Account Info Display */}
-            {bankAccountInfo && (
+            {bankAccountInfo && bankAccountInfo.success ? (
               <View style={styles.bankInfoSection}>
                 <View style={styles.bankInfoHeader}>
                   <Icon name="bank" size={20} color="#2E7D32" />
@@ -97,6 +102,13 @@ const BankTransferDetails = (props) => {
                 </View>
 
                 <View style={styles.bankInfoBox}>
+                  {bankAccountInfo.bankName && (
+                    <View style={styles.bankInfoRow}>
+                      <Text style={styles.bankInfoLabel}>Bank Name:</Text>
+                      <Text style={styles.bankInfoValue}>{bankAccountInfo.bankName}</Text>
+                    </View>
+                  )}
+
                   {bankAccountInfo.accountHolderName && (
                     <View style={styles.bankInfoRow}>
                       <Text style={styles.bankInfoLabel}>Account Holder:</Text>
@@ -127,6 +139,13 @@ const BankTransferDetails = (props) => {
                     </View>
                   )}
                 </View>
+              </View>
+            ) : (
+              <View style={styles.noBankInfoAlert}>
+                <Icon name="exclamation-circle" size={24} color="#E74C3C" />
+                <Text style={styles.noBankInfoText}>
+                  Bank account information is not yet configured. Please contact support.
+                </Text>
               </View>
             )}
 
@@ -276,6 +295,24 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#1d72d6",
     letterSpacing: 1,
+  },
+  noBankInfoAlert: {
+    backgroundColor: "#FEE",
+    borderWidth: 1,
+    borderColor: "#E74C3C",
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 20,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  noBankInfoText: {
+    fontSize: 13,
+    color: "#E74C3C",
+    fontWeight: "600",
+    marginLeft: 12,
+    flex: 1,
+    lineHeight: 18,
   },
   divider: {
     height: 1,
