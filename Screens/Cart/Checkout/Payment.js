@@ -76,12 +76,19 @@ const Payment = (props) => {
       return isCardPaymentAvailable;
     }
 
-    if (method.value === 4) {
-      return isTelebirrAvailable;
-    }
-
+    // Always show Telebirr, but it will be disabled if not available
     return true;
   });
+
+  const isMethodDisabled = (methodValue) => {
+    if (methodValue === 3) {
+      return !isCardPaymentAvailable;
+    }
+    if (methodValue === 4) {
+      return !isTelebirrAvailable;
+    }
+    return false;
+  };
 
   const handleConfirm = () => {
   if (!selected) {
@@ -137,16 +144,37 @@ const Payment = (props) => {
         <Text style={styles.sectionTitle}>Payment Method</Text>
         {visibleMethods.map((m) => {
           const isSelected = selected === m.value;
+          const isDisabled = isMethodDisabled(m.value);
           return (
             <TouchableOpacity
               key={m.value}
-              style={[styles.optionRow, isSelected && styles.optionRowActive]}
-              onPress={() => setSelected(m.value)}
+              style={[
+                styles.optionRow,
+                isSelected && styles.optionRowActive,
+                isDisabled && styles.optionRowDisabled,
+              ]}
+              onPress={() => !isDisabled && setSelected(m.value)}
+              disabled={isDisabled}
             >
-              <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
+              <View
+                style={[
+                  styles.radioCircle,
+                  isSelected && styles.radioCircleActive,
+                  isDisabled && styles.radioCircleDisabled,
+                ]}
+              >
                 {isSelected && <View style={styles.selectedRb} />}
               </View>
-              <Text style={[styles.radioText, isSelected && styles.radioTextActive]}>{m.name}</Text>
+              <Text
+                style={[
+                  styles.radioText,
+                  isSelected && styles.radioTextActive,
+                  isDisabled && styles.radioTextDisabled,
+                ]}
+              >
+                {m.name}
+                {isDisabled && m.value === 4 && " (Coming Soon)"}
+              </Text>
             </TouchableOpacity>
           );
         })}
@@ -156,7 +184,7 @@ const Payment = (props) => {
         )}
 
         {!isTelebirrAvailable && (
-          <Text style={styles.infoText}>Telebirr is not available when USA is selected.</Text>
+          <Text style={styles.infoText}>Telebirr payment is temporarily unavailable. Please check back soon.</Text>
         )}
       </View>
 
@@ -244,6 +272,11 @@ const styles = StyleSheet.create({
     borderColor: "#1d72d6",
     backgroundColor: "#eef5ff",
   },
+  optionRowDisabled: {
+    opacity: 0.6,
+    borderColor: "#d7dce5",
+    backgroundColor: "#f0f0f0",
+  },
   radioCircle: {
     height: 22,
     width: 22,
@@ -256,6 +289,9 @@ const styles = StyleSheet.create({
   },
   radioCircleActive: {
     borderColor: "#1d72d6",
+  },
+  radioCircleDisabled: {
+    borderColor: "#b0b8c4",
   },
   selectedRb: {
     width: 12,
@@ -271,6 +307,10 @@ const styles = StyleSheet.create({
   radioTextActive: {
     color: "#8a6c09",
     fontWeight: "700",
+  },
+  radioTextDisabled: {
+    color: "#9ca3af",
+    fontWeight: "400",
   },
   confirmButton: {
     marginTop: 8,
