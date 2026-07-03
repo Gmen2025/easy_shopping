@@ -127,7 +127,9 @@ export const AuthProvider = ({ children }) => {
       // Log user profile data for debugging
       console.log('User profile data:', profileResponse.data);
 
-      dispatch({ type: "LOGIN_SUCCESS", payload: profileResponse.data });
+      // Extract just the user object from the response
+      const userData = profileResponse.data.user || profileResponse.data;
+      dispatch({ type: "LOGIN_SUCCESS", payload: userData });
       // Update last activity time on successful session restore
       await updateLastActivity();
     } catch (error) {
@@ -181,8 +183,10 @@ export const AuthProvider = ({ children }) => {
         email,
         password,
       });
-      dispatch({ type: "LOGIN_SUCCESS", payload: res.data });
-      await AsyncStorage.setItem("token", res.data.token);
+      // Extract user data and token from response
+      const { token, ...userData } = res.data;
+      dispatch({ type: "LOGIN_SUCCESS", payload: userData });
+      await AsyncStorage.setItem("token", token);
       // Set initial activity timestamp on login
       await updateLastActivity();
     } catch (error) {
@@ -212,8 +216,10 @@ export const AuthProvider = ({ children }) => {
     dispatch({ type: "REGISTER_START" });
     try {
       const res = await axios.post(`${baseUrl}users/register`, userData);
-      dispatch({ type: "REGISTER_SUCCESS", payload: res.data.user });
-      // Set initial activity timestamp on registration
+      // Extract user data from nested structure
+      const userObj = res.data.user || res.data;
+      dispatch({ type: "REGISTER_SUCCESS", payload: userObj });
+      // Set initial activity timestamp on registration if token provided
       if (res.data.token) {
         await AsyncStorage.setItem("token", res.data.token);
         await updateLastActivity();
