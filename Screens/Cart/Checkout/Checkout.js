@@ -37,9 +37,9 @@ function Checkout(props) {
     // If you want to set default values for the address fields, you can do that here as well
     // setAddress("Default Address");
 
-    console.log("user id from context", context.user._id);
+    console.log("user id from context", context.user?._id);
 
-    if (context.isAuthenticated) {
+    if (context.isAuthenticated && context.user) {
       setUser(context.user.sub);
 
       //API call to get user details
@@ -53,8 +53,9 @@ function Checkout(props) {
         };
 
         // Fetch user's orders
-        axios
-          .get(`${baseUrl}orders/get/userorders/${context.user._id}`, config)
+        if (context.user?._id) {
+          axios
+            .get(`${baseUrl}orders/get/userorders/${context.user._id}`, config)
           .then((orderRes) => {
             const orders = orderRes.data;
             if (orders && orders.length > 0) {
@@ -70,8 +71,9 @@ function Checkout(props) {
               setPhone(firstOrder.phone || "");
             } else {
               // If no orders, fallback to user profile
-              axios
-                .get(`${baseUrl}users/${context.user._id}`, config)
+              if (context.user?._id) {
+                axios
+                  .get(`${baseUrl}users/${context.user._id}`, config)
                 .then((res) => {
                   const data = res.data;
                   if (data) {
@@ -84,9 +86,11 @@ function Checkout(props) {
                   }
                 })
                 .catch((error) => console.log("User data error: ", error));
+              }
             }
           })
           .catch((error) => console.log("User data error: ", error));
+        }
       });
     } else {
       props.navigation.navigate("CartHome");
@@ -164,7 +168,7 @@ function Checkout(props) {
         _id: item._id || item.id, // Ensure _id exists
         quantity: item.quantity || 1,
       })),
-      user: user || context.user._id,
+      user: user || context.user?._id,
       dateOrdered: Date.now(),
       totalPrice: calculateTotal(orderItems),
       // Add these additional properties that might be expected

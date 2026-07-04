@@ -18,7 +18,7 @@ const EditProfile = (props) => {
   const context = useContext(AuthContext);
   //console.log("EditProfile context user:", context.user);
   const user = context.user || {};
-  const currentUserId = user._id || user.id || user?.user?._id || user?.user?.id;
+  const currentUserId = user?._id || user?.id || user?.user?._id || user?.user?.id;
   const [name, setName] = useState(user.name || "");
   const [phone, setPhone] = useState(user.phone || "");
   const [email, setEmail] = useState(user.email || "");

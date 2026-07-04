@@ -158,7 +158,7 @@ const NotificationBootstrap = ({ onNotificationReceived, onNotificationOpened })
 
       const authToken = await AsyncStorage.getItem("token");
       if (authToken) {
-        const syncResult = await syncPushTokenForUser(authContext.user._id, authToken, pushToken);
+        const syncResult = await syncPushTokenForUser(authContext.user?._id, authToken, pushToken);
         if (!syncResult?.ok) {
           console.warn("Push token sync result:", syncResult);
           Toast.show({
@@ -192,7 +192,7 @@ const NotificationBootstrap = ({ onNotificationReceived, onNotificationOpened })
       const pushToken = await getStoredPushToken();
 
       if (authToken && pushToken) {
-        const syncResult = await syncPushTokenForUser(authContext.user._id, authToken, pushToken);
+        const syncResult = await syncPushTokenForUser(authContext.user?._id, authToken, pushToken);
         if (!syncResult?.ok) {
           console.warn("Stored push token sync result:", syncResult);
         }
