@@ -78,13 +78,13 @@ const ProductForm = (props) => {
       setName(item.name);
       setPrice(item.price ? item.price.toString() : "");
       setDescription(item.description);
-      setCategory(item.category._id);
+      setCategory(item.category?._id || "");
       setCountInStock(item.countInStock ? item.countInStock.toString() : "");
       setRating(item.rating ? item.rating.toString() : "");
       setRichDescription(item.richDescription ? item.richDescription : "");
       setNumReviews(item.numReviews ? item.numReviews.toString() : "");
       setIsFeatured(item.isFeatured || false);
-      setPickerValue(item.category._id);
+      setPickerValue(item.category?._id || "");
       console.log("Editing item:", item); // Debugging line
     }
 

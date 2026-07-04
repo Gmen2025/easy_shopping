@@ -36,7 +36,7 @@ const MaintenanceScreen = ({ navigation: navProp, isAdmin = false }) => {
     >
       <View style={styles.content}>
         <View style={styles.iconContainer}>
-          <Icon name="tools" size={80} color="#8a6c09" />
+          <Icon name="wrench" size={80} color="#8a6c09" />
         </View>
 
         <Text style={styles.title}>Maintenance Mode</Text>

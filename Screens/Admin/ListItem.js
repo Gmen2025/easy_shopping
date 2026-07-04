@@ -102,7 +102,7 @@ const ListItem = (props) => {
         />
         <Text style={styles.cell} numberOfLines={1}>{item.brand}</Text>
         <Text style={styles.cell} numberOfLines={1}>{item.name}</Text>
-        <Text style={styles.cell} numberOfLines={1}>{item.category.name}</Text>
+        <Text style={styles.cell} numberOfLines={1}>{item.category?.name || 'N/A'}</Text>
         <Text style={[styles.cell, styles.priceCell]}>{formatPrice(item.price)}</Text>
       </TouchableOpacity>
     </View>

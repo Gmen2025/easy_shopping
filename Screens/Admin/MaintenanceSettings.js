@@ -94,7 +94,7 @@ const MaintenanceSettings = (props) => {
         <Card.Content>
           <View style={styles.maintenanceSection}>
             <View style={styles.maintenanceTitleContainer}>
-              <Icon name="tools" size={28} color="#8a6c09" />
+              <Icon name="wrench" size={28} color="#8a6c09" />
               <View style={styles.maintenanceTitle}>
                 <Text style={styles.sectionTitle}>Maintenance Mode</Text>
                 <Text style={styles.sectionSubtitle}>

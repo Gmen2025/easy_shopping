@@ -152,7 +152,7 @@ const Products = (props) => {
           onPress={() => props.navigation.navigate("LowStock")}
         />
         <ActionButton
-          icon="tools"
+          icon="wrench"
           label="Maintenance"
           color="#d97706"
           onPress={() => props.navigation.navigate("MaintenanceSettings")}
