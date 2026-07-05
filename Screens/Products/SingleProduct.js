@@ -16,6 +16,7 @@ import { useDispatch } from "react-redux";
 import { addToCart } from "../../store/cartSlice"; // Adjust the import path as necessary
 import getImageUrl from "../../assets/common/getImageUrl";
 import { useCurrency } from "../../assets/common/currency";
+import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import baseUrl from "../../assets/common/baseUrl";
 import axios from "axios";
 
@@ -142,14 +143,16 @@ const SingleProduct = (props) => {
 
   const dispatch = useDispatch();
   const stockCount = Number(item?.countInStock || 0);
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (item && stockCount > 0) {
+      const databaseName = await getDatabaseNameFromStorage();
       const product = {
         id: item._id, // Assuming each product has a unique id
         name: item.name,
         price: item.price,
         image: galleryImages[0] || item.image,
         countInStock: item.countInStock,
+        databaseName,
       };
       dispatch(addToCart(product));
       Toast.show({

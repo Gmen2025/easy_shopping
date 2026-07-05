@@ -12,6 +12,7 @@ import { useDispatch } from "react-redux";
 import { addToCart } from "../../store/cartSlice"; // Adjust the import path as necessary
 import getImageUrl from "../../assets/common/getImageUrl";
 import { useCurrency } from "../../assets/common/currency";
+import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 
 var { width } = Dimensions.get("window");
 
@@ -22,13 +23,15 @@ const ProductCard = (props) => {
   const { formatPrice } = useCurrency();
   const stockCount = Number(countInStock || 0);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
+    const databaseName = await getDatabaseNameFromStorage();
     const product = {
       _id: props._id, // Assuming each product has a unique id
       name: name,
       price: price,
       image: image,
       countInStock: countInStock,
+      databaseName,
     };
 
     // Check if the product is already in the cart
