@@ -13,8 +13,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import OrderCard from "../../Shared/OrderCard";
 import EasyButton from "../../Shared/StyledComponenets/EasyButton";
 import Toast from "react-native-toast-message";
-import { useDispatch } from 'react-redux';
-import { clearCart } from '../../store/cartSlice';
 import Icon from 'react-native-vector-icons/FontAwesome';
 
 import { useFocusEffect } from "@react-navigation/native";
@@ -27,7 +25,6 @@ import UserOrderDisplay from "../../Shared/UserOrderDisplay";
 
 const UserProfile = (props) => {
   const context = useContext(AuthContext);
-  const dispatch = useDispatch();
   const privacyPolicyUrl = "https://gmen2025.github.io/easy_shopping/privacy.html";
   const accountDeletionUrl = "https://gmen2025.github.io/easy_shopping/account-deletion.html";
   const supportPhoneNumber = "251954141473";
@@ -298,7 +295,6 @@ const UserProfile = (props) => {
           tertiary
           large
           onPress={() => {
-            dispatch(clearCart());
             context.logout();
             setOrders([]);
             props.navigation.navigate("Home");

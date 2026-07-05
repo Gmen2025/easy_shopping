@@ -4,7 +4,6 @@ import { Card, Button, Appbar, Avatar } from 'react-native-paper';
 import { useSelector, useDispatch } from 'react-redux';
 import { clearCart, deductQuantity} from '../../store/cartSlice'; // Adjust the import path as necessary
 import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import baseUrl from '../../assets/common/baseUrl'; // Import the base URL for API requests
 import { AuthContext } from '../../Context/store/Auth';
@@ -31,30 +30,6 @@ const CartView = (props) => {
   const cartItems = useSelector((state) => state.cart.cartItems);
   const dispatch = useDispatch();
   const { formatPrice, currencySymbol } = useCurrency();
-
-  // Clear cart when user changes (different user logs in)
-  useEffect(() => {
-    const checkAndClearCart = async () => {
-      const currentUserId = context.user?._id ?? null;
-      const cartUserId = await AsyncStorage.getItem('cartUserId');
-      
-      // Clear only when there is a previously tracked user and it changed/logged out
-      if (cartUserId !== null && currentUserId !== cartUserId) {
-        if (cartItems.length > 0) {
-          dispatch(clearCart());
-        }
-      }
-
-      // Update the stored user ID for authenticated users only
-      if (currentUserId) {
-        await AsyncStorage.setItem('cartUserId', currentUserId);
-      } else {
-        await AsyncStorage.removeItem('cartUserId');
-      }
-    };
-    
-    checkAndClearCart();
-  }, [context.user?._id, dispatch, cartItems.length]);
 
   useEffect(() => {
     // Fetch products from the API
