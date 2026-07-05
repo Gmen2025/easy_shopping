@@ -12,7 +12,6 @@ import {
 import Constants from "expo-constants";
 import { Card, Button, Divider, Avatar } from "react-native-paper";
 import EasyButton from "../../../Shared/StyledComponenets/EasyButton";
-import FormContainer from "../../../Shared/Form/FormContainer";
 import baseUrl from "../../../assets/common/baseUrl";
 import { useCheckout } from "../../../Context/store/CheckoutContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -549,15 +548,17 @@ const StripePaymentSupported = (props) => {
 
   // Payment Form View
   return (
-    <FormContainer title="Stripe Payment">
+    <View style={styles.paymentScreen}>
+      <Text style={styles.formTitle}>Stripe Payment</Text>
       <KeyboardAvoidingView
         style={styles.formWrapper}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 20}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
         <ScrollView
           contentContainerStyle={styles.formScrollContent}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.container}>
@@ -639,7 +640,7 @@ const StripePaymentSupported = (props) => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </FormContainer>
+    </View>
   );
 };
 
@@ -652,15 +653,25 @@ const StripePayment = (props) => {
 };
 
 const styles = StyleSheet.create({
+  paymentScreen: {
+    flex: 1,
+    backgroundColor: "#f3f6fb",
+  },
+  formTitle: {
+    fontSize: 30,
+    textAlign: "center",
+    marginTop: 10,
+    marginBottom: 5,
+  },
   formWrapper: {
     flex: 1,
   },
   formScrollContent: {
     flexGrow: 1,
-    paddingBottom: 24,
+    paddingBottom: Platform.OS === "ios" ? 36 : 80,
   },
   container: {
-    padding: 16,
+    padding: 5,
     backgroundColor: "#f3f6fb",
   },
   confirmContainer: {
