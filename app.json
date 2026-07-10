@@ -5,11 +5,11 @@
     "scheme": "addugeneteshop",
     "version": "1.0.1",
     "orientation": "portrait",
-    "icon": "./assets/addugenet1.png",
+    "icon": "./assets/addugenet_icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/addugenet1.png",
+      "image": "./assets/addugenet_icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -23,14 +23,14 @@
         "NSPhotoLibraryUsageDescription": "This app accesses your photo library to select and upload product images.",
         "NSPhotoLibraryAddUsageDescription": "This app saves product images to your photo library."
       },
-      "icon": "./assets/addugenet1.png"
+      "icon": "./assets/addugenet_icon.png"
     },
     "android": {
       "package": "com.addugenet.eshop",
       "googleServicesFile": "./google-services.json",
-      "icon": "./assets/addugenet1.png",
+      "icon": "./assets/addugenet_icon.png",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/addugenet1.png",
+        "foregroundImage": "./assets/addugenet_icon.png",
         "backgroundColor": "#ffffff"
       },
       "permissions": [

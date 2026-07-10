@@ -28,9 +28,47 @@ const UserProfile = (props) => {
   const privacyPolicyUrl = "https://gmen2025.github.io/easy_shopping/privacy.html";
   const accountDeletionUrl = "https://gmen2025.github.io/easy_shopping/account-deletion.html";
   const supportPhoneNumber = "251954141473";
-  const supportTelegramNumber = "251910588929";
+  const supportTelegramNumber = "@BettyT58";
+  const supportTelegramUsername = supportTelegramNumber.replace("@", "");
   const whatsappUrl = `https://wa.me/${supportPhoneNumber}`;
-  const telegramPhoneUrl = `tg://resolve?phone=%2B${supportTelegramNumber}`;
+  const telegramWebUrls = [
+    `https://t.me/${supportTelegramUsername}`,
+    `https://telegram.me/${supportTelegramUsername}`,
+    `https://t.me/+${supportPhoneNumber}`,
+  ];
+
+  const openTelegramLink = async () => {
+    for (const url of telegramWebUrls) {
+      try {
+        await Linking.openURL(url);
+        return;
+      } catch (error) {
+        // Continue to the next URL fallback.
+      }
+    }
+
+    // Final fallback to Telegram app deep links.
+    const deepLinkUrls = [
+      `tg://resolve?domain=${supportTelegramUsername}`,
+      `tg://msg?to=${supportTelegramUsername}`,
+      `tg://resolve?phone=${supportPhoneNumber}`,
+    ];
+
+    for (const url of deepLinkUrls) {
+      try {
+        await Linking.openURL(url);
+        return;
+      } catch (error) {
+        // Continue to the next URL fallback.
+      }
+    }
+
+    Toast.show({
+      type: "error",
+      text1: "Unable to open Telegram",
+      text2: "Please verify the Telegram username or browser availability.",
+    });
+  };
 
   const [orders, setOrders] = useState();
 
@@ -275,7 +313,7 @@ const UserProfile = (props) => {
 
           <TouchableOpacity
             style={styles.contactItem}
-            onPress={() => openExternalLink(telegramPhoneUrl)}
+            onPress={openTelegramLink}
           >
             <Icon name="telegram" size={16} color="#8a6c09" style={{ marginRight: 12 }} />
             <View style={{ flex: 1 }}>

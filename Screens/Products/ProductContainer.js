@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   FlatList,
   Text,
+  Image,
   Dimensions,
   TouchableOpacity,
   LayoutAnimation,
@@ -35,6 +36,9 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 const ProductContainer = (props) => {
+  const promoGraphicUrl =
+    "https://res.cloudinary.com/dvzt34adj/image/upload/v1783614600/addugeneteshopgraphics_egtaee.png";
+
   const defaultAdvancedFilters = {
     minPrice: "",
     maxPrice: "",
@@ -252,6 +256,34 @@ const ProductContainer = (props) => {
     return currentProducts;
   }, [products, selectedCategoryId, searchKeyword, advancedFilters]);
 
+  const featuredProductSets = useMemo(() => {
+    const rankedProducts = [...products]
+      .filter((item) => {
+        const featuredValue = item?.isFeatured;
+        const isFeatured =
+          featuredValue === true ||
+          featuredValue === 1 ||
+          String(featuredValue).toLowerCase() === "true";
+
+        return isFeatured && Number(item.countInStock || 0) > 0;
+      })
+      .sort((a, b) => {
+        const ratingDiff = Number(b.rating || 0) - Number(a.rating || 0);
+        if (ratingDiff !== 0) {
+          return ratingDiff;
+        }
+
+        return Number(b.price || 0) - Number(a.price || 0);
+      });
+
+    const sets = [];
+    for (let i = 0; i < rankedProducts.length; i += 4) {
+      sets.push(rankedProducts.slice(i, i + 4));
+    }
+
+    return sets;
+  }, [products]);
+
   //Categories filter method
   const changeCtg = (ctg) => {
     if (ctg === "all") {
@@ -275,93 +307,134 @@ const ProductContainer = (props) => {
   // This function is passed to the SearchedProducts component to clear the search results 
   // and return to the main product list.
   //clearSearchScreen = () => {setFocus(false);};
+
+  const renderTopContent = (showCategories = false) => (
+    <>
+      <Image
+        source={{ uri: promoGraphicUrl }}
+        style={styles.topGraphic}
+        resizeMode="contain"
+      />
+      <Searchbar
+        placeholder="Search"
+        value={searchKeyword}
+        style={styles.searchbar}
+        inputStyle={styles.searchInput}
+        clearIcon={searchKeyword ? "close" : null}
+        onClear={clearSearch}
+        onChangeText={(text) => searchProduct(text)}
+        onFocus={openList}
+        onSubmitEditing={openList}
+      />
+      <TouchableOpacity
+        style={styles.advancedToggle}
+        onPress={toggleAdvancedFilters}
+      >
+        <View style={styles.advancedToggleInner}>
+          <Text style={styles.advancedToggleText}>Advanced Filters</Text>
+          <Text style={styles.advancedToggleIcon}>{showAdvancedFilters ? "▲" : "▼"}</Text>
+        </View>
+      </TouchableOpacity>
+      <AdvancedFilters
+        visible={showAdvancedFilters}
+        filters={advancedFilters}
+        brands={availableBrands}
+        onFilterChange={handleAdvancedFilterChange}
+        onReset={resetAdvancedFilters}
+        onToggle={() => setShowAdvancedFilters(false)}
+      />
+      {featuredProductSets.length > 0 ? (
+        <View style={styles.featuredSection}>
+          <Text style={styles.featuredTitle}>Featured Products</Text>
+          <FlatList
+            horizontal
+            pagingEnabled
+            data={featuredProductSets}
+            keyExtractor={(_, index) => `featured-set-${index}`}
+            showsHorizontalScrollIndicator={false}
+            snapToAlignment="start"
+            decelerationRate="fast"
+            renderItem={({ item: setItems, index: setIndex }) => (
+              <View style={styles.featuredSetScreen}>
+                <Text style={styles.featuredSetTitle}>Set {setIndex + 1}</Text>
+                <View style={styles.featuredGrid}>
+                  {setItems.map((item, itemIndex) => (
+                    <TouchableOpacity
+                      key={extractId(item._id) || `featured-${setIndex}-${itemIndex}`}
+                      style={styles.featuredCard}
+                      activeOpacity={0.85}
+                      onPress={() => props.navigation.navigate("Product Detail", { item })}
+                    >
+                      <Image
+                        source={{ uri: item.image || getImageUrl(item) }}
+                        style={styles.featuredImage}
+                        resizeMode="cover"
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+          />
+        </View>
+      ) : null}
+      {loadError ? (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>{loadError}</Text>
+        </View>
+      ) : null}
+      <Text style={styles.resultMeta}>{filteredProducts.length} products found</Text>
+      {showCategories ? (
+        <View>
+          <CategoriesFilter
+            categories={categories}
+            categoryFilter={changeCtg}
+            active={active}
+            setActive={setActive}
+          />
+        </View>
+      ) : null}
+    </>
+  );
   
   return (
     <>
       {loading == false ? (
         <SafeAreaView style={styles.safeArea}>
           <View style={styles.container}>
-            <View style={styles.heroHeader}>
-              <Text style={styles.heroTitle}>Discover Products</Text>
-              <Text style={styles.heroSubtitle}>Curated picks for your everyday shopping.</Text>
-            </View>
-            <Searchbar
-              placeholder="Search"
-              value={searchKeyword}
-              style={styles.searchbar}
-              inputStyle={styles.searchInput}
-              clearIcon={searchKeyword ? "close" : null}
-              onClear={clearSearch} //Handle clear action
-              onChangeText={(text) => searchProduct(text)}
-              onFocus={openList}
-              onSubmitEditing={openList} //Handle submit action
-            />
-            <TouchableOpacity
-              style={styles.advancedToggle}
-              onPress={toggleAdvancedFilters}
-            >
-              <View style={styles.advancedToggleInner}>
-                <Text style={styles.advancedToggleText}>Advanced Filters</Text>
-                <Text style={styles.advancedToggleIcon}>{showAdvancedFilters ? "▲" : "▼"}</Text>
-              </View>
-            </TouchableOpacity>
-            <AdvancedFilters
-              visible={showAdvancedFilters}
-              filters={advancedFilters}
-              brands={availableBrands}
-              onFilterChange={handleAdvancedFilterChange}
-              onReset={resetAdvancedFilters}
-              onToggle={() => setShowAdvancedFilters(false)}
-            />
-            {loadError ? (
-              <View style={styles.errorBanner}>
-                <Text style={styles.errorText}>{loadError}</Text>
-              </View>
-            ) : null}
-            <Text style={styles.resultMeta}>{filteredProducts.length} products found</Text>
             {focus == true ? (
-              <SearchedProducts
-                productsFiltered={filteredProducts}
-                clearSearchScreen={() => {
-                  setFocus(false);
-                }} //calls a prop function to clear the search textinput
-              />
+              <>
+                {renderTopContent(false)}
+                <SearchedProducts
+                  productsFiltered={filteredProducts}
+                  clearSearchScreen={() => {
+                    setFocus(false);
+                  }}
+                />
+              </>
             ) : (
               <View style={styles.listContainer}>
-                <View>
-                  {/* <View>
-                    <Banner />
-                  </View> */}
-                  <View>
-                    <CategoriesFilter
-                      categories={categories}
-                      categoryFilter={changeCtg}
-                      active={active}
-                      setActive={setActive}
+                <FlatList
+                  data={Array.isArray(filteredProducts) ? filteredProducts : []}
+                  renderItem={({ item }) => (
+                    <ProductList
+                      item={item}
+                      navigation={props.navigation}
                     />
-                  </View>
-                  {Array.isArray(filteredProducts) && filteredProducts.length > 0 ? (
-                    <FlatList
-                      data={filteredProducts}
-                      renderItem={({ item }) => (
-                        <ProductList
-                          item={item}
-                          navigation={props.navigation}
-                        />
-                      )}
-                      keyExtractor={(item, index) =>
-                        extractId(item._id) || index.toString()
-                      }
-                      numColumns={2} // Display items in two columns
-                      columnWrapperStyle={{ justifyContent: "space-between" }} // Style for rows
-                      contentContainerStyle={styles.flatListContent}
-                    />
-                  ) : (
-                    <View style={[styles.center, { height: "40%" }]}>
+                  )}
+                  keyExtractor={(item, index) =>
+                    extractId(item._id) || index.toString()
+                  }
+                  numColumns={2}
+                  columnWrapperStyle={{ justifyContent: "space-between" }}
+                  contentContainerStyle={styles.flatListContent}
+                  ListHeaderComponent={renderTopContent(true)}
+                  ListEmptyComponent={(
+                    <View style={[styles.center, { height: 180 }]}> 
                       <Text style={styles.emptyText}>No products available right now</Text>
                     </View>
                   )}
-                </View>
+                />
               </View>
             )}
           </View>
@@ -407,10 +480,18 @@ const styles = StyleSheet.create({
   },
   searchbar: {
     marginHorizontal: 10,
+    marginTop: 8,
     borderRadius: 12,
     backgroundColor: "#ffffff",
     borderWidth: 1,
     borderColor: "#dce3ef",
+  },
+  topGraphic: {
+    marginHorizontal: 10,
+    borderRadius: 12,
+    height: 170,
+    width: width - 20,
+    backgroundColor: "#e8edf7",
   },
   searchInput: {
     fontSize: 14,
@@ -450,6 +531,47 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "700",
     fontSize: 13,
+  },
+  featuredSection: {
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  featuredTitle: {
+    marginHorizontal: 12,
+    marginBottom: 10,
+    color: "#334155",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  featuredSetScreen: {
+    width: width,
+    paddingHorizontal: 10,
+    marginBottom: 8,
+  },
+  featuredSetTitle: {
+    marginBottom: 8,
+    color: "#475569",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  featuredGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  featuredCard: {
+    width: (width - 34) / 2,
+    height: 88,
+    marginBottom: 8,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#e5e7eb",
+    borderWidth: 1,
+    borderColor: "#dce3ef",
+  },
+  featuredImage: {
+    width: "100%",
+    height: "100%",
   },
   resultMeta: {
     marginHorizontal: 12,

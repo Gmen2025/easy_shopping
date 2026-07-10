@@ -4,7 +4,7 @@ import {
   Text,
   StyleSheet,
   Image,
-  Dimensions,
+  useWindowDimensions,
 } from "react-native";
 import EasyButton from "../../Shared/StyledComponenets/EasyButton";
 import Toast from "react-native-toast-message";
@@ -14,14 +14,16 @@ import getImageUrl from "../../assets/common/getImageUrl";
 import { useCurrency } from "../../assets/common/currency";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 
-var { width } = Dimensions.get("window");
-
 const ProductCard = (props) => {
   const { name, price, image, countInStock } = props;
   const imageUrl = getImageUrl(props);
   const dispatch = useDispatch(); // Import the action to add items to the cart
   const { formatPrice } = useCurrency();
   const stockCount = Number(countInStock || 0);
+  const { width, height } = useWindowDimensions();
+  const shortestSide = Math.min(width, height);
+  const isTablet = shortestSide >= 600;
+  const cardWidth = isTablet ? width / 2 - 28 : width / 2 - 20;
 
   const handleAddToCart = async () => {
     const databaseName = await getDatabaseNameFromStorage();
@@ -45,7 +47,7 @@ const ProductCard = (props) => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { width: cardWidth }]}>
       <View style={styles.imageWrap}>
       <Image
         source={{
@@ -89,14 +91,11 @@ const ProductCard = (props) => {
 
 const styles = StyleSheet.create({
   container: {
-    width: width / 2 - 20,
-    minHeight: width / 1.38,
-    // height: 150,
     padding: 10,
     borderRadius: 14,
-    marginTop: 18,
+    marginTop: 12,
     marginBottom: 8,
-    marginLeft: 10,
+    marginLeft: 8,
     alignItems: "flex-start",
     elevation: 3,
     borderWidth: 1,
@@ -140,7 +139,7 @@ const styles = StyleSheet.create({
     fontWeight: "multi",
     fontSize: 10,
     color: "#333",
-    minHeight: 38,
+    minHeight: 30,
   },
   price: {
     fontSize: 10,
@@ -148,7 +147,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   buttonWrap: {
-    marginTop: 8,
+    marginTop: 6,
     width: "100%",
     alignItems: "flex-end",
   },
