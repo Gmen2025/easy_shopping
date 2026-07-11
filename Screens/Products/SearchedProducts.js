@@ -6,7 +6,7 @@ import {
   Text,
   Dimensions,
   TouchableOpacity,
-  ScrollView,
+  FlatList,
 } from "react-native";
 import EasyButton from "../../Shared/StyledComponenets/EasyButton";
 import { useNavigation } from "@react-navigation/native";
@@ -15,64 +15,91 @@ import { useCurrency } from "../../assets/common/currency";
 
 var { width } = Dimensions.get("window");
 
+const extractId = (value) => {
+  if (!value) {
+    return "";
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (typeof value === "object") {
+    return value.$oid || value._id || "";
+  }
+
+  return "";
+};
+
+const buildSearchKey = (item, index) => {
+  const id = extractId(item?._id) || extractId(item?.id) || "no-id";
+  return `search-${id}-${index}`;
+};
+
 const SearchedProducts = (props) => {
   const navigation = useNavigation(); // Access the navigation object
-  const { productsFiltered = [] } = props;
+  const { productsFiltered = [], topContent = null } = props;
   const { formatPrice } = useCurrency();
 
   // productsFiltered is an array of products that match the search criteria
   return (
     <View style={styles.screen}>
-      <EasyButton
-        secondary
-        medium
-        style={styles.backButton}
-        onPress={props.clearSearchScreen} //calls a prop function to clear the search screen
-      >
-        <Text style={styles.backButtonText}>Back</Text>
-      </EasyButton>
-      <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
-        {productsFiltered.length > 0 ? (
-          productsFiltered.map((item) => (
-            <TouchableOpacity
-              key={item._id}
-              onPress={
-                () => navigation.navigate("Product Detail", { item: item }) // Navigate to Product Detail screen means SingleProduct component
-              }
+      <FlatList
+        data={productsFiltered}
+        keyExtractor={(item, index) => buildSearchKey(item, index)}
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={(
+          <>
+            {topContent}
+            <EasyButton
+              secondary
+              medium
+              style={styles.backButton}
+              onPress={props.clearSearchScreen}
             >
-              <View style={styles.productContainer}>
-                <Image
-                  source={{
-                    uri: getImageUrl(item),
-                  }}
-                  style={styles.productImage}
-                  resizeMode="cover"
-                />
-                <View style={styles.productDetails}>
-                  <Text style={styles.productName}>{item.name}</Text>
-                  <Text style={styles.productDescription} numberOfLines={2}>
-                    {item.description || "No description available"}
-                  </Text>
-                  <Text style={styles.productPrice}>{formatPrice(item.price || 0)}</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))
-        ) : (
+              <Text style={styles.backButtonText}>Back</Text>
+            </EasyButton>
+          </>
+        )}
+        ListEmptyComponent={(
           <View style={styles.emptyStateWrap}>
             <Text style={styles.emptyStateText}>No products match the selected criteria</Text>
           </View>
         )}
-      </ScrollView>
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            onPress={() => navigation.navigate("Product Detail", { item: item })}
+          >
+            <View style={styles.productContainer}>
+              <Image
+                source={{
+                  uri: getImageUrl(item),
+                }}
+                style={styles.productImage}
+                resizeMode="cover"
+              />
+              <View style={styles.productDetails}>
+                <Text style={styles.productName}>{item.name}</Text>
+                <Text style={styles.productDescription} numberOfLines={2}>
+                  {item.description || "No description available"}
+                </Text>
+                <Text style={styles.productPrice}>{formatPrice(item.price || 0)}</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        )}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   screen: {
-    width: width,
     flex: 1,
     backgroundColor: "#f3f6fb",
+  },
+  listContent: {
+    paddingBottom: 20,
   },
   backButton: {
     alignSelf: "flex-end",

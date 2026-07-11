@@ -6,11 +6,11 @@ import {
   FlatList,
   Text,
   Image,
-  Dimensions,
   TouchableOpacity,
   LayoutAnimation,
   Platform,
   UIManager,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
@@ -29,13 +29,16 @@ import getImageUrl from "../../assets/common/getImageUrl";
 //const data = require("../../assets/data/products.json");
 //const productsCategories = require("../../assets/data/categories.json");
 
-var { width } = Dimensions.get("window");
-
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 const ProductContainer = (props) => {
+  const { width: screenWidth } = useWindowDimensions();
+  const isTablet = screenWidth >= 768;
+  const topGraphicHeight = isTablet ? Math.min(screenWidth * 0.42, 320) : 170;
+  const featuredSetWidth = screenWidth;
+  const featuredCardWidth = isTablet ? (screenWidth - 54) / 2 : (screenWidth - 34) / 2;
   const promoGraphicUrl =
     "https://res.cloudinary.com/dvzt34adj/image/upload/v1783614600/addugeneteshopgraphics_egtaee.png";
 
@@ -74,6 +77,11 @@ const ProductContainer = (props) => {
     }
 
     return "";
+  };
+
+  const buildProductKey = (item, index, prefix = "product") => {
+    const id = extractId(item?._id) || extractId(item?.id) || "no-id";
+    return `${prefix}-${id}-${index}`;
   };
 
   //initializing the products when the applivation is loaded
@@ -312,7 +320,7 @@ const ProductContainer = (props) => {
     <>
       <Image
         source={{ uri: promoGraphicUrl }}
-        style={styles.topGraphic}
+        style={[styles.topGraphic, { width: screenWidth, height: topGraphicHeight }]}
         resizeMode="contain"
       />
       <Searchbar
@@ -355,13 +363,13 @@ const ProductContainer = (props) => {
             snapToAlignment="start"
             decelerationRate="fast"
             renderItem={({ item: setItems, index: setIndex }) => (
-              <View style={styles.featuredSetScreen}>
+              <View style={[styles.featuredSetScreen, { width: featuredSetWidth }] }>
                 <Text style={styles.featuredSetTitle}>Set {setIndex + 1}</Text>
                 <View style={styles.featuredGrid}>
                   {setItems.map((item, itemIndex) => (
                     <TouchableOpacity
-                      key={extractId(item._id) || `featured-${setIndex}-${itemIndex}`}
-                      style={styles.featuredCard}
+                      key={buildProductKey(item, itemIndex, `featured-${setIndex}`)}
+                      style={[styles.featuredCard, { width: featuredCardWidth, height: isTablet ? 128 : 88 }]}
                       activeOpacity={0.85}
                       onPress={() => props.navigation.navigate("Product Detail", { item })}
                     >
@@ -404,9 +412,9 @@ const ProductContainer = (props) => {
           <View style={styles.container}>
             {focus == true ? (
               <>
-                {renderTopContent(false)}
                 <SearchedProducts
                   productsFiltered={filteredProducts}
+                  topContent={renderTopContent(false)}
                   clearSearchScreen={() => {
                     setFocus(false);
                   }}
@@ -423,7 +431,7 @@ const ProductContainer = (props) => {
                     />
                   )}
                   keyExtractor={(item, index) =>
-                    extractId(item._id) || index.toString()
+                    buildProductKey(item, index, "catalog")
                   }
                   numColumns={2}
                   columnWrapperStyle={{ justifyContent: "space-between" }}
@@ -487,10 +495,7 @@ const styles = StyleSheet.create({
     borderColor: "#dce3ef",
   },
   topGraphic: {
-    marginHorizontal: 10,
     borderRadius: 12,
-    height: 170,
-    width: width - 20,
     backgroundColor: "#e8edf7",
   },
   searchInput: {
@@ -498,14 +503,10 @@ const styles = StyleSheet.create({
     color: "#1f2937",
   },
   listContainer: {
-    width: width,
     flex: 1,
-    flexDirection: "row",
-    alignItems: "flex-start",
     backgroundColor: "#f3f6fb",
   },
   flatListContent: {
-    paddingHorizontal: 10,
     paddingBottom: 26,
   },
   advancedToggle: {
@@ -544,7 +545,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   featuredSetScreen: {
-    width: width,
     paddingHorizontal: 10,
     marginBottom: 8,
   },
@@ -560,8 +560,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   featuredCard: {
-    width: (width - 34) / 2,
-    height: 88,
     marginBottom: 8,
     borderRadius: 12,
     overflow: "hidden",

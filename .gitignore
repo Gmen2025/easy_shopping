@@ -22,6 +22,11 @@ google-services.json
 GoogleService-Info.plist
 *firebase-adminsdk-*.json
 
+#Google Services
+google-services.json
+GoogleService-Info.plist
+addugenet-eshop-6c250-5efe2d0bdb01.json
+
 # Metro
 .metro-health-check*
 

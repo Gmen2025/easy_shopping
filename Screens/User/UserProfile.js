@@ -252,8 +252,11 @@ const UserProfile = (props) => {
 
           {orders && orders.length > 0 ? (
             <View style={styles.ordersList}>
-              {orders.map((order) => (
-                <View key={order._id} style={styles.orderItemWrapper}>
+              {orders.map((order, index) => (
+                <View
+                  key={`order-${order?._id || "no-id"}-${index}`}
+                  style={styles.orderItemWrapper}
+                >
                   <OrderCard {...order} />
                 </View>
               ))}

@@ -7,6 +7,23 @@ import {
 } from "react-native";
 
 const CategoriesFilter = (props) => {
+  const getCategoryId = (category) => {
+    const rawId = category?._id;
+    if (!rawId) {
+      return "no-id";
+    }
+
+    if (typeof rawId === "string") {
+      return rawId;
+    }
+
+    if (typeof rawId === "object") {
+      return rawId.$oid || rawId._id || "no-id";
+    }
+
+    return String(rawId);
+  };
+
   return (
     <ScrollView
       bounces={true}
@@ -34,22 +51,22 @@ const CategoriesFilter = (props) => {
       </TouchableOpacity>
 
       {/* Dynamic Categories */}
-      {props.categories.map((item) => (
+      {props.categories.map((item, index) => (
         <TouchableOpacity
-          key={item._id}
+          key={`category-${getCategoryId(item)}-${index}`}
           onPress={() => {
             props.categoryFilter(item.name);
-            props.setActive(props.categories.indexOf(item));
+            props.setActive(index);
           }}
           style={styles.touchableOpacity}
         >
           <Text
             style={[
               styles.chip,
-              props.active === props.categories.indexOf(item)
+              props.active === index
                 ? styles.active
                 : styles.inactive,
-              props.active === props.categories.indexOf(item)
+              props.active === index
                 ? styles.activeText
                 : styles.inactiveText,
             ]}

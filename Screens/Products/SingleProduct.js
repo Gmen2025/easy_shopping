@@ -245,9 +245,9 @@ const SingleProduct = (props) => {
           <Text style={styles.relatedTitle}>Related Products</Text>
           {relatedProducts.length > 0 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {relatedProducts.map((relatedItem) => (
+              {relatedProducts.map((relatedItem, index) => (
                 <TouchableOpacity
-                  key={normalizeId(relatedItem._id)}
+                  key={`related-${normalizeId(relatedItem._id) || "no-id"}-${index}`}
                   style={styles.relatedItem}
                   onPress={() => {
                     setItem(relatedItem);
