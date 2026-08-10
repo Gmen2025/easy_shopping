@@ -46,6 +46,7 @@
       "stripePublishableKey": "",
       "stripeCurrency": "usd",
       "telebirrMockEnabled": false,
+      "socketUrl": "http://192.168.1.10:5000",
       "eas": {
         "projectId": "2aec4a7d-b158-4d0f-986d-f45acf95eff5"
       }

@@ -11,6 +11,8 @@ import HomeNavigator from './HomeNavigator'
 import CartNavigator from './CartNavigator'
 import UserNavigator from './UserNavigator'
 import AdminNavigator from './AdminNavigator'
+import DriverDashboard from '../Screens/Driver/DriverDashboard'
+import DeliveryRouteScreen from '../Screens/Driver/DeliveryRouteScreen'
 
 const Tab = createBottomTabNavigator();
 
@@ -92,6 +94,21 @@ const Main = () => {
             return (
               <Icon
                 name="user"
+                color={color}
+                size={30}
+              />
+            );
+          },
+        }}
+      />
+      <Tab.Screen
+        name='DriverDashboard'
+        component={DriverDashboard}
+        options={{
+          tabBarIcon: ({ color }) => {
+            return (
+              <Icon
+                name="truck"
                 color={color}
                 size={30}
               />

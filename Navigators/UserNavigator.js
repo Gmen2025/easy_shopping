@@ -10,6 +10,8 @@ import EditProfile from "../Screens/User/EditProfile";
 import EmailVerification from "../Screens/User/EmailVerification";
 import ForgotPassword from "../Screens/User/ForgotPassword";
 import ResetPassword from "../Screens/User/ResetPassword";
+import DriverDashboard from "../Screens/Driver/DriverDashboard";
+import DeliveryRouteScreen from "../Screens/Driver/DeliveryRouteScreen";
 
 const Stack = createStackNavigator();
 
@@ -27,6 +29,8 @@ const MyStack = () => {
         <>
           <Stack.Screen name="User Profile" component={UserProfile} />
           <Stack.Screen name="EditProfile" component={EditProfile} />
+          <Stack.Screen name="DriverDashboard" component={DriverDashboard} />
+          <Stack.Screen name="DeliveryRoute" component={DeliveryRouteScreen} />
         </>
       ) : (
         <>

@@ -14,6 +14,11 @@ module.exports = ({ config }) => {
     existingExtra.stripeCurrency ||
     "usd";
 
+  const socketUrl =
+    process.env.EXPO_PUBLIC_SOCKET_URL ||
+    existingExtra.socketUrl ||
+    "http://192.168.1.10:5000";
+
   const telebirrMockEnabledRaw =
     process.env.EXPO_PUBLIC_TELEBIRR_MOCK_ENABLED ??
     existingExtra.telebirrMockEnabled ??
@@ -37,6 +42,7 @@ module.exports = ({ config }) => {
       stripePublishableKey,
       stripeCurrency,
       telebirrMockEnabled,
+      socketUrl,
     },
   };
 };
