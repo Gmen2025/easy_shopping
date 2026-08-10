@@ -7,7 +7,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { Audio } from "expo-av";
 import * as Haptics from "expo-haptics";
 
@@ -27,12 +27,15 @@ const DEFAULT_DRIVER_COORDINATES = {
 
 const DriverDashboard = () => {
   const navigation = useNavigation();
+  const route = useRoute();
   const [socketConnected, setSocketConnected] = useState(false);
   const [activeRequest, setActiveRequest] = useState(null);
   const [countdown, setCountdown] = useState(30);
   const [statusText, setStatusText] = useState("Preparing dispatcher connection...");
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isAlertPlaying, setIsAlertPlaying] = useState(false);
+  const [completedDelivery, setCompletedDelivery] = useState(null);
+  const [pendingDeliveries, setPendingDeliveries] = useState([]);
   const soundRef = useRef(null);
   const timerRef = useRef(null);
   const mountedRef = useRef(true);
@@ -81,6 +84,30 @@ const DriverDashboard = () => {
     setStatusText("Listening for the next delivery request");
   }, [stopAlert]);
 
+  const handleDeliveryComplete = useCallback((request) => {
+    setCompletedDelivery(request || null);
+    setActiveRequest(null);
+    setCountdown(30);
+    setStatusText("Delivery completed. Waiting for the next request.");
+  }, []);
+
+  const handleOpenPendingDelivery = useCallback(
+    (request) => {
+      navigation.navigate("User", {
+        screen: "DeliveryRoute",
+        params: {
+          request: {
+            ...request,
+            driverCoordinates: request.driverCoordinates || DEFAULT_DRIVER_COORDINATES,
+          },
+          orderStatus: "Picked Up",
+        },
+        merge: true,
+      });
+    },
+    [navigation]
+  );
+
   const handleReject = useCallback(async (expired = false) => {
     if (!activeRequest) {
       return;
@@ -128,6 +155,7 @@ const DriverDashboard = () => {
         },
         orderStatus: "Driver Assigned",
       },
+      merge: true,
     });
     setIsTransitioning(false);
   }, [activeRequest, navigation, resetRequestState]);
@@ -147,7 +175,7 @@ const DriverDashboard = () => {
         setSocketConnected(true);
         setStatusText("Connected to dispatcher. Waiting for requests...");
 
-        const { deliveryEvent, registerEvent } = getSocketEventNames();
+        const { deliveryEvent, registerEvent, statusEvent } = getSocketEventNames();
         registerDriverSocket({
           driverId: process.env.EXPO_PUBLIC_DRIVER_ID || "demo-driver",
         });
@@ -168,6 +196,7 @@ const DriverDashboard = () => {
               longitude: 38.7642,
             },
             driverCoordinates: payload?.driverCoordinates || DEFAULT_DRIVER_COORDINATES,
+            rawPayload: payload,
           };
 
           setActiveRequest(normalizedRequest);
@@ -175,6 +204,28 @@ const DriverDashboard = () => {
           setStatusText(`Incoming request from ${normalizedRequest.pickupStoreName}`);
           playAlert();
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        };
+
+        const handleDriverAssigned = (payload) => {
+          const normalizedRequest = {
+            id: payload?.orderId || payload?.id || `delivery-${Date.now()}`,
+            pickupStoreName: payload?.pickupStoreName || payload?.store?.name || "North Hub Store",
+            customerName: payload?.customerName || payload?.customer?.name || "Customer",
+            customerLocation: payload?.customerLocation || payload?.customer?.location || {
+              latitude: 8.9834,
+              longitude: 38.7761,
+            },
+            storeLocation: payload?.storeLocation || payload?.store?.location || {
+              latitude: 8.9851,
+              longitude: 38.7642,
+            },
+            driverCoordinates: payload?.driverCoordinates || DEFAULT_DRIVER_COORDINATES,
+            rawPayload: payload,
+          };
+
+          setActiveRequest(normalizedRequest);
+          setCountdown(30);
+          setStatusText(`Assigned to delivery ${normalizedRequest.pickupStoreName}`);
         };
 
         const handleConnect = () => {
@@ -188,11 +239,21 @@ const DriverDashboard = () => {
         };
 
         socket.on(deliveryEvent, handleIncomingRequest);
+        socket.on("driver_assigned", handleDriverAssigned);
+        socket.on("order_assigned", handleDriverAssigned);
+        socket.on(statusEvent, (payload) => {
+          if (payload?.status === "accepted" || payload?.status === "rejected") {
+            setStatusText(`Order ${payload.status} for ${payload.orderId || "request"}`);
+          }
+        });
         socket.on("connect", handleConnect);
         socket.on("disconnect", handleDisconnect);
 
         return () => {
           socket.off(deliveryEvent, handleIncomingRequest);
+          socket.off("driver_assigned", handleDriverAssigned);
+          socket.off("order_assigned", handleDriverAssigned);
+          socket.off(statusEvent, () => {});
           socket.off("connect", handleConnect);
           socket.off("disconnect", handleDisconnect);
         };
@@ -218,6 +279,36 @@ const DriverDashboard = () => {
       disconnectDriverSocket();
     };
   }, [playAlert, stopAlert]);
+
+  useEffect(() => {
+    if (route.params?.completedDelivery) {
+      setCompletedDelivery(route.params.completedDelivery);
+      setStatusText("Delivery completed. Waiting for the next request.");
+    }
+  }, [route.params?.completedDelivery]);
+
+  useEffect(() => {
+    if (!route.params?.pendingDelivery) {
+      return;
+    }
+
+    const pendingRequest = route.params.pendingDelivery;
+    setPendingDeliveries((previous) => {
+      if (previous.some((item) => item.id === pendingRequest.id)) {
+        return previous;
+      }
+
+      return [
+        ...previous,
+        {
+          ...pendingRequest,
+          savedAt: new Date().toISOString(),
+        },
+      ];
+    });
+    setStatusText("Delivery saved for later. You can resume it from the pending list.");
+    navigation.setParams({ pendingDelivery: undefined });
+  }, [navigation, route.params?.pendingDelivery]);
 
   useEffect(() => {
     if (!activeRequest) {
@@ -285,7 +376,32 @@ const DriverDashboard = () => {
             </View>
           </View>
           <Text style={styles.statusText}>{statusText}</Text>
+          {completedDelivery ? (
+            <View style={styles.completedCard}>
+              <Text style={styles.completedTitle}>Delivery completed</Text>
+              <Text style={styles.completedText}>{completedDelivery.pickupStoreName || "Delivery"} is now marked complete.</Text>
+            </View>
+          ) : null}
         </View>
+
+        {pendingDeliveries.length > 0 ? (
+          <View style={styles.pendingCard}>
+            <Text style={styles.pendingTitle}>Pending deliveries</Text>
+            {pendingDeliveries.map((delivery) => (
+              <TouchableOpacity
+                key={delivery.id}
+                style={styles.pendingItem}
+                onPress={() => handleOpenPendingDelivery(delivery)}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.pendingItemTitle}>{delivery.pickupStoreName || "Delivery"}</Text>
+                  <Text style={styles.pendingItemText}>{delivery.customerName || "Customer"}</Text>
+                </View>
+                <Text style={styles.pendingItemAction}>Resume</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : null}
 
         <TouchableOpacity style={styles.primaryAction} onPress={simulateDemoRequest}>
           <Text style={styles.primaryActionText}>Simulate incoming request</Text>
@@ -368,6 +484,23 @@ const styles = StyleSheet.create({
     color: "#374151",
     fontSize: 13,
   },
+  completedCard: {
+    marginTop: 12,
+    backgroundColor: "#f0fdf4",
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#86efac",
+  },
+  completedTitle: {
+    fontWeight: "700",
+    color: "#166534",
+  },
+  completedText: {
+    marginTop: 4,
+    color: "#166534",
+    fontSize: 13,
+  },
   primaryAction: {
     backgroundColor: "#8a6c09",
     marginTop: 18,
@@ -377,6 +510,43 @@ const styles = StyleSheet.create({
   },
   primaryActionText: {
     color: "#ffffff",
+    fontWeight: "700",
+  },
+  pendingCard: {
+    marginTop: 16,
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  pendingTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  pendingItem: {
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: "#f9fafb",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  pendingItemTitle: {
+    fontWeight: "700",
+    color: "#111827",
+  },
+  pendingItemText: {
+    marginTop: 2,
+    color: "#6b7280",
+    fontSize: 12,
+  },
+  pendingItemAction: {
+    color: "#8a6c09",
     fontWeight: "700",
   },
   centeredPanel: {

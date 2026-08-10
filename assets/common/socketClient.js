@@ -9,6 +9,8 @@ const getSocketConfig = () => ({
   registerEvent: process.env.EXPO_PUBLIC_SOCKET_REGISTER_EVENT || "driver_register",
   acceptEvent: process.env.EXPO_PUBLIC_SOCKET_ACCEPT_EVENT || "order_accepted",
   rejectEvent: process.env.EXPO_PUBLIC_SOCKET_REJECT_EVENT || "order_rejected",
+  statusEvent: process.env.EXPO_PUBLIC_SOCKET_STATUS_EVENT || "order_status_updated",
+  driverRegisteredEvent: process.env.EXPO_PUBLIC_SOCKET_REGISTERED_EVENT || "driver_registered",
 });
 
 const normalizeSocketUrl = (value) => {
@@ -21,12 +23,26 @@ const normalizeSocketUrl = (value) => {
     return "";
   }
 
+  normalized = normalized.replace(/\/+$/, "");
+
+  if (/^wss?:\/\//i.test(normalized)) {
+    return normalized;
+  }
+
   if (/^https?:\/\//i.test(normalized)) {
-    normalized = normalized.replace(/\/+$/, "");
+    return normalized;
+  }
+
+  if (!/^https?:\/\//i.test(normalized) && !/^wss?:\/\//i.test(normalized)) {
+    normalized = `https://${normalized}`;
   }
 
   if (/\/api\/v1$/i.test(normalized)) {
     return normalized.replace(/\/api\/v1$/i, "");
+  }
+
+  if (/\/api$/i.test(normalized)) {
+    return normalized.replace(/\/api$/i, "");
   }
 
   return normalized;
@@ -66,8 +82,13 @@ export const getDriverSocket = () => {
 
   socketPromise = new Promise((resolve, reject) => {
     const instance = io(targetUrl, {
-      transports: ["websocket"],
+      transports: ["websocket", "polling"],
       path: "/socket.io",
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      timeout: 10000,
+      forceNew: true,
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,

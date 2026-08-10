@@ -13,7 +13,9 @@ import { useSelector } from "react-redux"; // Assuming you are using Redux to ma
 import axios from "axios";
 import baseUrl from "../../../assets/common/baseUrl";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Location from "expo-location";
 import { validateOrderStock } from "../../../assets/common/inventory";
+import { buildStoreAssignmentPayload } from "../../../assets/common/stores";
 
 function Checkout(props) {
   const context = useContext(AuthContext);
@@ -152,6 +154,31 @@ function Checkout(props) {
       return;
     }
 
+    let customerLocation = null;
+
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === "granted") {
+        const currentPosition = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        customerLocation = {
+          latitude: currentPosition.coords.latitude,
+          longitude: currentPosition.coords.longitude,
+        };
+      }
+    } catch (error) {
+      console.warn("Unable to read current location for store assignment:", error);
+    }
+
+    const storeAssignment = await buildStoreAssignmentPayload(
+      customerLocation || {
+        latitude: 8.9806,
+        longitude: 38.7578,
+      },
+      token
+    );
+
     // Create order object with proper structure
     let order = {
       _id: `temp_order_${Date.now()}`, // Add temporary ID
@@ -171,6 +198,12 @@ function Checkout(props) {
       user: user || context.user?._id,
       dateOrdered: Date.now(),
       totalPrice: calculateTotal(orderItems),
+      ...storeAssignment,
+      pickupStoreName: storeAssignment.pickupStoreName || "Nearby Store",
+      customerLocation: storeAssignment.customerLocation || {
+        latitude: 8.9806,
+        longitude: 38.7578,
+      },
       // Add these additional properties that might be expected
       paymentMethod: null,
       methodName: null,

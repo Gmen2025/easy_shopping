@@ -57,6 +57,14 @@ const Confirm = (props) => {
       const orderItem = {
         ...order,
         user: context.user?._id,
+        pickupStore: order.pickupStore || null,
+        pickupStoreName: order.pickupStoreName || order.pickupStore?.name || null,
+        storeLocation: order.storeLocation || null,
+        customerLocation: order.customerLocation || null,
+        pickupStoreId: order.pickupStoreId || order.pickupStore?._id || order.pickupStore?.id || null,
+        storeId: order.storeId || order.pickupStore?._id || order.pickupStore?.id || null,
+        storeAssignment: order.storeAssignment || null,
+        storeAssignmentStatus: order.storeAssignmentStatus || "assigned",
         orderItems: order.orderItems.map((item) => ({
           product: item._id,
           quantity: item.quantity || 1,

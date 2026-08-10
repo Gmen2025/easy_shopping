@@ -9,6 +9,7 @@ import BroadcastNotifications from "../Screens/Admin/BroadcastNotifications";
 import LowStock from "../Screens/Admin/LowStock";
 import MaintenanceSettings from "../Screens/Admin/MaintenanceSettings";
 import BankAccountSettings from "../Screens/Admin/BankAccountSettings";
+import Stores from "../Screens/Admin/Stores";
 import SingleProduct from "../Screens/Products/SingleProduct";
 
 const Stack = createStackNavigator();
@@ -91,6 +92,18 @@ function MyStack() {
         component={MaintenanceSettings}
         options={{
           title: 'Maintenance Mode',
+          headerTintColor: '#e6c20eff',
+          headerTitleAlign: 'center',
+          headerTitleStyle:{
+            color:'#e6c20eff'
+          }
+        }}
+      />
+      <Stack.Screen
+        name="Stores"
+        component={Stores}
+        options={{
+          title: 'Stores',
           headerTintColor: '#e6c20eff',
           headerTitleAlign: 'center',
           headerTitleStyle:{

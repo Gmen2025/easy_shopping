@@ -40,20 +40,26 @@ const DeliveryRouteScreen = () => {
   const [routeError, setRouteError] = useState("");
   const [fallbackEstimate, setFallbackEstimate] = useState(null);
   const [serviceAreaMessage, setServiceAreaMessage] = useState("");
+  const [pickupRouteStarted, setPickupRouteStarted] = useState(false);
+  const [deliveryRouteStarted, setDeliveryRouteStarted] = useState(false);
+  const [locationStatus, setLocationStatus] = useState("Waiting for live GPS");
 
   const request = route?.params?.request || {};
   const orderStatus = route?.params?.orderStatus || "Driver Assigned";
+  const currentStage = orderStatus === "Picked Up" ? "delivery" : "pickup";
+  const liveOrderStatus = request?.rawPayload?.status || orderStatus;
+  const isCompleted = liveOrderStatus === "Delivered" || liveOrderStatus === "completed" || orderStatus === "Delivered";
   const driverCoordinates = request.driverCoordinates || {
     latitude: 8.9806,
     longitude: 38.7578,
   };
-  const storeCoordinates = request.storeLocation || {
+  const storeCoordinates = request.storeLocation || request.pickupLocation || {
     latitude: 8.9851,
     longitude: 38.7642,
   };
-  const customerCoordinates = request.customerLocation || {
-    latitude: 8.9834,
-    longitude: 38.7761,
+  const customerCoordinates = request.customerLocation || request.deliveryLocation || request.dropOffLocation || {
+    latitude: 8.9818,
+    longitude: 38.7728,
   };
 
   const destination = useMemo(() => {
@@ -123,6 +129,7 @@ const DeliveryRouteScreen = () => {
         latitude: initialPosition.coords.latitude,
         longitude: initialPosition.coords.longitude,
       });
+      setLocationStatus("Live GPS active");
 
       subscription = await Location.watchPositionAsync(
         {
@@ -139,6 +146,7 @@ const DeliveryRouteScreen = () => {
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
           });
+          setLocationStatus("Tracking live location");
         }
       );
     };
@@ -247,6 +255,16 @@ const DeliveryRouteScreen = () => {
         <View style={styles.bottomPanel}>
           <Text style={styles.panelTitle}>Active route</Text>
           <Text style={styles.panelSubtitle}>{request.pickupStoreName || "Delivery route"}</Text>
+          <Text style={styles.stageLabel}>
+            {isCompleted
+              ? "Delivery completed"
+              : currentStage === "pickup"
+                ? "Stage 1: Drive to store and confirm pickup"
+                : deliveryRouteStarted
+                  ? "Stage 2: Driving to delivery address"
+                  : "Stage 2: Drive to customer and confirm drop-off"}
+          </Text>
+          <Text style={styles.locationStatus}>{locationStatus}</Text>
           {(routeError || serviceAreaMessage) ? (
             <Text style={styles.routeWarning}>{routeError || serviceAreaMessage}</Text>
           ) : null}
@@ -272,11 +290,67 @@ const DeliveryRouteScreen = () => {
               </Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.actionButton} onPress={() => navigation.goBack()}>
-            <Text style={styles.actionButtonText}>
-              {orderStatus === "Picked Up" ? "Confirm delivery" : "Confirm pickup"}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.actionsRow}>
+            {isCompleted ? (
+              <TouchableOpacity
+                style={styles.primaryAction}
+                onPress={() => navigation.navigate("DriverDashboard")}
+              >
+                <Text style={styles.primaryActionText}>Back to dashboard</Text>
+              </TouchableOpacity>
+            ) : currentStage === "pickup" ? (
+              <>
+                <TouchableOpacity
+                  style={styles.secondaryAction}
+                  onPress={() => {
+                    navigation.navigate("DeliveryProgress", {
+                      request,
+                      orderStatus: "Picked Up",
+                      mode: "pickup",
+                    });
+                  }}
+                >
+                  <Text style={styles.secondaryActionText}>Confirm pickup</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.primaryAction}
+                  onPress={() => {
+                    setPickupRouteStarted(true);
+                  }}
+                >
+                  <Text style={styles.primaryActionText}>{pickupRouteStarted ? "Driving to store..." : "Start driving to store"}</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={styles.secondaryAction}
+                  onPress={() => {
+                    navigation.navigate("DriverDashboard", {
+                      pendingDelivery: request,
+                    });
+                  }}
+                >
+                  <Text style={styles.secondaryActionText}>Deliver later</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.primaryAction}
+                  onPress={() => {
+                    if (deliveryRouteStarted) {
+                      navigation.navigate("DriverDashboard", {
+                        completedDelivery: request,
+                      });
+                      return;
+                    }
+
+                    setDeliveryRouteStarted(true);
+                  }}
+                >
+                  <Text style={styles.primaryActionText}>{deliveryRouteStarted ? "Confirm delivery" : "Start delivery route"}</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
         </View>
       </View>
     </SafeAreaView>
@@ -334,6 +408,17 @@ const styles = StyleSheet.create({
     color: "#6b7280",
     marginTop: 4,
   },
+  stageLabel: {
+    marginTop: 8,
+    color: "#8a6c09",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  locationStatus: {
+    marginTop: 6,
+    color: "#4b5563",
+    fontSize: 12,
+  },
   metricsRow: {
     flexDirection: "row",
     marginTop: 12,
@@ -364,15 +449,28 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
   },
-  actionButton: {
+  actionsRow: {
     marginTop: 14,
+    gap: 10,
+  },
+  primaryAction: {
     backgroundColor: "#8a6c09",
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: "center",
   },
-  actionButtonText: {
+  primaryActionText: {
     color: "#ffffff",
+    fontWeight: "700",
+  },
+  secondaryAction: {
+    backgroundColor: "#f3f4f6",
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  secondaryActionText: {
+    color: "#111827",
     fontWeight: "700",
   },
 });
