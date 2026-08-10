@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Button, Dimensions, ScrollView } from "react-native";
+import { View, Text, StyleSheet, Button, Dimensions, ScrollView, Switch } from "react-native";
 import FormContainer from "../../Shared/Form/FormContainer";
 import Input from "../../Shared/Form/Input";
 import Error from "../../Shared/Error";
@@ -23,6 +23,7 @@ const Register = (props) => {
     error: "",
     emailError: "",
     isRegistering: false,
+    becomeDriver: false,
     registrationStep: "form", // "form", "verificationSent", "verifying"
   });
 
@@ -109,6 +110,17 @@ const Register = (props) => {
       isAdmin: false,
       requireEmailVerification: true,
     };
+
+    if (formData.becomeDriver) {
+      user = {
+        ...user,
+        isDriver: true,
+        is_driver: true,
+        role: "driver",
+        userType: "driver",
+        driverRole: "driver",
+      };
+    }
 
     axios
       .post(`${baseUrl}users/register`, user)
@@ -281,6 +293,19 @@ const Register = (props) => {
                 value={formData.phone}
                 onChangeText={(text) => setFormData({ ...formData, phone: text })}
               />
+
+              <View style={styles.driverOptionRow}>
+                <View style={styles.driverOptionTextWrap}>
+                  <Text style={styles.fieldLabel}>Register as Driver</Text>
+                  <Text style={styles.driverHint}>Enable delivery-driver access and delivery requests.</Text>
+                </View>
+                <Switch
+                  value={formData.becomeDriver}
+                  onValueChange={(value) => setFormData({ ...formData, becomeDriver: value })}
+                  trackColor={{ false: "#d7d7d7", true: "#8a6c09" }}
+                  thumbColor={formData.becomeDriver ? "#fff" : "#f4f3f4"}
+                />
+              </View>
             </View>
 
             {/* Error Messages */}
@@ -352,6 +377,22 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.3,
+  },
+  driverOptionRow: {
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+  },
+  driverOptionTextWrap: {
+    flex: 1,
+    marginRight: 12,
+  },
+  driverHint: {
+    fontSize: 12,
+    color: '#5a6c7d',
+    marginTop: 4,
   },
   validationError: {
     color: '#e53935',

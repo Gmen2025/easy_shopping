@@ -7,6 +7,68 @@ import { AppState } from "react-native";
 export const AuthContext = createContext();
 
 const INACTIVITY_TIMEOUT_MS = 6 * 30 * 24 * 60 * 60 * 1000; // 6 months in milliseconds
+
+const extractUserProfile = (payload) => {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return null;
+  }
+
+  if (payload.user && typeof payload.user === "object" && !Array.isArray(payload.user)) {
+    return payload.user;
+  }
+
+  if (payload.profile && typeof payload.profile === "object" && !Array.isArray(payload.profile)) {
+    return payload.profile;
+  }
+
+  if (payload.data && typeof payload.data === "object" && !Array.isArray(payload.data)) {
+    return payload.data;
+  }
+
+  return payload;
+};
+
+const looksLikeDriverRole = (value) => {
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return ["driver", "delivery_driver", "delivery-driver", "delivery driver", "driver_role", "driver-role"].includes(normalized);
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((item) => looksLikeDriverRole(item));
+  }
+
+  return value === true;
+};
+
+export const isDriverUser = (user) => {
+  const profile = extractUserProfile(user);
+
+  if (!profile || typeof profile !== "object") {
+    return false;
+  }
+
+  if (profile?.isAdmin === true || profile?.is_admin === true || profile?.role === "admin" || profile?.user?.role === "admin" || profile?.profile?.role === "admin") {
+    return true;
+  }
+
+  const roleValues = [
+    profile?.isDriver,
+    profile?.is_driver,
+    profile?.driver,
+    profile?.driverRole,
+    profile?.userType,
+    profile?.accountType,
+    profile?.role,
+    profile?.type,
+    profile?.roles,
+    profile?.permissions,
+    profile?.user?.role,
+    profile?.profile?.role,
+  ];
+
+  return roleValues.some((value) => looksLikeDriverRole(value));
+};
 const ACTIVITY_UPDATE_INTERVAL = 60000; // Update activity timestamp every minute
 
 const initialState = {
@@ -128,7 +190,7 @@ export const AuthProvider = ({ children }) => {
       console.log('User profile data:', profileResponse.data);
 
       // Extract just the user object from the response
-      const userData = profileResponse.data.user || profileResponse.data;
+      const userData = extractUserProfile(profileResponse.data);
       dispatch({ type: "LOGIN_SUCCESS", payload: userData });
       // Update last activity time on successful session restore
       await updateLastActivity();
@@ -184,7 +246,8 @@ export const AuthProvider = ({ children }) => {
         password,
       });
       // Extract user data and token from response
-      const { token, ...userData } = res.data;
+      const { token, ...responseData } = res.data;
+      const userData = extractUserProfile(responseData);
       dispatch({ type: "LOGIN_SUCCESS", payload: userData });
       await AsyncStorage.setItem("token", token);
       // Set initial activity timestamp on login
@@ -203,7 +266,8 @@ export const AuthProvider = ({ children }) => {
       const res = await axios.get(`${baseUrl}users/${userId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      dispatch({ type: "FETCH_USER_SUCCESS", payload: res.data });
+      const userData = extractUserProfile(res.data);
+      dispatch({ type: "FETCH_USER_SUCCESS", payload: userData });
     } catch (error) {
       dispatch({
         type: "FETCH_USER_FAIL",
@@ -217,7 +281,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await axios.post(`${baseUrl}users/register`, userData);
       // Extract user data from nested structure
-      const userObj = res.data.user || res.data;
+      const userObj = extractUserProfile(res.data);
       dispatch({ type: "REGISTER_SUCCESS", payload: userObj });
       // Set initial activity timestamp on registration if token provided
       if (res.data.token) {

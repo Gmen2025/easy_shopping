@@ -5,7 +5,7 @@ import Icon from 'react-native-vector-icons/FontAwesome'
 
 import CartIcon from '../Shared/CartIcon'
 import AdminLowStockBadge from '../Shared/AdminLowStockBadge'
-import {AuthContext} from '../Context/store/Auth'
+import {AuthContext, isDriverUser} from '../Context/store/Auth'
 
 import HomeNavigator from './HomeNavigator'
 import CartNavigator from './CartNavigator'
@@ -101,21 +101,23 @@ const Main = () => {
           },
         }}
       />
-      <Tab.Screen
-        name='DriverDashboard'
-        component={DriverDashboard}
-        options={{
-          tabBarIcon: ({ color }) => {
-            return (
-              <Icon
-                name="truck"
-                color={color}
-                size={30}
-              />
-            );
-          },
-        }}
-      />
+      {isDriverUser(context.user) ? (
+        <Tab.Screen
+          name='DriverDashboard'
+          component={DriverDashboard}
+          options={{
+            tabBarIcon: ({ color }) => {
+              return (
+                <Icon
+                  name="truck"
+                  color={color}
+                  size={30}
+                />
+              );
+            },
+          }}
+        />
+      ) : null}
     </Tab.Navigator>
   );
 };

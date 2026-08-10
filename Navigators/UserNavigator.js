@@ -1,6 +1,6 @@
 import React, { useContext } from "react";
 import { createStackNavigator } from "@react-navigation/stack";
-import { AuthContext } from "../Context/store/Auth";
+import { AuthContext, isDriverUser } from "../Context/store/Auth";
 
 import Login from "../Screens/User/Login";
 import Register from "../Screens/User/Register";
@@ -29,8 +29,12 @@ const MyStack = () => {
         <>
           <Stack.Screen name="User Profile" component={UserProfile} />
           <Stack.Screen name="EditProfile" component={EditProfile} />
-          <Stack.Screen name="DriverDashboard" component={DriverDashboard} />
-          <Stack.Screen name="DeliveryRoute" component={DeliveryRouteScreen} />
+          {isDriverUser(context.user) ? (
+            <>
+              <Stack.Screen name="DriverDashboard" component={DriverDashboard} />
+              <Stack.Screen name="DeliveryRoute" component={DeliveryRouteScreen} />
+            </>
+          ) : null}
         </>
       ) : (
         <>
