@@ -118,7 +118,7 @@ const DriverDashboard = () => {
       console.warn("Unable to emit accept event:", error);
     }
 
-    await stopAlert();
+    await resetRequestState();
     navigation.navigate("User", {
       screen: "DeliveryRoute",
       params: {
@@ -130,7 +130,7 @@ const DriverDashboard = () => {
       },
     });
     setIsTransitioning(false);
-  }, [activeRequest, navigation, stopAlert]);
+  }, [activeRequest, navigation, resetRequestState]);
 
   useEffect(() => {
     mountedRef.current = true;
