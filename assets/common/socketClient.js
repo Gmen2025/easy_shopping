@@ -11,6 +11,27 @@ const getSocketConfig = () => ({
   rejectEvent: process.env.EXPO_PUBLIC_SOCKET_REJECT_EVENT || "order_rejected",
 });
 
+const normalizeSocketUrl = (value) => {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  let normalized = value.trim();
+  if (!normalized) {
+    return "";
+  }
+
+  if (/^https?:\/\//i.test(normalized)) {
+    normalized = normalized.replace(/\/+$/, "");
+  }
+
+  if (/\/api\/v1$/i.test(normalized)) {
+    return normalized.replace(/\/api\/v1$/i, "");
+  }
+
+  return normalized;
+};
+
 const getSocketUrl = () => {
   const configUrl = Constants?.expoConfig?.extra?.socketUrl;
   const envUrl = process.env.EXPO_PUBLIC_SOCKET_URL;
@@ -20,7 +41,16 @@ const getSocketUrl = () => {
       ? envUrl
       : "";
 
-  return candidate.trim() || "http://192.168.1.10:5000";
+  const normalized = normalizeSocketUrl(candidate);
+  return normalized || "http://192.168.1.10:5000";
+};
+
+export const getSocketConnectionStatus = () => {
+  const socketUrl = getSocketUrl();
+  return {
+    socketUrl,
+    configured: Boolean(socketUrl && socketUrl !== "http://192.168.1.10:5000"),
+  };
 };
 
 export const getDriverSocket = () => {
@@ -37,6 +67,7 @@ export const getDriverSocket = () => {
   socketPromise = new Promise((resolve, reject) => {
     const instance = io(targetUrl, {
       transports: ["websocket"],
+      path: "/socket.io",
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,

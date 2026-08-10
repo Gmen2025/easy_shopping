@@ -199,7 +199,7 @@ const DriverDashboard = () => {
       } catch (error) {
         console.warn("Socket connection failed:", error);
         setSocketConnected(false);
-        setStatusText("Dispatcher unavailable. Offline mode enabled.");
+        setStatusText("Dispatcher unavailable. Offline mode enabled. Check your backend URL.");
       }
     };
 
