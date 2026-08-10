@@ -48,3 +48,8 @@ yarn-error.*
 # Folders
 ./android
 ./ios
+
+# secrets
+.env
+.env.*
+
