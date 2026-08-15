@@ -15,12 +15,51 @@ import baseUrl from "../../../assets/common/baseUrl";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import { validateOrderStock } from "../../../assets/common/inventory";
-import { buildStoreAssignmentPayload } from "../../../assets/common/stores";
+import { buildStoreAssignmentPayload, haversineDistanceKm } from "../../../assets/common/stores";
+import { useCurrency } from "../../../assets/common/currency";
+
+// Delivery options match backend DELIVERY_MODES (helpers/delivery.js) in D:\MERN_COURSE\backend.
+const DELIVERY_MODE_OPTIONS = [
+  { value: "SAME_DAY", label: "Same day delivery" },
+  { value: "NEXT_DAY", label: "Next day delivery" },
+  { value: "SCHEDULED", label: "Scheduled delivery" },
+];
+
+// Mirrors helpers/delivery.js computeDeliveryFee() defaults so the client estimate matches
+// what the backend will charge if its env vars aren't overridden from these defaults.
+const DELIVERY_FEE_DEFAULTS = {
+  SAME_DAY: { base: 9, perKm: 1, premium: 4 },
+  NEXT_DAY: { base: 4, perKm: 0.6 },
+  SCHEDULED: { base: 5, perKm: 0.75 },
+};
+
+const roundCurrency = (value) => Math.round(Number(value || 0) * 100) / 100;
+
+const estimateDeliveryFee = (deliveryMode, distanceKm, scheduledForDate) => {
+  const distance = Number(distanceKm) || 0;
+
+  if (deliveryMode === "SAME_DAY") {
+    const { base, perKm, premium } = DELIVERY_FEE_DEFAULTS.SAME_DAY;
+    return roundCurrency(base + premium + distance * perKm);
+  }
+
+  if (deliveryMode === "NEXT_DAY") {
+    const { base, perKm } = DELIVERY_FEE_DEFAULTS.NEXT_DAY;
+    return roundCurrency(base + distance * perKm);
+  }
+
+  const { base, perKm } = DELIVERY_FEE_DEFAULTS.SCHEDULED;
+  const hour = scheduledForDate instanceof Date && !Number.isNaN(scheduledForDate.getTime()) ? scheduledForDate.getHours() : -1;
+  const peakSurcharge = hour >= 17 && hour <= 20 ? 1.5 : 0;
+  const offPeakDiscount = hour >= 10 && hour <= 15 ? -0.5 : 0;
+  return roundCurrency(base + distance * perKm + peakSurcharge + offPeakDiscount);
+};
 
 function Checkout(props) {
   const context = useContext(AuthContext);
   const cartItems = useSelector((state) => state.cart.cartItems); // Accessing cart items from Redux store
   const [token, setToken] = useState();
+  const { formatPrice } = useCurrency();
 
   const [orderItems, setOrderItems] = useState([]);
   const [address, setAddress] = useState("");
@@ -30,6 +69,8 @@ function Checkout(props) {
   const [country, setCountry] = useState("");
   const [phone, setPhone] = useState("");
   const [user, setUser] = useState();
+  const [deliveryMode, setDeliveryMode] = useState("SAME_DAY");
+  const [scheduledDate, setScheduledDate] = useState("");
 
   useEffect(() => {
     // This is where you can fetch the cart items and set them to orderItems state
@@ -112,10 +153,23 @@ function Checkout(props) {
     };
   }, [cartItems]);
 
-  const calculateTotal = (items) => {
+  const calculateItemsSubtotal = (items) => {
     //console.log("Calculating total for items:", items);
     return items.reduce((acc, item) => acc + item.price * item.quantity, 0);
   };
+
+  const parseScheduledDate = () => {
+    if (deliveryMode !== "SCHEDULED" || !scheduledDate.trim()) {
+      return null;
+    }
+    const parsed = new Date(scheduledDate);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
+  // Preview estimate before the customer's location/nearest store is known (distance = 0).
+  const getEstimatedDeliveryFee = () => estimateDeliveryFee(deliveryMode, 0, parseScheduledDate());
+
+  const calculateTotal = (items) => calculateItemsSubtotal(items) + getEstimatedDeliveryFee();
 
   const handleSubmit = async () => {
     // Validate form fields
@@ -127,6 +181,29 @@ function Checkout(props) {
         text2: "",
       });
       return;
+    }
+
+    const scheduledForDate = parseScheduledDate();
+
+    if (deliveryMode === "SCHEDULED") {
+      if (!scheduledDate.trim() || !scheduledForDate) {
+        Toast.show({
+          topOffset: 60,
+          type: "error",
+          text1: "Please choose a valid scheduled delivery date/time",
+          text2: "",
+        });
+        return;
+      }
+      if (scheduledForDate.getTime() <= Date.now()) {
+        Toast.show({
+          topOffset: 60,
+          type: "error",
+          text1: "Scheduled delivery must be a future date/time",
+          text2: "",
+        });
+        return;
+      }
     }
 
     if (!orderItems || orderItems.length === 0) {
@@ -179,6 +256,13 @@ function Checkout(props) {
       token
     );
 
+    const deliveryDistanceKm = haversineDistanceKm(
+      customerLocation || storeAssignment.customerLocation,
+      storeAssignment.storeLocation
+    );
+    const normalizedDistanceKm = Number.isFinite(deliveryDistanceKm) ? deliveryDistanceKm : 0;
+    const deliveryFee = estimateDeliveryFee(deliveryMode, normalizedDistanceKm, scheduledForDate);
+
     // Create order object with proper structure
     let order = {
       _id: `temp_order_${Date.now()}`, // Add temporary ID
@@ -197,7 +281,12 @@ function Checkout(props) {
       })),
       user: user || context.user?._id,
       dateOrdered: Date.now(),
-      totalPrice: calculateTotal(orderItems),
+      itemsSubtotal: calculateItemsSubtotal(orderItems),
+      deliveryMode,
+      deliveryDistanceKm: normalizedDistanceKm,
+      deliveryFee,
+      scheduledFor: deliveryMode === "SCHEDULED" ? scheduledForDate.toISOString() : null,
+      totalPrice: calculateItemsSubtotal(orderItems) + deliveryFee,
       ...storeAssignment,
       pickupStoreName: storeAssignment.pickupStoreName || "Nearby Store",
       customerLocation: storeAssignment.customerLocation || {
@@ -267,6 +356,36 @@ function Checkout(props) {
           <Picker.Item key={c.code} label={c.name} value={c.name} />
         ))}
       </Picker>
+      <Text style={{ marginTop: 10, fontWeight: "bold", fontSize: 20 }}>
+        Delivery
+      </Text>
+      <Picker
+        selectedValue={deliveryMode}
+        onValueChange={(itemValue) => setDeliveryMode(itemValue)}
+        style={{ marginBottom: 10, marginTop: -2, width: 250 }}
+        mode="dropdown"
+      >
+        {DELIVERY_MODE_OPTIONS.map((option) => (
+          <Picker.Item key={option.value} label={option.label} value={option.value} />
+        ))}
+      </Picker>
+      {deliveryMode === "SCHEDULED" ? (
+        <Input
+          placeholder="Scheduled date/time (e.g. 2026-08-20 14:00)"
+          name="scheduledDate"
+          value={scheduledDate}
+          onChangeText={(text) => setScheduledDate(text)}
+        />
+      ) : null}
+      <Text style={{ marginTop: 10, fontWeight: "bold" }}>
+        Estimated delivery fee: {formatPrice(getEstimatedDeliveryFee())}
+      </Text>
+      <Text style={{ marginTop: 2, fontSize: 12, color: "#6b7280" }}>
+        Final fee is calculated at checkout based on distance to the nearest store.
+      </Text>
+      <Text style={{ marginTop: 4, fontWeight: "bold", fontSize: 16 }}>
+        Estimated total: {formatPrice(calculateTotal(orderItems))}
+      </Text>
       <EasyButton style={{ marginTop: 30 }} tertiary large onPress={handleSubmit}>
         <Text style={{ color: "black", fontWeight: "bold" }}>Confirm</Text>
       </EasyButton>

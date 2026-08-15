@@ -20,7 +20,7 @@ import axios from "axios";
 import baseUrl from "../../assets/common/baseUrl";
 import AsyncStorage from "@react-native-async-storage/async-storage"; //Store data in the device
 
-import { AuthContext, isDriverUser } from "../../Context/store/Auth";
+import { AuthContext } from "../../Context/store/Auth";
 import UserOrderDisplay from "../../Shared/UserOrderDisplay";
 
 const UserProfile = (props) => {
@@ -71,9 +71,6 @@ const UserProfile = (props) => {
   };
 
   const [orders, setOrders] = useState();
-  const isStoreOwner = Boolean(context.user && (context.user.isStoreOwner || context.user.is_store_owner || context.user.storeOwnerRole || context.user.userType === "store_owner" || context.user.role === "store_owner"));
-  const isAdmin = Boolean(context.user && (context.user.isAdmin || context.user.is_admin || context.user.role === "admin"));
-  const canManageStores = isStoreOwner || isAdmin;
 
   const openExternalLink = async (url) => {
     try {
@@ -234,18 +231,6 @@ const UserProfile = (props) => {
             <Icon name="edit" size={16} color="white" style={{ marginRight: 8 }} />
             <Text style={styles.buttonText}>Edit Profile</Text>
           </EasyButton>
-
-          {canManageStores ? (
-            <EasyButton
-              tertiary
-              large
-              onPress={() => props.navigation.navigate("StoreManagement")}
-              style={styles.storeButton}
-            >
-              <Icon name="shopping-cart" size={16} color="white" style={{ marginRight: 8 }} />
-              <Text style={styles.buttonText}>Manage Store</Text>
-            </EasyButton>
-          ) : null}
 
           {/* <EasyButton
             tertiary
@@ -434,15 +419,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 8,
     elevation: 4,
-  },
-  storeButton: {
-    marginBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    elevation: 4,
-    backgroundColor: '#0f766e',
   },
   buttonText: {
     color: 'white',

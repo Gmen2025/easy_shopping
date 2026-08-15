@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Linking, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 
@@ -14,11 +14,24 @@ const DeliveryProgressScreen = () => {
   const isDelivered = orderStatus === "Delivered";
   const isPickupMode = mode === "pickup";
 
+  // The driver dispatch cockpit now lives in AGESDriverApp; hand control back to it via deep link.
+  const returnToDriverApp = async (statusKey, payload) => {
+    const url = `agesdriver://${statusKey}?data=${encodeURIComponent(JSON.stringify(payload || {}))}`;
+    try {
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+        return;
+      }
+    } catch (error) {
+      console.warn("Unable to open AGESDriverApp:", error);
+    }
+    navigation.navigate("User Profile");
+  };
+
   const handleComplete = () => {
     if (isDelivered) {
-      navigation.navigate("DriverDashboard", {
-        completedDelivery: request,
-      });
+      returnToDriverApp("completed-delivery", { completedDelivery: request });
       return;
     }
 

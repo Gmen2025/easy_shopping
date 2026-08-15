@@ -85,6 +85,13 @@ const linking = {
     screens: {
       PaymentSuccess: 'payment-success',
       PaymentCancel: 'payment-cancel',
+      // Lets AGESDriverApp hand off route navigation to this app after a driver accepts a delivery.
+      User: {
+        screens: {
+          DeliveryRoute: 'delivery-route/:orderStatus',
+          DeliveryProgress: 'delivery-progress',
+        },
+      },
     },
   },
 };

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Linking, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import MapView, { Marker } from "react-native-maps";
@@ -44,7 +44,19 @@ const DeliveryRouteScreen = () => {
   const [deliveryRouteStarted, setDeliveryRouteStarted] = useState(false);
   const [locationStatus, setLocationStatus] = useState("Waiting for live GPS");
 
-  const request = route?.params?.request || {};
+  // Deep links from AGESDriverApp pass `request` as a JSON string query param.
+  const rawRequestParam = route?.params?.request;
+  const request =
+    typeof rawRequestParam === "string"
+      ? (() => {
+          try {
+            return JSON.parse(rawRequestParam);
+          } catch (error) {
+            console.warn("Unable to parse delivery request param:", error);
+            return {};
+          }
+        })()
+      : rawRequestParam || {};
   const orderStatus = route?.params?.orderStatus || "Driver Assigned";
   const currentStage = orderStatus === "Picked Up" ? "delivery" : "pickup";
   const liveOrderStatus = request?.rawPayload?.status || orderStatus;
@@ -60,6 +72,21 @@ const DeliveryRouteScreen = () => {
   const customerCoordinates = request.customerLocation || request.deliveryLocation || request.dropOffLocation || {
     latitude: 8.9818,
     longitude: 38.7728,
+  };
+
+  // The driver dispatch cockpit now lives in AGESDriverApp; hand control back to it via deep link.
+  const returnToDriverApp = async (statusKey, payload) => {
+    const url = `agesdriver://${statusKey}?data=${encodeURIComponent(JSON.stringify(payload || {}))}`;
+    try {
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+        return;
+      }
+    } catch (error) {
+      console.warn("Unable to open AGESDriverApp:", error);
+    }
+    navigation.navigate("User Profile");
   };
 
   const destination = useMemo(() => {
@@ -294,7 +321,7 @@ const DeliveryRouteScreen = () => {
             {isCompleted ? (
               <TouchableOpacity
                 style={styles.primaryAction}
-                onPress={() => navigation.navigate("DriverDashboard")}
+                onPress={() => returnToDriverApp("dashboard", {})}
               >
                 <Text style={styles.primaryActionText}>Back to dashboard</Text>
               </TouchableOpacity>
@@ -326,9 +353,7 @@ const DeliveryRouteScreen = () => {
                 <TouchableOpacity
                   style={styles.secondaryAction}
                   onPress={() => {
-                    navigation.navigate("DriverDashboard", {
-                      pendingDelivery: request,
-                    });
+                    returnToDriverApp("pending-delivery", { pendingDelivery: request });
                   }}
                 >
                   <Text style={styles.secondaryActionText}>Deliver later</Text>
@@ -337,9 +362,7 @@ const DeliveryRouteScreen = () => {
                   style={styles.primaryAction}
                   onPress={() => {
                     if (deliveryRouteStarted) {
-                      navigation.navigate("DriverDashboard", {
-                        completedDelivery: request,
-                      });
+                      returnToDriverApp("completed-delivery", { completedDelivery: request });
                       return;
                     }
 

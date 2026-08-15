@@ -24,14 +24,6 @@ const Register = (props) => {
     emailError: "",
     isRegistering: false,
     becomeDriver: false,
-    becomeStoreOwner: false,
-    storeName: "",
-    storeAddress: "",
-    storeCity: "",
-    storeCountry: "",
-    storePhone: "",
-    storeLatitude: "",
-    storeLongitude: "",
     registrationStep: "form", // "form", "verificationSent", "verifying"
   });
 
@@ -130,17 +122,6 @@ const Register = (props) => {
       };
     }
 
-    if (formData.becomeStoreOwner) {
-      user = {
-        ...user,
-        isStoreOwner: true,
-        is_store_owner: true,
-        role: "store_owner",
-        userType: "store_owner",
-        storeOwnerRole: "store_owner",
-      };
-    }
-
     axios
       .post(`${baseUrl}users/register`, user)
       .then((res) => {
@@ -195,8 +176,8 @@ const Register = (props) => {
 
   return (
     <FormContainer title="">
-      <ScrollView contentContainerStyle={styles.container}>
-        {formData.registrationStep === "verificationSent" ? (
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled"> 
+       {formData.registrationStep === "verificationSent" ? (
           // Email verification screen
           <View style={styles.verificationContainer}>
             <Icon name="envelope-open" size={48} color="#8a6c09" style={{ marginBottom: 16 }} />
@@ -240,7 +221,7 @@ const Register = (props) => {
             </View>
           </View>
         ) : (
-          // Registration form
+           // Registration form
           <View style={styles.formContainer}>
             {/* Header */}
             <View style={styles.header}>
@@ -326,84 +307,7 @@ const Register = (props) => {
                 />
               </View>
 
-              <View style={styles.driverOptionRow}>
-                <View style={styles.driverOptionTextWrap}>
-                  <Text style={styles.fieldLabel}>Register as Store Owner</Text>
-                  <Text style={styles.driverHint}>Create a store location for customers to pick up orders nearby.</Text>
-                </View>
-                <Switch
-                  value={formData.becomeStoreOwner}
-                  onValueChange={(value) => setFormData({ ...formData, becomeStoreOwner: value })}
-                  trackColor={{ false: "#d7d7d7", true: "#8a6c09" }}
-                  thumbColor={formData.becomeStoreOwner ? "#fff" : "#f4f3f4"}
-                />
-              </View>
-
-              {formData.becomeStoreOwner ? (
-                <View style={styles.storeFormSection}>
-                  <Text style={styles.fieldLabel}>Store Name</Text>
-                  <Input
-                    id="storeName"
-                    placeholder="My Shop"
-                    name="storeName"
-                    value={formData.storeName}
-                    onChangeText={(text) => setFormData({ ...formData, storeName: text })}
-                  />
-                  <Text style={styles.fieldLabel}>Store Address</Text>
-                  <Input
-                    id="storeAddress"
-                    placeholder="Addis Ababa"
-                    name="storeAddress"
-                    value={formData.storeAddress}
-                    onChangeText={(text) => setFormData({ ...formData, storeAddress: text })}
-                  />
-                  <Text style={styles.fieldLabel}>City</Text>
-                  <Input
-                    id="storeCity"
-                    placeholder="Addis Ababa"
-                    name="storeCity"
-                    value={formData.storeCity}
-                    onChangeText={(text) => setFormData({ ...formData, storeCity: text })}
-                  />
-                  <Text style={styles.fieldLabel}>Country</Text>
-                  <Input
-                    id="storeCountry"
-                    placeholder="Ethiopia"
-                    name="storeCountry"
-                    value={formData.storeCountry}
-                    onChangeText={(text) => setFormData({ ...formData, storeCountry: text })}
-                  />
-                  <Text style={styles.fieldLabel}>Phone</Text>
-                  <Input
-                    id="storePhone"
-                    placeholder="0912345678"
-                    name="storePhone"
-                    value={formData.storePhone}
-                    onChangeText={(text) => setFormData({ ...formData, storePhone: text })}
-                  />
-                  <Text style={styles.fieldLabel}>Latitude</Text>
-                  <Input
-                    id="storeLatitude"
-                    placeholder="8.9806"
-                    name="storeLatitude"
-                    value={formData.storeLatitude}
-                    onChangeText={(text) => setFormData({ ...formData, storeLatitude: text })}
-                    keyboardType="decimal-pad"
-                  />
-                  <Text style={styles.fieldLabel}>Longitude</Text>
-                  <Input
-                    id="storeLongitude"
-                    placeholder="38.7578"
-                    name="storeLongitude"
-                    value={formData.storeLongitude}
-                    onChangeText={(text) => setFormData({ ...formData, storeLongitude: text })}
-                    keyboardType="decimal-pad"
-                  />
-                </View>
-              ) : null}
-            </View>
-
-            {/* Error Messages */}
+              {/* Error Messages */}
             {formData.error ? <Error message={formData.error} /> : null}
 
             {/* Buttons */}
@@ -430,7 +334,10 @@ const Register = (props) => {
               </EasyButton>
             </View>
           </View>
+          </View>
+
         )}
+         
       </ScrollView>
     </FormContainer>
   );

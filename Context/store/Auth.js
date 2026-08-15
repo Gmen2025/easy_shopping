@@ -41,19 +41,6 @@ const looksLikeDriverRole = (value) => {
   return value === true;
 };
 
-const looksLikeStoreRole = (value) => {
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase();
-    return ["store_owner", "store-owner", "store owner", "storeowner", "store_manager", "store-manager", "store manager", "seller", "merchant"].includes(normalized);
-  }
-
-  if (Array.isArray(value)) {
-    return value.some((item) => looksLikeStoreRole(item));
-  }
-
-  return value === true;
-};
-
 export const isDriverUser = (user) => {
   const profile = extractUserProfile(user);
 
@@ -62,10 +49,6 @@ export const isDriverUser = (user) => {
   }
 
   if (profile?.isAdmin === true || profile?.is_admin === true || profile?.role === "admin" || profile?.user?.role === "admin" || profile?.profile?.role === "admin") {
-    return true;
-  }
-
-  if (profile?.isStoreOwner === true || profile?.is_store_owner === true || profile?.storeOwnerRole || profile?.userType === "store_owner" || profile?.role === "store_owner" || profile?.user?.role === "store_owner" || profile?.profile?.role === "store_owner") {
     return true;
   }
 
@@ -80,18 +63,14 @@ export const isDriverUser = (user) => {
     profile?.type,
     profile?.roles,
     profile?.permissions,
-    profile?.storeOwnerRole,
-    profile?.isStoreOwner,
-    profile?.is_store_owner,
-    profile?.userType,
-    profile?.accountType,
     profile?.user?.role,
     profile?.profile?.role,
   ];
 
-  return roleValues.some((value) => looksLikeDriverRole(value) || looksLikeStoreRole(value));
+  return roleValues.some((value) => looksLikeDriverRole(value));
 };
 const ACTIVITY_UPDATE_INTERVAL = 60000; // Update activity timestamp every minute
+
 
 const initialState = {
   user: null,

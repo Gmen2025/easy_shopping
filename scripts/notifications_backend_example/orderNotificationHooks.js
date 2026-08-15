@@ -58,11 +58,42 @@ function createOrderNotificationHooks({ notificationService }) {
     });
   };
 
+  // Call when a driver accepts/starts the delivery leg (order status -> "Picked Up"/"Driver Assigned").
+  const notifyDeliveryStarted = async (order) => {
+    return send(order.user, {
+      title: "Delivery started",
+      body: `Your order #${order._id} is out for delivery.`,
+      data: {
+        type: "delivery_started",
+        orderId: String(order._id),
+      },
+      channel: "transactional",
+    });
+  };
+
+  // Call when the customer's chosen delivery slot (same day/next day/scheduled) is confirmed.
+  const notifyDeliveryScheduled = async (order) => {
+    const dateLabel = order.scheduledDeliveryDate
+      ? ` for ${order.scheduledDeliveryDate}`
+      : "";
+    return send(order.user, {
+      title: "Delivery scheduled",
+      body: `Your order #${order._id} delivery has been scheduled${dateLabel}.`,
+      data: {
+        type: "delivery_scheduled",
+        orderId: String(order._id),
+      },
+      channel: "transactional",
+    });
+  };
+
   return {
     notifyOrderPlaced,
     notifyPaymentConfirmed,
     notifyOrderShipped,
     notifyOrderDelivered,
+    notifyDeliveryStarted,
+    notifyDeliveryScheduled,
   };
 }
 

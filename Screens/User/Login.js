@@ -175,22 +175,6 @@ const Login = (props) => {
           </EasyButton>
 
           <EasyButton
-            onPress={() => handleUpgradeRole("store_owner")}
-            style={styles.upgradeButton}
-            disabled={updatingRole}
-          >
-            <Text style={styles.upgradeButtonText}>{updatingRole ? "Updating..." : "Upgrade to Store Owner"}</Text>
-          </EasyButton>
-
-          <EasyButton
-            onPress={() => handleUpgradeRole("both")}
-            style={styles.upgradeButton}
-            disabled={updatingRole}
-          >
-            <Text style={styles.upgradeButtonText}>{updatingRole ? "Updating..." : "Upgrade to Driver + Store Owner"}</Text>
-          </EasyButton>
-
-          <EasyButton
             onPress={() => props.navigation.navigate("ForgotPassword")}
             style={styles.forgotButton}
           >

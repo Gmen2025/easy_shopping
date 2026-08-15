@@ -89,29 +89,6 @@ export const fetchStores = async (token = null) => {
   }
 };
 
-export const createStore = async (payload, token = null) => {
-  const normalized = normalizeStore(payload);
-
-  if (!normalized) {
-    return null;
-  }
-
-  try {
-    const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
-    const response = await axios.post(`${baseUrl}stores`, normalized, config);
-    const createdStore = normalizeStore(response?.data?.store || response?.data || normalized);
-    const existing = await getStoredStores();
-    const merged = [createdStore, ...existing.filter((item) => item.id !== createdStore.id)];
-    await saveStores(merged);
-    return createdStore;
-  } catch (error) {
-    const existing = await getStoredStores();
-    const merged = [normalized, ...existing.filter((item) => item.id !== normalized.id)];
-    await saveStores(merged);
-    return normalized;
-  }
-};
-
 export const getNearbyStores = async (customerLocation, token = null) => {
   const stores = await fetchStores(token);
   const activeStores = stores.filter((store) => store.isActive !== false);
