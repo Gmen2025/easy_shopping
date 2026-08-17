@@ -16,8 +16,6 @@ import { AuthContext } from "./Context/store/Auth";
 import { TelebirrProvider } from "./Context/store/Telebirr";
 import { MaintenanceProvider } from "./Context/store/MaintenanceContext";
 
-import { Linking } from 'react-native';
-
 //Navigators
 import Main from "./Navigators/Main";
 import MaintenanceWrapper from "./Navigators/MaintenanceWrapper";
@@ -78,23 +76,6 @@ const createStripeProvider = (publishableKey) => {
 const stripePublishableKey =
   getStripePublishableKey();
 const StripeProvider = createStripeProvider(stripePublishableKey);
-
-const linking = {
-  prefixes: ['addugeneteshop://', 'easyshopping://'],
-  config: {
-    screens: {
-      PaymentSuccess: 'payment-success',
-      PaymentCancel: 'payment-cancel',
-      // Lets AGESDriverApp hand off route navigation to this app after a driver accepts a delivery.
-      User: {
-        screens: {
-          DeliveryRoute: 'delivery-route/:orderStatus',
-          DeliveryProgress: 'delivery-progress',
-        },
-      },
-    },
-  },
-};
 
 const NotificationBootstrap = ({ onNotificationReceived, onNotificationOpened }) => {
   const authContext = useContext(AuthContext);
@@ -339,7 +320,7 @@ export default function App() {
                   />
                 </View>
                 <View style={styles.navLayer}>
-                  <NavigationContainer key={`db-${dbRefreshKey}`} linking={linking}>
+                  <NavigationContainer key={`db-${dbRefreshKey}`}>
                     <MaintenanceWrapper />
                     <Toast />
                   </NavigationContainer>

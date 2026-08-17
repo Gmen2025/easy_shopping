@@ -1,7 +1,9 @@
 import React from "react";
-import { Linking, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
+
+import { updateDeliveryStatus } from "../../assets/common/delivery";
 
 const DeliveryProgressScreen = () => {
   const navigation = useNavigation();
@@ -14,32 +16,15 @@ const DeliveryProgressScreen = () => {
   const isDelivered = orderStatus === "Delivered";
   const isPickupMode = mode === "pickup";
 
-  // The driver dispatch cockpit now lives in AGESDriverApp; hand control back to it via deep link.
-  const returnToDriverApp = async (statusKey, payload) => {
-    const url = `agesdriver://${statusKey}?data=${encodeURIComponent(JSON.stringify(payload || {}))}`;
-    try {
-      const canOpen = await Linking.canOpenURL(url);
-      if (canOpen) {
-        await Linking.openURL(url);
-        return;
-      }
-    } catch (error) {
-      console.warn("Unable to open AGESDriverApp:", error);
-    }
-    navigation.navigate("User Profile");
-  };
-
-  const handleComplete = () => {
+  const handleComplete = async () => {
     if (isDelivered) {
-      returnToDriverApp("completed-delivery", { completedDelivery: request });
+      navigation.navigate("User Profile");
       return;
     }
 
     if (isPickupMode && orderStatus !== "Picked Up") {
-      navigation.navigate("DeliveryRoute", {
-        request,
-        orderStatus: "Picked Up",
-      });
+      await updateDeliveryStatus(request, "Picked Up");
+      navigation.navigate("DeliveryRoute", { request, orderStatus: "Picked Up" });
       return;
     }
 

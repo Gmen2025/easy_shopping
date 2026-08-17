@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Linking, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import MapView, { Marker } from "react-native-maps";
 import MapViewDirections from "react-native-maps-directions";
 import * as Location from "expo-location";
 import Constants from "expo-constants";
+
+import { updateDeliveryStatus } from "../../assets/common/delivery";
 
 const googleMapsApiKey =
   process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
@@ -43,20 +45,9 @@ const DeliveryRouteScreen = () => {
   const [pickupRouteStarted, setPickupRouteStarted] = useState(false);
   const [deliveryRouteStarted, setDeliveryRouteStarted] = useState(false);
   const [locationStatus, setLocationStatus] = useState("Waiting for live GPS");
+  const [statusError, setStatusError] = useState("");
 
-  // Deep links from AGESDriverApp pass `request` as a JSON string query param.
-  const rawRequestParam = route?.params?.request;
-  const request =
-    typeof rawRequestParam === "string"
-      ? (() => {
-          try {
-            return JSON.parse(rawRequestParam);
-          } catch (error) {
-            console.warn("Unable to parse delivery request param:", error);
-            return {};
-          }
-        })()
-      : rawRequestParam || {};
+  const request = route?.params?.request || {};
   const orderStatus = route?.params?.orderStatus || "Driver Assigned";
   const currentStage = orderStatus === "Picked Up" ? "delivery" : "pickup";
   const liveOrderStatus = request?.rawPayload?.status || orderStatus;
@@ -74,19 +65,15 @@ const DeliveryRouteScreen = () => {
     longitude: 38.7728,
   };
 
-  // The driver dispatch cockpit now lives in AGESDriverApp; hand control back to it via deep link.
-  const returnToDriverApp = async (statusKey, payload) => {
-    const url = `agesdriver://${statusKey}?data=${encodeURIComponent(JSON.stringify(payload || {}))}`;
+  const saveDeliveryStatus = async (deliveryStatus) => {
+    setStatusError("");
     try {
-      const canOpen = await Linking.canOpenURL(url);
-      if (canOpen) {
-        await Linking.openURL(url);
-        return;
-      }
+      await updateDeliveryStatus(request, deliveryStatus);
+      return true;
     } catch (error) {
-      console.warn("Unable to open AGESDriverApp:", error);
+      setStatusError(error?.message || "Unable to update delivery status");
+      return false;
     }
-    navigation.navigate("User Profile");
   };
 
   const destination = useMemo(() => {
@@ -292,8 +279,8 @@ const DeliveryRouteScreen = () => {
                   : "Stage 2: Drive to customer and confirm drop-off"}
           </Text>
           <Text style={styles.locationStatus}>{locationStatus}</Text>
-          {(routeError || serviceAreaMessage) ? (
-            <Text style={styles.routeWarning}>{routeError || serviceAreaMessage}</Text>
+          {(routeError || serviceAreaMessage || statusError) ? (
+            <Text style={styles.routeWarning}>{routeError || serviceAreaMessage || statusError}</Text>
           ) : null}
           <View style={styles.metricsRow}>
             <View style={styles.metricBox}>
@@ -321,7 +308,7 @@ const DeliveryRouteScreen = () => {
             {isCompleted ? (
               <TouchableOpacity
                 style={styles.primaryAction}
-                onPress={() => returnToDriverApp("dashboard", {})}
+                onPress={() => navigation.navigate("User Profile")}
               >
                 <Text style={styles.primaryActionText}>Back to dashboard</Text>
               </TouchableOpacity>
@@ -329,12 +316,14 @@ const DeliveryRouteScreen = () => {
               <>
                 <TouchableOpacity
                   style={styles.secondaryAction}
-                  onPress={() => {
-                    navigation.navigate("DeliveryProgress", {
-                      request,
-                      orderStatus: "Picked Up",
-                      mode: "pickup",
-                    });
+                  onPress={async () => {
+                    if (await saveDeliveryStatus("Picked Up")) {
+                      navigation.navigate("DeliveryProgress", {
+                        request,
+                        orderStatus: "Picked Up",
+                        mode: "pickup",
+                      });
+                    }
                   }}
                 >
                   <Text style={styles.secondaryActionText}>Confirm pickup</Text>
@@ -353,16 +342,18 @@ const DeliveryRouteScreen = () => {
                 <TouchableOpacity
                   style={styles.secondaryAction}
                   onPress={() => {
-                    returnToDriverApp("pending-delivery", { pendingDelivery: request });
+                    navigation.navigate("User Profile");
                   }}
                 >
                   <Text style={styles.secondaryActionText}>Deliver later</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.primaryAction}
-                  onPress={() => {
+                  onPress={async () => {
                     if (deliveryRouteStarted) {
-                      returnToDriverApp("completed-delivery", { completedDelivery: request });
+                      if (await saveDeliveryStatus("Delivered")) {
+                        navigation.navigate("User Profile");
+                      }
                       return;
                     }
 
