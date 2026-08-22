@@ -13,6 +13,7 @@ import ResetPassword from "../Screens/User/ResetPassword";
 import DeliveryRouteScreen from "../Screens/Driver/DeliveryRouteScreen";
 import DeliveryProgressScreen from "../Screens/Driver/DeliveryProgressScreen";
 import RoleSetupScreen from "../Screens/User/RoleSetupScreen";
+import ServiceRequests from "../Screens/Service/ServiceRequests";
 
 const Stack = createStackNavigator();
 
@@ -30,6 +31,7 @@ const MyStack = () => {
         <>
           <Stack.Screen name="User Profile" component={UserProfile} />
           <Stack.Screen name="EditProfile" component={EditProfile} />
+          <Stack.Screen name="ServiceRequests" component={ServiceRequests} />
           <Stack.Screen name="RoleSetup" component={RoleSetupScreen} />
           {isDriverUser(context.user) ? (
             <>

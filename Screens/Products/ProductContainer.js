@@ -323,6 +323,12 @@ const ProductContainer = (props) => {
         style={[styles.topGraphic, { width: screenWidth, height: topGraphicHeight }]}
         resizeMode="contain"
       />
+      <TouchableOpacity
+        style={styles.serviceAction}
+        onPress={() => props.navigation.navigate("Service Request")}
+      >
+        <Text style={styles.serviceActionText}>Request Machine Service</Text>
+      </TouchableOpacity>
       <Searchbar
         placeholder="Search"
         value={searchKeyword}
@@ -508,6 +514,20 @@ const styles = StyleSheet.create({
   },
   flatListContent: {
     paddingBottom: 26,
+  },
+  serviceAction: {
+    marginHorizontal: 10,
+    marginTop: 12,
+    backgroundColor: "#8a6c09",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: "center",
+  },
+  serviceActionText: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "700",
   },
   advancedToggle: {
     marginHorizontal: 10,

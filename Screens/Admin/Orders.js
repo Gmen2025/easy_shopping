@@ -92,6 +92,14 @@ const Orders = (props) => {
             <Text style={styles.broadcastBtnText}>Broadcast</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={styles.serviceBtn}
+            onPress={() => props.navigation.navigate("ServiceRequestsAdmin")}
+          >
+            <Icon name="wrench" size={14} color="#fff" />
+            <Text style={styles.serviceBtnText}>Services</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.refreshBtn} onPress={getOrders}>
             <Icon name="refresh" size={16} color="#fff" />
           </TouchableOpacity>
@@ -177,6 +185,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   broadcastBtnText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
+    marginLeft: 6,
+  },
+  serviceBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginLeft: 8,
+  },
+  serviceBtnText: {
     color: "#fff",
     fontSize: 12,
     fontWeight: "700",

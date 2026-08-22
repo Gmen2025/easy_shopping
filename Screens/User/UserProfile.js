@@ -232,15 +232,15 @@ const UserProfile = (props) => {
             <Text style={styles.buttonText}>Edit Profile</Text>
           </EasyButton>
 
-          {/* <EasyButton
+          <EasyButton
+            onPress={() => props.navigation.navigate("ServiceRequests")}
             tertiary
             large
-            onPress={() => props.navigation.navigate("ResetPassword")}
-            style={styles.passwordButton}
+            style={styles.requestButton}
           >
-            <Icon name="key" size={16} color="white" style={{ marginRight: 8 }} />
-            <Text style={styles.buttonText}>Change Password</Text>
-          </EasyButton> */}
+            <Icon name="wrench" size={16} color="white" style={{ marginRight: 8 }} />
+            <Text style={styles.buttonText}>My Service Requests</Text>
+          </EasyButton>
         </View>
 
         {/* My Orders Section */}
@@ -406,6 +406,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   editButton: {
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    elevation: 4,
+  },
+  requestButton: {
     marginBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',

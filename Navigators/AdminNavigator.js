@@ -10,6 +10,7 @@ import LowStock from "../Screens/Admin/LowStock";
 import MaintenanceSettings from "../Screens/Admin/MaintenanceSettings";
 import BankAccountSettings from "../Screens/Admin/BankAccountSettings";
 import SingleProduct from "../Screens/Products/SingleProduct";
+import ServiceRequests from "../Screens/Service/ServiceRequests";
 
 const Stack = createStackNavigator();
 
@@ -117,6 +118,19 @@ function MyStack() {
           title: 'Product Detail',
           headerTintColor: '#e6c20eff',
           headerTitleAlign: 'center', // This centers the title on both Android and iOS
+          headerTitleStyle:{
+            color:'#e6c20eff'
+          }
+        }}
+      />
+      <Stack.Screen
+        name="ServiceRequestsAdmin"
+        component={ServiceRequests}
+        initialParams={{ mode: 'admin' }}
+        options={{
+          title: 'Service Requests',
+          headerTintColor: '#e6c20eff',
+          headerTitleAlign: 'center',
           headerTitleStyle:{
             color:'#e6c20eff'
           }
