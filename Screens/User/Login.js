@@ -55,7 +55,18 @@ const Login = (props) => {
     setError("");
 
     try {
-      const token = await AsyncStorage.getItem("token");
+      const loginResponse = await axios.post(`${baseUrl}users/login`, {
+        email,
+        password,
+      });
+      const token = loginResponse?.data?.token;
+
+      if (!token) {
+        throw new Error("Unable to authenticate this account.");
+      }
+
+      await AsyncStorage.setItem("token", token);
+      await AsyncStorage.setItem("lastActivityTime", Date.now().toString());
       const payload = {
         email,
         password,
@@ -63,7 +74,7 @@ const Login = (props) => {
       };
 
       const response = await axios.post(`${baseUrl}users/upgrade-role`, payload, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response?.data?.token) {
