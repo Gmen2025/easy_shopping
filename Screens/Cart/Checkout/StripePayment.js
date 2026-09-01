@@ -234,10 +234,17 @@ const StripePaymentSupported = (props) => {
           text2: "Thank you for using Stripe payment!",
         });
 
-        // Clear cart and navigate back
         setTimeout(() => {
           dispatch(clearCart());
-          props.navigation.navigate("CartHome");
+          const createdOrder = response.data?.order || response.data;
+          if (orderData.deliveryMode === "SAME_DAY" && createdOrder?._id) {
+            props.navigation.navigate("User", {
+              screen: "OrderTracking",
+              params: { orderId: createdOrder._id, order: createdOrder },
+            });
+          } else {
+            props.navigation.navigate("CartHome");
+          }
         }, 1500);
       }
     } catch (error) {

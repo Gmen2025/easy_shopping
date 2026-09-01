@@ -77,7 +77,7 @@ export const getStoredStores = async () => {
 export const fetchStores = async (token = null) => {
   try {
     const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
-    const response = await axios.get(`${baseUrl}stores`, config);
+    const response = await axios.get(`${baseUrl}stores`, { ...config, timeout: 15000 });
     const storeList = Array.isArray(response?.data)
       ? response.data
       : response?.data?.stores || response?.data?.data || [];

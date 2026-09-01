@@ -1,5 +1,5 @@
-import React, {useContext} from 'react'
-import { View, StyleSheet, Dimensions, ScrollView } from 'react-native';
+import React, {useContext, useState} from 'react'
+import { View, StyleSheet, Dimensions, ScrollView, ActivityIndicator } from 'react-native';
 import { Text, Card, Divider, Avatar } from 'react-native-paper';
 import EasyButton from '../../../Shared/StyledComponenets/EasyButton';
 
@@ -29,62 +29,71 @@ const Confirm = (props) => {
     const order = props.route?.params?.order || contextOrder;
     
     const dispatch = useDispatch(); // Initialize the Redux dispatch function
-
+    const [submitting, setSubmitting] = useState(false);
 
     // If you need to clear the cart, you can call this function
     const handlePlaceOrder = async() => {
-      // You can handle order placement logic here
-      // For example, you might want to dispatch an action to save the order in your Redux store
-      // or navigate to a different screen after placing the order
-      
-      const token = await AsyncStorage.getItem("token");
-      const stockValidation = await validateOrderStock({
-        orderItems: order.orderItems,
-        token,
-      });
+      if (submitting) return;
 
-      if (!stockValidation.ok) {
+      if (!order || !Array.isArray(order.orderItems) || order.orderItems.length === 0) {
         Toast.show({
           topOffset: 60,
           type: "error",
-          text1: "Reduce item quantity",
-          text2: stockValidation.message || "Some items exceed available stock.",
+          text1: "No order data",
+          text2: "Please go back and complete checkout again.",
         });
         return;
       }
 
-      //const orderInfo = order.order;
-      const orderItem = {
-        ...order,
-        user: context.user?._id,
-        pickupStore: order.pickupStore || null,
-        pickupStoreName: order.pickupStoreName || order.pickupStore?.name || null,
-        storeLocation: order.storeLocation || null,
-        customerLocation: order.customerLocation || null,
-        pickupStoreId: order.pickupStoreId || order.pickupStore?._id || order.pickupStore?.id || null,
-        storeId: order.storeId || order.pickupStore?._id || order.pickupStore?.id || null,
-        storeAssignment: order.storeAssignment || null,
-        storeAssignmentStatus: order.storeAssignmentStatus || "assigned",
-        orderItems: order.orderItems.map((item) => ({
-          product: item._id,
-          quantity: item.quantity || 1,
-        })),
-        paymentMethod: order.paymentMethod,
-        methodName: order.methodName,
-        cardType: order.cardType,
-        bankName: order.bankName,
-        transferReference: order.transferReference,
-        senderName: order.senderName,
-      };
+      setSubmitting(true);
+      try {
+        const token = await AsyncStorage.getItem("token");
+        const stockValidation = await validateOrderStock({
+          orderItems: order.orderItems,
+          token,
+        });
 
-      
-      console.log("Order to submit: ", orderItem);
-      axios
-      .post(`${baseUrl}orders`, orderItem, {
-        headers: {Authorization: `Bearer ${token}`}
-      })
-      .then(async (res) => {
-        if(res.status == 200 || res.status == 201){
+        if (!stockValidation.ok) {
+          Toast.show({
+            topOffset: 60,
+            type: "error",
+            text1: "Reduce item quantity",
+            text2: stockValidation.message || "Some items exceed available stock.",
+          });
+          return;
+        }
+
+        //const orderInfo = order.order;
+        const orderItem = {
+          ...order,
+          user: context.user?._id,
+          pickupStore: order.pickupStore || null,
+          pickupStoreName: order.pickupStoreName || order.pickupStore?.name || null,
+          storeLocation: order.storeLocation || null,
+          customerLocation: order.customerLocation || null,
+          pickupStoreId: order.pickupStoreId || order.pickupStore?._id || order.pickupStore?.id || null,
+          storeId: order.storeId || order.pickupStore?._id || order.pickupStore?.id || null,
+          storeAssignment: order.storeAssignment || null,
+          storeAssignmentStatus: order.storeAssignmentStatus || "assigned",
+          orderItems: order.orderItems.map((item) => ({
+            product: item._id || item.id,
+            quantity: item.quantity || 1,
+          })),
+          paymentMethod: order.paymentMethod,
+          methodName: order.methodName,
+          cardType: order.cardType,
+          bankName: order.bankName,
+          transferReference: order.transferReference,
+          senderName: order.senderName,
+        };
+
+        console.log("Order to submit: ", orderItem);
+        const res = await axios.post(`${baseUrl}orders`, orderItem, {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 45000,
+        });
+
+        if (res.status == 200 || res.status == 201) {
           const inventoryResult = await deductInventoryFromOrder({
             orderItems: order.orderItems,
             token,
@@ -102,26 +111,34 @@ const Confirm = (props) => {
           Toast.show({
             topOffset: 60,
             type: "success",
-            text1: "order placed",
+            text1: "Order placed",
             text2: "Thank you for your purchase",
           });
-          setTimeout(() => {
-            dispatch(clearCart()); // Clear the cart after placing the order
+          dispatch(clearCart()); // Clear the cart after placing the order
+          const createdOrder = res.data?.order || res.data;
+          if (order.deliveryMode === "SAME_DAY" && createdOrder?._id) {
+            props.navigation.navigate("User", {
+              screen: "OrderTracking",
+              params: { orderId: createdOrder._id, order: createdOrder },
+            });
+          } else {
             props.navigation.navigate("CartHome");
-          }, 500); // Simulate a delay for placing the order
+          }
         }
-      })
-      .catch((error) => {
+      } catch (error) {
         console.log("Order submit error:", error.response?.data || error.message);
         Toast.show({
-            topOffset: 60,
-            type: "error",
-            text1: "Something went wrong",
-            text2: "Please try again",
-          });
-      })
-      
-    };  
+          topOffset: 60,
+          type: "error",
+          text1: "Order could not be placed",
+          text2:
+            error.response?.data?.message ||
+            "Please check your connection and try again",
+        });
+      } finally {
+        setSubmitting(false);
+      }
+    };
 
     if (!order) {
     return (
@@ -234,16 +251,26 @@ const Confirm = (props) => {
               </Text>
             </Card.Content>
             <Card.Actions style={{ justifyContent: "space-between" }}>
-              <EasyButton 
-                style={[styles.actionButton, styles.actionButtonLeft]} 
-                secondary 
+              <EasyButton
+                style={[styles.actionButton, styles.actionButtonLeft]}
+                secondary
                 large
+                disabled={submitting}
                 onPress={() => props.navigation.navigate("Shipping")}
               >
                 <Text style={styles.actionSecondaryText}>Back</Text>
               </EasyButton>
-              <EasyButton style={[styles.actionButton, styles.actionButtonRight]} tertiary onPress={handlePlaceOrder}>
-                <Text style={styles.actionPrimaryText}>Place Order</Text>
+              <EasyButton
+                style={[styles.actionButton, styles.actionButtonRight, submitting && { opacity: 0.7 }]}
+                tertiary
+                disabled={submitting}
+                onPress={handlePlaceOrder}
+              >
+                {submitting ? (
+                  <ActivityIndicator size="small" color="#0f172a" />
+                ) : (
+                  <Text style={styles.actionPrimaryText}>Place Order</Text>
+                )}
               </EasyButton>
             </Card.Actions>
           </Card>

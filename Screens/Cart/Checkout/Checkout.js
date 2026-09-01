@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext } from "react";
-import { View, Text, Button } from "react-native";
+import { View, Text, Button, ActivityIndicator } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome5";
 import { Picker } from "@react-native-picker/picker";
 import FormContainer from "../../../Shared/Form/FormContainer";
@@ -71,6 +71,7 @@ function Checkout(props) {
   const [user, setUser] = useState();
   const [deliveryMode, setDeliveryMode] = useState("SAME_DAY");
   const [scheduledDate, setScheduledDate] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     // This is where you can fetch the cart items and set them to orderItems state
@@ -172,6 +173,8 @@ function Checkout(props) {
   const calculateTotal = (items) => calculateItemsSubtotal(items) + getEstimatedDeliveryFee();
 
   const handleSubmit = async () => {
+    if (isSubmitting) return;
+
     // Validate form fields
     if (!address || !city || !zip || !country || !phone) {
       Toast.show({
@@ -216,96 +219,113 @@ function Checkout(props) {
       return;
     }
 
-    const stockValidation = await validateOrderStock({
-      orderItems,
-      token,
-    });
+    setIsSubmitting(true);
+    try {
+      const stockValidation = await validateOrderStock({
+        orderItems,
+        token,
+      });
 
-    if (!stockValidation.ok) {
+      if (!stockValidation.ok) {
+        Toast.show({
+          topOffset: 60,
+          type: "error",
+          text1: stockValidation.unverified?.length
+            ? "Could not verify stock"
+            : "Reduce item quantity",
+          text2: stockValidation.message || "Some items exceed available stock.",
+        });
+        return;
+      }
+
+      let customerLocation = null;
+
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === "granted") {
+          const currentPosition = await Promise.race([
+            Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.Balanced,
+            }),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error("location_timeout")), 8000)
+            ),
+          ]);
+          customerLocation = {
+            latitude: currentPosition.coords.latitude,
+            longitude: currentPosition.coords.longitude,
+          };
+        }
+      } catch (error) {
+        console.warn("Unable to read current location for store assignment:", error);
+      }
+
+      const storeAssignment = await buildStoreAssignmentPayload(
+        customerLocation || {
+          latitude: 8.9806,
+          longitude: 38.7578,
+        },
+        token
+      );
+
+      const deliveryDistanceKm = haversineDistanceKm(
+        customerLocation || storeAssignment.customerLocation,
+        storeAssignment.storeLocation
+      );
+      const normalizedDistanceKm = Number.isFinite(deliveryDistanceKm) ? deliveryDistanceKm : 0;
+      const deliveryFee = estimateDeliveryFee(deliveryMode, normalizedDistanceKm, scheduledForDate);
+
+      // Create order object with proper structure
+      let order = {
+        _id: `temp_order_${Date.now()}`, // Add temporary ID
+        orderId: `ORDER_${Date.now()}`, // Add orderId property
+        shippingAddress1: address,
+        shippingAddress2: address2,
+        status: "1",
+        city,
+        zip,
+        country,
+        phone,
+        orderItems: orderItems.map((item) => ({
+          ...item,
+          _id: item._id || item.id, // Ensure _id exists
+          quantity: item.quantity || 1,
+        })),
+        user: user || context.user?._id,
+        dateOrdered: Date.now(),
+        itemsSubtotal: calculateItemsSubtotal(orderItems),
+        deliveryMode,
+        deliveryDistanceKm: normalizedDistanceKm,
+        deliveryFee,
+        scheduledFor: deliveryMode === "SCHEDULED" ? scheduledForDate.toISOString() : null,
+        totalPrice: calculateItemsSubtotal(orderItems) + deliveryFee,
+        ...storeAssignment,
+        pickupStoreName: storeAssignment.pickupStoreName || "Nearby Store",
+        customerLocation: storeAssignment.customerLocation || {
+          latitude: 8.9806,
+          longitude: 38.7578,
+        },
+        // Add these additional properties that might be expected
+        paymentMethod: null,
+        methodName: null,
+        cardType: null,
+        paymentStatus: "pending",
+      };
+
+      console.log("Order object being passed:", order);
+
+      props.navigation.navigate("Payment", { order });
+    } catch (error) {
+      console.warn("Checkout confirm failed:", error);
       Toast.show({
         topOffset: 60,
         type: "error",
-        text1: "Reduce item quantity",
-        text2: stockValidation.message || "Some items exceed available stock.",
+        text1: "Something went wrong",
+        text2: "Please check your connection and try again",
       });
-      return;
+    } finally {
+      setIsSubmitting(false);
     }
-
-    let customerLocation = null;
-
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === "granted") {
-        const currentPosition = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        customerLocation = {
-          latitude: currentPosition.coords.latitude,
-          longitude: currentPosition.coords.longitude,
-        };
-      }
-    } catch (error) {
-      console.warn("Unable to read current location for store assignment:", error);
-    }
-
-    const storeAssignment = await buildStoreAssignmentPayload(
-      customerLocation || {
-        latitude: 8.9806,
-        longitude: 38.7578,
-      },
-      token
-    );
-
-    const deliveryDistanceKm = haversineDistanceKm(
-      customerLocation || storeAssignment.customerLocation,
-      storeAssignment.storeLocation
-    );
-    const normalizedDistanceKm = Number.isFinite(deliveryDistanceKm) ? deliveryDistanceKm : 0;
-    const deliveryFee = estimateDeliveryFee(deliveryMode, normalizedDistanceKm, scheduledForDate);
-
-    // Create order object with proper structure
-    let order = {
-      _id: `temp_order_${Date.now()}`, // Add temporary ID
-      orderId: `ORDER_${Date.now()}`, // Add orderId property
-      shippingAddress1: address,
-      shippingAddress2: address2,
-      status: "1",
-      city,
-      zip,
-      country,
-      phone,
-      orderItems: orderItems.map((item) => ({
-        ...item,
-        _id: item._id || item.id, // Ensure _id exists
-        quantity: item.quantity || 1,
-      })),
-      user: user || context.user?._id,
-      dateOrdered: Date.now(),
-      itemsSubtotal: calculateItemsSubtotal(orderItems),
-      deliveryMode,
-      deliveryDistanceKm: normalizedDistanceKm,
-      deliveryFee,
-      scheduledFor: deliveryMode === "SCHEDULED" ? scheduledForDate.toISOString() : null,
-      totalPrice: calculateItemsSubtotal(orderItems) + deliveryFee,
-      ...storeAssignment,
-      pickupStoreName: storeAssignment.pickupStoreName || "Nearby Store",
-      customerLocation: storeAssignment.customerLocation || {
-        latitude: 8.9806,
-        longitude: 38.7578,
-      },
-      // Add these additional properties that might be expected
-      paymentMethod: null,
-      methodName: null,
-      cardType: null,
-      paymentStatus: "pending",
-    };
-
-    console.log("Order object being passed:", order);
-
-    props.navigation.navigate("Payment", { order });
-
-    // Or you can dispatch an action to save the order in Redux store
-    // You can navigate or dispatch an action here
   };
 
   return (
@@ -386,8 +406,23 @@ function Checkout(props) {
       <Text style={{ marginTop: 4, fontWeight: "bold", fontSize: 16 }}>
         Estimated total: {formatPrice(calculateTotal(orderItems))}
       </Text>
-      <EasyButton style={{ marginTop: 30 }} tertiary large onPress={handleSubmit}>
-        <Text style={{ color: "black", fontWeight: "bold" }}>Confirm</Text>
+      <EasyButton
+        style={{ marginTop: 30, opacity: isSubmitting ? 0.6 : 1 }}
+        tertiary
+        large
+        disabled={isSubmitting}
+        onPress={handleSubmit}
+      >
+        {isSubmitting ? (
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <ActivityIndicator color="#000" size="small" />
+            <Text style={{ color: "black", fontWeight: "bold", marginLeft: 8 }}>
+              Checking…
+            </Text>
+          </View>
+        ) : (
+          <Text style={{ color: "black", fontWeight: "bold" }}>Confirm</Text>
+        )}
       </EasyButton>
     </FormContainer>
   );

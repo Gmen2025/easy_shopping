@@ -11,6 +11,7 @@ import MaintenanceSettings from "../Screens/Admin/MaintenanceSettings";
 import BankAccountSettings from "../Screens/Admin/BankAccountSettings";
 import SingleProduct from "../Screens/Products/SingleProduct";
 import ServiceRequests from "../Screens/Service/ServiceRequests";
+import Drivers from "../Screens/Admin/Drivers";
 
 const Stack = createStackNavigator();
 
@@ -134,6 +135,16 @@ function MyStack() {
           headerTitleStyle:{
             color:'#e6c20eff'
           }
+        }}
+      />
+      <Stack.Screen
+        name="Drivers"
+        component={Drivers}
+        options={{
+          title: "Driver Applications",
+          headerTintColor: "#e6c20eff",
+          headerTitleAlign: "center",
+          headerTitleStyle: { color: "#e6c20eff" },
         }}
       />
     </Stack.Navigator>

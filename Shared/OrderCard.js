@@ -7,6 +7,7 @@ import EasyButton from "./StyledComponenets/EasyButton";
 import Toast from "react-native-toast-message";
 import { Avatar } from "react-native-paper";
 import UserOrderDisplay from "./UserOrderDisplay";
+import { useNavigation } from "@react-navigation/native";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
@@ -17,6 +18,7 @@ import { useCurrency } from "../assets/common/currency";
 
 const OrderCard = (props) => {
   const context = useContext(AuthContext);
+  const navigation = useNavigation();
 
   //console.log("context value in order card", context);
   //console.log("props value in order card", props);
@@ -603,6 +605,21 @@ const OrderCard = (props) => {
           <Text>Total Price: </Text>
           <Text style={styles.price}>{formatPrice(props.totalPrice)}</Text>
         </View>
+        {!props.editMode && props._id ? (
+          <EasyButton
+            tertiary
+            onPress={() =>
+              navigation.navigate("OrderTracking", {
+                orderId: props._id,
+                order: props,
+              })
+            }
+            style={styles.trackDeliveryButton}
+          >
+            <Icon name="map-marker" size={16} color="#fff" />
+            <Text style={styles.trackDeliveryText}>Track Delivery</Text>
+          </EasyButton>
+        ) : null}
         {props.editMode ? (
           <View>
             <Picker
@@ -689,6 +706,18 @@ const styles = StyleSheet.create({
   price: {
     color: "#000",
     fontWeight: "bold",
+  },
+  trackDeliveryButton: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 14,
+    paddingHorizontal: 14,
+  },
+  trackDeliveryText: {
+    color: "#fff",
+    fontWeight: "600",
+    marginLeft: 8,
   },
   label: {
     fontWeight: "bold",

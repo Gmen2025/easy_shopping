@@ -62,6 +62,7 @@ export const validateOrderStock = async ({ orderItems = [], token }) => {
     try {
       const productResponse = await axios.get(`${baseUrl}products/${productId}`, {
         headers,
+        timeout: 15000,
       });
       const product = normalizeProduct(productResponse?.data);
 

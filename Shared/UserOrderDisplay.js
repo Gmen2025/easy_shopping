@@ -1,6 +1,8 @@
 import React, { useState, useContext, useEffect } from "react";
-import { View, Text, ScrollView, Button } from "react-native";
+import { View, Text, ScrollView, Button, TouchableOpacity } from "react-native";
 import { Avatar } from "react-native-paper";
+import Icon from "react-native-vector-icons/FontAwesome";
+import { useNavigation } from "@react-navigation/native";
 import axios from "axios";
 import baseUrl from "../assets/common/baseUrl";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -13,6 +15,7 @@ const UserOrderDisplay = (props) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const context = useContext(AuthContext);
   const { formatPrice } = useCurrency();
+  const navigation = useNavigation();
 
   useEffect(() => {
     fetchOrderItems();
@@ -125,6 +128,10 @@ const UserOrderDisplay = (props) => {
               <Text style={{ fontWeight: "bold", marginBottom: 5 }}>
                 Order #{order._id}
               </Text>
+              <Text style={{ marginBottom: 5, color: "#555" }}>
+                Delivery: {order.deliveryStatus || "Pending"}
+                {order.driver?.name ? ` · Driver: ${order.driver.name}` : ""}
+              </Text>
               {Array.isArray(order.orderItems) &&
               order.orderItems.length > 0 ? (
                 order.orderItems.map((item, idx) => (
@@ -161,6 +168,31 @@ const UserOrderDisplay = (props) => {
               ) : (
                 <Text>No items in this order.</Text>
               )}
+              <TouchableOpacity
+                style={{
+                  marginTop: 8,
+                  alignSelf: "flex-start",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  backgroundColor: "#176b87",
+                  paddingVertical: 8,
+                  paddingHorizontal: 14,
+                  borderRadius: 20,
+                }}
+                onPress={() =>
+                  navigation.navigate("OrderTracking", {
+                    orderId: order._id,
+                    order,
+                  })
+                }
+              >
+                <Icon name="map-marker" size={14} color="#fff" />
+                <Text
+                  style={{ color: "#fff", fontWeight: "600", marginLeft: 6 }}
+                >
+                  Track Delivery
+                </Text>
+              </TouchableOpacity>
             </View>
           ))
         ) : (

@@ -163,6 +163,12 @@ const Products = (props) => {
           color="#1d72d6"
           onPress={() => props.navigation.navigate("BankAccountSettings")}
         />
+        <ActionButton
+          icon="truck"
+          label="Drivers"
+          color="#0f766e"
+          onPress={() => props.navigation.navigate("Drivers")}
+        />
       </View>
 
       {/* Search */}
