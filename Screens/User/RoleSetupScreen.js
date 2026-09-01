@@ -44,7 +44,7 @@ const RoleSetupScreen = (props) => {
       if (hasVehicleDetails) {
         try {
           await axios.put(
-            `${baseUrl}users/profile`,
+            `${baseUrl}drivers/me`,
             {
               vehicle: {
                 make: formData.vehicleMake,

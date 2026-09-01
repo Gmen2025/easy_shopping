@@ -15,7 +15,7 @@ const Drivers = () => {
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem("token");
-      const response = await axios.get(`${baseUrl}drivers?approvalStatus=pending`, {
+      const response = await axios.get(`${baseUrl}drivers?approvalStatus=pending&allDatabases=true`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setDrivers(Array.isArray(response.data) ? response.data : []);
@@ -36,7 +36,7 @@ const Drivers = () => {
       const token = await AsyncStorage.getItem("token");
       const response = await axios.put(
         `${baseUrl}drivers/${driver._id}/approve`,
-        {},
+        { databaseName: driver.databaseName },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setDrivers((currentDrivers) => currentDrivers.filter((item) => item._id !== driver._id));
@@ -54,6 +54,7 @@ const Drivers = () => {
         <Text style={styles.name}>{item.name}</Text>
         <Text style={styles.detail}>{item.email}</Text>
         {item.phone ? <Text style={styles.detail}>{item.phone}</Text> : null}
+        {item.databaseName ? <Text style={styles.database}>{item.databaseName}</Text> : null}
       </View>
       <TouchableOpacity
         accessibilityLabel={`Approve ${item.name}`}
@@ -91,6 +92,7 @@ const styles = StyleSheet.create({
   driverDetails: { flex: 1 },
   name: { color: "#1a237e", fontSize: 16, fontWeight: "700", marginBottom: 4 },
   detail: { color: "#5a6c7d", fontSize: 13, marginTop: 2 },
+  database: { color: "#0f766e", fontSize: 12, fontWeight: "600", marginTop: 6 },
   approveButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center", backgroundColor: "#0f766e", borderRadius: 8 },
   emptyText: { color: "#5a6c7d", fontSize: 15, textAlign: "center" },
 });

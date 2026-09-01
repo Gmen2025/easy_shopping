@@ -11,6 +11,7 @@ import HomeNavigator from './HomeNavigator'
 import CartNavigator from './CartNavigator'
 import UserNavigator from './UserNavigator'
 import AdminNavigator from './AdminNavigator'
+import Drivers from '../Screens/Admin/Drivers'
 
 const Tab = createBottomTabNavigator();
 
@@ -81,6 +82,21 @@ const Main = () => {
                 </View>
               );
             },
+          }}
+        />
+      ) : null}
+      {context.user && context.user.isAdmin === true ? (
+        <Tab.Screen
+          name='Drivers'
+          component={Drivers}
+          options={{
+            tabBarIcon: ({ color }) => (
+              <Icon
+                name="truck"
+                color={color}
+                size={26}
+              />
+            ),
           }}
         />
       ) : null}
