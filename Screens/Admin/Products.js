@@ -169,6 +169,12 @@ const Products = (props) => {
           color="#0f766e"
           onPress={() => props.navigation.navigate("Drivers")}
         />
+        <ActionButton
+          icon="building"
+          label="Store Owners"
+          color="#2563eb"
+          onPress={() => props.navigation.navigate("StoreOwners")}
+        />
       </View>
 
       {/* Search */}

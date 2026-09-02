@@ -14,8 +14,13 @@ const RoleSetupScreen = (props) => {
   const [formData, setFormData] = useState({
     vehicleMake: "",
     vehicleModel: "",
+    vehicleType: "",
+    vehicleYear: "",
     vehiclePlate: "",
     vehicleColor: "",
+    insuranceProvider: "",
+    insurancePolicyNumber: "",
+    insuranceExpiresAt: "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -47,10 +52,15 @@ const RoleSetupScreen = (props) => {
             `${baseUrl}drivers/me`,
             {
               vehicle: {
+                type: formData.vehicleType,
                 make: formData.vehicleMake,
                 model: formData.vehicleModel,
+                year: formData.vehicleYear,
                 plateNumber: formData.vehiclePlate,
                 color: formData.vehicleColor,
+                insuranceProvider: formData.insuranceProvider,
+                insurancePolicyNumber: formData.insurancePolicyNumber,
+                insuranceExpiresAt: formData.insuranceExpiresAt,
               },
             },
             config
@@ -101,14 +111,29 @@ const RoleSetupScreen = (props) => {
           <Text style={styles.fieldLabel}>Make</Text>
           <Input value={formData.vehicleMake} onChangeText={(text) => handleChange("vehicleMake", text)} placeholder="Toyota" />
 
+          <Text style={styles.fieldLabel}>Vehicle Type</Text>
+          <Input value={formData.vehicleType} onChangeText={(text) => handleChange("vehicleType", text)} placeholder="Car, motorcycle, van..." />
+
           <Text style={styles.fieldLabel}>Model</Text>
           <Input value={formData.vehicleModel} onChangeText={(text) => handleChange("vehicleModel", text)} placeholder="Corolla" />
+
+          <Text style={styles.fieldLabel}>Year</Text>
+          <Input value={formData.vehicleYear} onChangeText={(text) => handleChange("vehicleYear", text)} placeholder="2024" keyboardType="numeric" />
 
           <Text style={styles.fieldLabel}>Plate Number</Text>
           <Input value={formData.vehiclePlate} onChangeText={(text) => handleChange("vehiclePlate", text)} placeholder="AA 1234" />
 
           <Text style={styles.fieldLabel}>Color</Text>
           <Input value={formData.vehicleColor} onChangeText={(text) => handleChange("vehicleColor", text)} placeholder="White" />
+
+          <Text style={styles.fieldLabel}>Insurance Provider</Text>
+          <Input value={formData.insuranceProvider} onChangeText={(text) => handleChange("insuranceProvider", text)} placeholder="Insurance company" />
+
+          <Text style={styles.fieldLabel}>Insurance Policy Number</Text>
+          <Input value={formData.insurancePolicyNumber} onChangeText={(text) => handleChange("insurancePolicyNumber", text)} placeholder="Policy number" />
+
+          <Text style={styles.fieldLabel}>Insurance Expiry</Text>
+          <Input value={formData.insuranceExpiresAt} onChangeText={(text) => handleChange("insuranceExpiresAt", text)} placeholder="YYYY-MM-DD" />
         </View>
 
         <EasyButton onPress={handleSave} style={styles.saveButton} disabled={saving}>

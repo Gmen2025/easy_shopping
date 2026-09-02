@@ -77,6 +77,17 @@ const Login = (props) => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
+      if (response?.data?.needsStoreSetup) {
+        const storeUrl = `agesstore://register?email=${encodeURIComponent(email.trim().toLowerCase())}`;
+        const canOpenStore = await Linking.canOpenURL(storeUrl);
+        Alert.alert(
+          "Store owner application started",
+          response.data.message,
+          [{ text: canOpenStore ? "Open AGES Store" : "Continue", onPress: () => canOpenStore && Linking.openURL(storeUrl) }]
+        );
+        return;
+      }
+
       if (response?.data?.token) {
         await AsyncStorage.setItem("token", response.data.token);
       }
@@ -183,6 +194,14 @@ const Login = (props) => {
             disabled={updatingRole}
           >
             <Text style={styles.upgradeButtonText}>{updatingRole ? "Updating..." : "Upgrade to Driver"}</Text>
+          </EasyButton>
+
+          <EasyButton
+            onPress={() => handleUpgradeRole("store_owner")}
+            style={[styles.upgradeButton, styles.storeOwnerButton]}
+            disabled={updatingRole}
+          >
+            <Text style={styles.upgradeButtonText}>{updatingRole ? "Updating..." : "Upgrade to Store Owner"}</Text>
           </EasyButton>
 
           <EasyButton
@@ -342,6 +361,10 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 15,
     fontWeight: '700',
+  },
+  storeOwnerButton: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
   },
   forgotButton: {
     width: '100%',
