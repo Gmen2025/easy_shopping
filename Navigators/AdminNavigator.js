@@ -13,6 +13,7 @@ import SingleProduct from "../Screens/Products/SingleProduct";
 import ServiceRequests from "../Screens/Service/ServiceRequests";
 import Drivers from "../Screens/Admin/Drivers";
 import StoreOwners from "../Screens/Admin/StoreOwners";
+import Payouts from "../Screens/Admin/Payouts";
 
 const Stack = createStackNavigator();
 
@@ -152,6 +153,11 @@ function MyStack() {
         name="StoreOwners"
         component={StoreOwners}
         options={{ title: "Store Owners", headerTintColor: "#e6c20eff", headerTitleAlign: "center", headerTitleStyle: { color: "#e6c20eff" } }}
+      />
+      <Stack.Screen
+        name="Payouts"
+        component={Payouts}
+        options={{ title: "Store Payouts", headerTintColor: "#e6c20eff", headerTitleAlign: "center", headerTitleStyle: { color: "#e6c20eff" } }}
       />
     </Stack.Navigator>
   );

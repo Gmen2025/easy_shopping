@@ -175,6 +175,12 @@ const Products = (props) => {
           color="#2563eb"
           onPress={() => props.navigation.navigate("StoreOwners")}
         />
+        <ActionButton
+          icon="money"
+          label="Payouts"
+          color="#059669"
+          onPress={() => props.navigation.navigate("Payouts")}
+        />
       </View>
 
       {/* Search */}

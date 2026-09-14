@@ -7,7 +7,7 @@ import axios from "axios";
 import baseUrl from "../../assets/common/baseUrl";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 
-export default function StoreOwners() {
+export default function StoreOwners(props) {
   const [owners, setOwners] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState("");
@@ -113,7 +113,29 @@ export default function StoreOwners() {
   };
 
   if (loading) return <View style={styles.centered}><ActivityIndicator size="large" color="#0f766e" /></View>;
-  return <FlatList data={owners} keyExtractor={(item) => item._id} renderItem={renderOwner} contentContainerStyle={owners.length ? styles.list : styles.emptyList} onRefresh={loadOwners} refreshing={loading} ListEmptyComponent={<Text style={styles.empty}>No store owners found.</Text>} />;
+  return (
+    <View style={{ flex: 1, backgroundColor: "#f8fafc" }}>
+      <View style={styles.headerBar}>
+        <Text style={styles.headerTitle}>Registered Store Owners</Text>
+        <TouchableOpacity
+          style={styles.payoutsBtn}
+          onPress={() => props?.navigation?.navigate("Payouts")}
+        >
+          <Icon name="money" size={14} color="#fff" style={{ marginRight: 6 }} />
+          <Text style={styles.payoutsBtnText}>Manage Payouts</Text>
+        </TouchableOpacity>
+      </View>
+      <FlatList
+        data={owners}
+        keyExtractor={(item) => item._id}
+        renderItem={renderOwner}
+        contentContainerStyle={owners.length ? styles.list : styles.emptyList}
+        onRefresh={loadOwners}
+        refreshing={loading}
+        ListEmptyComponent={<Text style={styles.empty}>No store owners found.</Text>}
+      />
+    </View>
+  );
 }
 
 function Action({ icon, color, label, ...props }) {
@@ -121,6 +143,24 @@ function Action({ icon, color, label, ...props }) {
 }
 
 const styles = StyleSheet.create({
+  headerBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#0f172a",
+  },
+  headerTitle: { fontSize: 16, fontWeight: "700", color: "#e6c20eff" },
+  payoutsBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#059669",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 6,
+  },
+  payoutsBtnText: { color: "#fff", fontWeight: "700", fontSize: 12 },
   list: { padding: 16 }, emptyList: { flexGrow: 1, alignItems: "center", justifyContent: "center", padding: 24 }, centered: { flex: 1, alignItems: "center", justifyContent: "center" },
   row: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 8, padding: 14, marginBottom: 10 }, details: { flex: 1 },
   name: { color: "#1a237e", fontSize: 16, fontWeight: "700", marginBottom: 4 }, detail: { color: "#5a6c7d", fontSize: 13, marginTop: 2 }, status: { color: "#8a6c09", fontSize: 12, fontWeight: "700", marginTop: 5, textTransform: "uppercase" }, database: { color: "#0f766e", fontSize: 12, fontWeight: "600", marginTop: 6 },
