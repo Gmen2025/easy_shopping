@@ -22,7 +22,9 @@ import { COUNTRY_DB_MAP, getDatabaseNameFromStorage, setDatabaseNameInStorage } 
 
 const DB_COUNTRY_MAP = {
     E_Shopping: "Ethio",
+    E_Shopping_2: "Ethio",
     E_ShopUSA: "USA",
+    E_ShoppingUSA: "USA",
 };
 
 const Header = ({
@@ -63,6 +65,9 @@ const Header = ({
         const dbName = COUNTRY_DB_MAP[country.value];
         if (dbName) {
             try {
+                // Pre-persist immediately so any active interceptor uses the new database
+                await setDatabaseNameInStorage(dbName);
+
                 const token = await AsyncStorage.getItem("token");
                 const switchUrl = `${baseUrl}database/switch`;
                 let resolvedDbName = dbName;
@@ -71,8 +76,13 @@ const Header = ({
                     try {
                         const response = await axios.post(
                             switchUrl,
-                            { database: dbName },
-                            { headers: { Authorization: `Bearer ${token}` } }
+                            { database: dbName, databaseName: dbName },
+                            { 
+                                headers: { 
+                                    Authorization: `Bearer ${token}`,
+                                    "x-database-name": dbName,
+                                } 
+                            }
                         );
                         resolvedDbName = response?.data?.database || dbName;
                     } catch (switchError) {

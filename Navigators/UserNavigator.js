@@ -49,6 +49,7 @@ const MyStack = () => {
           <Stack.Screen name="EmailVerification" component={EmailVerification} />
           <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
           <Stack.Screen name="ResetPassword" component={ResetPassword} />
+          <Stack.Screen name="RoleSetup" component={RoleSetupScreen} />
         </>
       )}
     </Stack.Navigator>

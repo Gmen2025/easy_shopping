@@ -10,6 +10,7 @@ import Icon from "react-native-vector-icons/FontAwesome";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import baseUrl from "../../assets/common/baseUrl";
+import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 
 const Login = (props) => {
   const { login, loading, isAuthenticated, error: contextError, restoreSession } = useContext(AuthContext);
@@ -55,10 +56,20 @@ const Login = (props) => {
     setError("");
 
     try {
-      const loginResponse = await axios.post(`${baseUrl}users/login`, {
-        email,
-        password,
-      });
+      const selectedDb = await getDatabaseNameFromStorage();
+      const loginResponse = await axios.post(
+        `${baseUrl}users/login`,
+        {
+          email,
+          password,
+          databaseName: selectedDb,
+        },
+        {
+          headers: {
+            "x-database-name": selectedDb,
+          },
+        }
+      );
       const token = loginResponse?.data?.token;
 
       if (!token) {
@@ -71,10 +82,14 @@ const Login = (props) => {
         email,
         password,
         roleType,
+        databaseName: selectedDb,
       };
 
       const response = await axios.post(`${baseUrl}users/upgrade-role`, payload, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          "x-database-name": selectedDb,
+        },
       });
 
       if (response?.data?.needsStoreSetup) {
@@ -93,13 +108,21 @@ const Login = (props) => {
       }
 
       const nextRoute = response?.data?.needsSetup ? "RoleSetup" : "User Profile";
+      const onContinue = async () => {
+        if (nextRoute === "RoleSetup") {
+          props.navigation.navigate("RoleSetup");
+        } else if (restoreSession) {
+          await restoreSession();
+        }
+      };
+
       if (response?.data?.message) {
         Alert.alert("Role updated", response.data.message, [
-          { text: "Continue", onPress: () => props.navigation.navigate(nextRoute) },
+          { text: "Continue", onPress: onContinue },
         ]);
       } else {
         Alert.alert("Role updated", "Your account has been updated successfully.", [
-          { text: "Continue", onPress: () => props.navigation.navigate(nextRoute) },
+          { text: "Continue", onPress: onContinue },
         ]);
       }
     } catch (upgradeError) {

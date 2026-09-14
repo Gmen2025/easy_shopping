@@ -5,6 +5,7 @@ import Icon from "react-native-vector-icons/FontAwesome";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import baseUrl from "../../assets/common/baseUrl";
+import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 
 const Drivers = () => {
   const [drivers, setDrivers] = useState([]);
@@ -15,8 +16,12 @@ const Drivers = () => {
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem("token");
-      const response = await axios.get(`${baseUrl}drivers?allDatabases=true`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const currentDb = await getDatabaseNameFromStorage();
+      const response = await axios.get(`${baseUrl}drivers`, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          "x-database-name": currentDb,
+        },
       });
       setDrivers(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
@@ -34,18 +39,62 @@ const Drivers = () => {
     setUpdatingId(driver._id);
     try {
       const token = await AsyncStorage.getItem("token");
+      const currentDb = await getDatabaseNameFromStorage();
       const response = await axios.put(
         `${baseUrl}drivers/${driver._id}/${action}`,
-        { databaseName: driver.databaseName },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { databaseName: currentDb },
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            "x-database-name": currentDb,
+          } 
+        }
       );
-      setDrivers((current) => current.map((item) => item._id === driver._id ? { ...response.data.driver, databaseName: item.databaseName } : item));
+      setDrivers((current) => current.map((item) => item._id === driver._id ? response.data.driver : item));
       Alert.alert("Driver updated", response?.data?.message || "Driver access was updated.");
     } catch (error) {
       Alert.alert("Update failed", error?.response?.data?.message || "Unable to update driver access right now.");
     } finally {
       setUpdatingId("");
     }
+  };
+
+  const deleteDriver = (driver) => {
+    Alert.alert(
+      "Delete Driver",
+      `Are you sure you want to permanently delete driver "${driver.name}"?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setUpdatingId(driver._id);
+            try {
+              const token = await AsyncStorage.getItem("token");
+              const currentDb = await getDatabaseNameFromStorage();
+              await axios.delete(`${baseUrl}drivers/${driver._id}`, {
+                headers: { 
+                  Authorization: `Bearer ${token}`,
+                  "x-database-name": currentDb,
+                },
+                data: { databaseName: currentDb },
+                params: { databaseName: currentDb },
+              });
+              setDrivers((current) => current.filter((item) => item._id !== driver._id));
+              Alert.alert("Driver deleted", "Driver record was successfully deleted.");
+            } catch (error) {
+              Alert.alert(
+                "Delete failed",
+                error?.response?.data?.message || error?.response?.data?.error || "Unable to delete driver right now."
+              );
+            } finally {
+              setUpdatingId("");
+            }
+          },
+        },
+      ]
+    );
   };
 
   const renderDriver = ({ item }) => (
@@ -57,12 +106,12 @@ const Drivers = () => {
         <Text style={styles.status}>{item.approvalStatus || "approved"}</Text>
         {item.vehicle?.type || item.vehicleType ? <Text style={styles.detail}>{item.vehicle?.type || item.vehicleType}</Text> : null}
         {item.vehicle?.year ? <Text style={styles.detail}>{item.vehicle.year} {item.vehicle?.make} {item.vehicle?.model}</Text> : null}
-        {item.databaseName ? <Text style={styles.database}>{item.databaseName}</Text> : null}
       </View>
       <View style={styles.actions}>
         {item.approvalStatus !== "approved" ? <TouchableOpacity accessibilityLabel={`Approve ${item.name}`} style={styles.approveButton} disabled={updatingId === item._id} onPress={() => updateDriverAccess(item, "approve")}><Icon name="check" size={16} color="#ffffff" /></TouchableOpacity> : null}
         {item.approvalStatus === "denied" ? <TouchableOpacity accessibilityLabel={`Recover ${item.name}`} style={styles.recoverButton} disabled={updatingId === item._id} onPress={() => updateDriverAccess(item, "recover")}><Icon name="undo" size={16} color="#ffffff" /></TouchableOpacity> : null}
         {item.approvalStatus !== "denied" ? <TouchableOpacity accessibilityLabel={`Deny ${item.name}`} style={styles.denyButton} disabled={updatingId === item._id} onPress={() => updateDriverAccess(item, "deny")}><Icon name="ban" size={16} color="#ffffff" /></TouchableOpacity> : null}
+        <TouchableOpacity accessibilityLabel={`Delete ${item.name}`} style={styles.deleteButton} disabled={updatingId === item._id} onPress={() => deleteDriver(item)}><Icon name="trash" size={16} color="#ffffff" /></TouchableOpacity>
       </View>
     </View>
   );
@@ -98,6 +147,7 @@ const styles = StyleSheet.create({
   approveButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center", backgroundColor: "#0f766e", borderRadius: 8 },
   denyButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center", backgroundColor: "#b91c1c", borderRadius: 8 },
   recoverButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center", backgroundColor: "#2563eb", borderRadius: 8 },
+  deleteButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center", backgroundColor: "#4b5563", borderRadius: 8 },
   emptyText: { color: "#5a6c7d", fontSize: 15, textAlign: "center" },
 });
 

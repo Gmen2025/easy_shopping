@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const DEFAULT_DB_NAME = "E_Shopping";
-export const ALLOWED_DB_NAMES = ["E_Shopping", "E_Shopping_2", "E_ShopUSA"];
+export const ALLOWED_DB_NAMES = ["E_Shopping", "E_Shopping_2", "E_ShopUSA", "E_ShoppingUSA"];
 export const DB_STORAGE_KEY = "selectedDatabaseName";
 
 // Maps the country dropdown value to its corresponding database name.
@@ -16,8 +16,25 @@ export const sanitizeDatabaseName = (name) => {
   }
 
   const trimmed = name.trim();
-  if (trimmed === "E_ShpUSA" || trimmed === "E_ShopUsA") {
+  const lower = trimmed.toLowerCase();
+
+  if (
+    trimmed === "E_ShpUSA" ||
+    trimmed === "E_ShopUsA" ||
+    trimmed === "E_ShoppingUSA" ||
+    trimmed === "E_ShopUSA" ||
+    lower === "e_shoppingusa" ||
+    lower === "e_shopusa"
+  ) {
     return "E_ShopUSA";
+  }
+
+  if (lower === "e_shopping") {
+    return "E_Shopping";
+  }
+
+  if (lower === "e_shopping_2") {
+    return "E_Shopping_2";
   }
 
   if (!trimmed || !ALLOWED_DB_NAMES.includes(trimmed)) {

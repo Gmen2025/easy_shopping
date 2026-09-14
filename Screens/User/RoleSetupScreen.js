@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import baseUrl from "../../assets/common/baseUrl";
+import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import FormContainer from "../../Shared/Form/FormContainer";
 import Input from "../../Shared/Form/Input";
 import EasyButton from "../../Shared/StyledComponenets/EasyButton";
@@ -10,7 +11,7 @@ import Icon from "react-native-vector-icons/FontAwesome";
 import { AuthContext } from "../../Context/store/Auth";
 
 const RoleSetupScreen = (props) => {
-  const { user } = useContext(AuthContext);
+  const { user, restoreSession } = useContext(AuthContext);
   const [formData, setFormData] = useState({
     vehicleMake: "",
     vehicleModel: "",
@@ -39,7 +40,13 @@ const RoleSetupScreen = (props) => {
     setSaving(true);
 
     try {
-      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const selectedDb = await getDatabaseNameFromStorage();
+      const config = { 
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          "x-database-name": selectedDb,
+        } 
+      };
       const hasVehicleDetails = Boolean(
         formData.vehicleMake || formData.vehicleModel || formData.vehiclePlate || formData.vehicleColor
       );
@@ -51,6 +58,7 @@ const RoleSetupScreen = (props) => {
           await axios.put(
             `${baseUrl}drivers/me`,
             {
+              databaseName: selectedDb,
               vehicle: {
                 type: formData.vehicleType,
                 make: formData.vehicleMake,
@@ -88,7 +96,11 @@ const RoleSetupScreen = (props) => {
       }
 
       Alert.alert("Setup complete", "Your vehicle details have been saved.");
-      props.navigation.navigate("User Profile");
+      if (restoreSession) {
+        await restoreSession();
+      } else {
+        props.navigation.navigate("User Profile");
+      }
     } catch (error) {
       const message = error?.response?.data?.message || "Unable to save your setup details right now.";
       Alert.alert("Setup failed", message);
