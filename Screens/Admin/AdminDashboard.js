@@ -18,11 +18,11 @@ import { useCurrency } from "../../assets/common/currency";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 
 const PERIODS = [
-  { key: "daily", label: "Day" },
-  { key: "weekly", label: "Week" },
-  { key: "monthly", label: "Month" },
-  { key: "quarterly", label: "Quarter" },
-  { key: "yearly", label: "Year" },
+  { key: "daily", label: "24 Hours" },
+  { key: "weekly", label: "7 Days" },
+  { key: "monthly", label: "30 Days" },
+  { key: "quarterly", label: "90 Days" },
+  { key: "yearly", label: "365 Days" },
 ];
 
 const QUICK_ACTIONS = [
@@ -121,7 +121,7 @@ const AdminDashboard = ({ navigation }) => {
         <View>
           <Text style={styles.eyebrow}>ADMIN CONTROL CENTER</Text>
           <Text style={styles.title}>Sales dashboard</Text>
-          <Text style={styles.subtitle}>Completed order revenue and operations</Text>
+          <Text style={styles.subtitle}>Completed order revenue · rolling periods</Text>
         </View>
         <TouchableOpacity style={styles.refreshButton} onPress={() => loadDashboard(true)}>
           <Icon name="refresh" size={16} color="#8a6c09" />
