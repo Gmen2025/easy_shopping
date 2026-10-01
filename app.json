@@ -52,6 +52,7 @@
       }
     },
     "plugins": [
+      "expo-status-bar",
       [
         "@stripe/stripe-react-native",
         {

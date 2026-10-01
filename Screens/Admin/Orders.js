@@ -55,10 +55,12 @@ const Orders = (props) => {
     );
     for (const order of ordersToDelete) {
       try {
-        await axios.delete(`${baseUrl}orders/${order._id}?notifyCustomer=true`, {
+        // These orders are always already-delivered housekeeping cleanup, not cancellations -
+        // never send the customer a "cancelled/refund" email for a completed delivery.
+        await axios.delete(`${baseUrl}orders/${order._id}?notifyCustomer=false`, {
           headers: { Authorization: `Bearer ${token}` },
           data: {
-            notifyCustomer: true,
+            notifyCustomer: false,
             customerEmail: order?.user?.email || order?.customerEmail || null,
             customerName: order?.user?.name || null,
           },

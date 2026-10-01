@@ -12,25 +12,27 @@ const DeliveryProgressScreen = () => {
   const request = route?.params?.request || {};
   const orderStatus = route?.params?.orderStatus || "Picked Up";
   const mode = route?.params?.mode || "pickup";
+  const exitRouteName = route?.params?.exitRouteName || "User Profile";
 
   const isDelivered = orderStatus === "Delivered";
   const isPickupMode = mode === "pickup";
 
   const handleComplete = async () => {
     if (isDelivered) {
-      navigation.navigate("User Profile");
+      navigation.navigate(exitRouteName);
       return;
     }
 
     if (isPickupMode && orderStatus !== "Picked Up") {
       await updateDeliveryStatus(request, "Picked Up");
-      navigation.navigate("DeliveryRoute", { request, orderStatus: "Picked Up" });
+      navigation.navigate("DeliveryRoute", { request, orderStatus: "Picked Up", exitRouteName });
       return;
     }
 
     navigation.navigate("DeliveryRoute", {
       request,
       orderStatus: "Picked Up",
+      exitRouteName,
     });
   };
 

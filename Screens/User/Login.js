@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Linking, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Linking } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { AuthContext } from "../../Context/store/Auth";
 import FormContainer from "../../Shared/Form/FormContainer";
@@ -7,10 +7,6 @@ import Input from "../../Shared/Form/Input";
 import Error from "../../Shared/Error";
 import EasyButton from "../../Shared/StyledComponenets/EasyButton";
 import Icon from "react-native-vector-icons/FontAwesome";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
-import baseUrl from "../../assets/common/baseUrl";
-import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 
 const Login = (props) => {
   const { login, loading, isAuthenticated, error: contextError, restoreSession } = useContext(AuthContext);
@@ -18,7 +14,6 @@ const Login = (props) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [updatingRole, setUpdatingRole] = useState(false);
 
 
   useEffect(() => {
@@ -43,94 +38,6 @@ const Login = (props) => {
       login(email, password);
     } else {
       setError("Please fill in all fields");
-    }
-  };
-
-  const handleUpgradeRole = async (roleType) => {
-    if (!email || !password) {
-      setError("Please enter your email and password first.");
-      return;
-    }
-
-    setUpdatingRole(true);
-    setError("");
-
-    try {
-      const selectedDb = await getDatabaseNameFromStorage();
-      const loginResponse = await axios.post(
-        `${baseUrl}users/login`,
-        {
-          email,
-          password,
-          databaseName: selectedDb,
-        },
-        {
-          headers: {
-            "x-database-name": selectedDb,
-          },
-        }
-      );
-      const token = loginResponse?.data?.token;
-
-      if (!token) {
-        throw new Error("Unable to authenticate this account.");
-      }
-
-      await AsyncStorage.setItem("token", token);
-      await AsyncStorage.setItem("lastActivityTime", Date.now().toString());
-      const payload = {
-        email,
-        password,
-        roleType,
-        databaseName: selectedDb,
-      };
-
-      const response = await axios.post(`${baseUrl}users/upgrade-role`, payload, {
-        headers: { 
-          Authorization: `Bearer ${token}`,
-          "x-database-name": selectedDb,
-        },
-      });
-
-      if (response?.data?.needsStoreSetup) {
-        const storeUrl = `agesstore://register?email=${encodeURIComponent(email.trim().toLowerCase())}`;
-        const canOpenStore = await Linking.canOpenURL(storeUrl);
-        Alert.alert(
-          "Store owner application started",
-          response.data.message,
-          [{ text: canOpenStore ? "Open AGES Store" : "Continue", onPress: () => canOpenStore && Linking.openURL(storeUrl) }]
-        );
-        return;
-      }
-
-      if (response?.data?.token) {
-        await AsyncStorage.setItem("token", response.data.token);
-      }
-
-      const nextRoute = response?.data?.needsSetup ? "RoleSetup" : "User Profile";
-      const onContinue = async () => {
-        if (nextRoute === "RoleSetup") {
-          props.navigation.navigate("RoleSetup");
-        } else if (restoreSession) {
-          await restoreSession();
-        }
-      };
-
-      if (response?.data?.message) {
-        Alert.alert("Role updated", response.data.message, [
-          { text: "Continue", onPress: onContinue },
-        ]);
-      } else {
-        Alert.alert("Role updated", "Your account has been updated successfully.", [
-          { text: "Continue", onPress: onContinue },
-        ]);
-      }
-    } catch (upgradeError) {
-      const message = upgradeError?.response?.data?.message || "Unable to update your role right now.";
-      setError(message);
-      Alert.alert("Upgrade failed", message);
-    } finally {
-      setUpdatingRole(false);
     }
   };
 
@@ -209,22 +116,6 @@ const Login = (props) => {
               <Icon name="user-plus" size={15} color="#1a237e" style={styles.buttonIcon} />
               <Text style={styles.createAccountText}>Create Account</Text>
             </View>
-          </EasyButton>
-
-          <EasyButton
-            onPress={() => handleUpgradeRole("driver")}
-            style={styles.upgradeButton}
-            disabled={updatingRole}
-          >
-            <Text style={styles.upgradeButtonText}>{updatingRole ? "Updating..." : "Upgrade to Driver"}</Text>
-          </EasyButton>
-
-          <EasyButton
-            onPress={() => handleUpgradeRole("store_owner")}
-            style={[styles.upgradeButton, styles.storeOwnerButton]}
-            disabled={updatingRole}
-          >
-            <Text style={styles.upgradeButtonText}>{updatingRole ? "Updating..." : "Upgrade to Store Owner"}</Text>
           </EasyButton>
 
           <EasyButton
@@ -370,24 +261,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.3,
-  },
-  upgradeButton: {
-    width: '100%',
-    marginBottom: 10,
-    paddingVertical: 12,
-    backgroundColor: '#0f766e',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#0f766e',
-  },
-  upgradeButtonText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  storeOwnerButton: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
   },
   forgotButton: {
     width: '100%',

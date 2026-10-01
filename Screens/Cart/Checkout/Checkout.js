@@ -16,7 +16,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import { validateOrderStock } from "../../../assets/common/inventory";
 import { buildStoreAssignmentPayload, haversineDistanceKm } from "../../../assets/common/stores";
-import { useCurrency } from "../../../assets/common/currency";
+import { getDeliverySettings, estimateDeliveryDistanceKm } from "../../../assets/common/delivery";
+import { getCurrencyConfigForDatabase, useCurrency } from "../../../assets/common/currency";
+import { getDatabaseNameFromStorage } from "../../../assets/common/databaseConfig";
 
 // Delivery options match backend DELIVERY_MODES (helpers/delivery.js) in D:\MERN_COURSE\backend.
 const DELIVERY_MODE_OPTIONS = [
@@ -25,8 +27,8 @@ const DELIVERY_MODE_OPTIONS = [
   { value: "SCHEDULED", label: "Scheduled delivery" },
 ];
 
-// Mirrors helpers/delivery.js computeDeliveryFee() defaults so the client estimate matches
-// what the backend will charge if its env vars aren't overridden from these defaults.
+// Mirrors helpers/delivery.js computeDeliveryFee() defaults; used only if the admin-configured
+// rates can't be fetched from the server.
 const DELIVERY_FEE_DEFAULTS = {
   SAME_DAY: { base: 9, perKm: 1, premium: 4 },
   NEXT_DAY: { base: 4, perKm: 0.6 },
@@ -35,23 +37,27 @@ const DELIVERY_FEE_DEFAULTS = {
 
 const roundCurrency = (value) => Math.round(Number(value || 0) * 100) / 100;
 
-const estimateDeliveryFee = (deliveryMode, distanceKm, scheduledForDate) => {
+const estimateDeliveryFee = (deliveryMode, distanceKm, scheduledForDate, config = {}) => {
   const distance = Number(distanceKm) || 0;
 
   if (deliveryMode === "SAME_DAY") {
-    const { base, perKm, premium } = DELIVERY_FEE_DEFAULTS.SAME_DAY;
+    const base = config.sameDayBase ?? DELIVERY_FEE_DEFAULTS.SAME_DAY.base;
+    const perKm = config.sameDayPerKm ?? DELIVERY_FEE_DEFAULTS.SAME_DAY.perKm;
+    const premium = config.sameDayPremium ?? DELIVERY_FEE_DEFAULTS.SAME_DAY.premium;
     return roundCurrency(base + premium + distance * perKm);
   }
 
   if (deliveryMode === "NEXT_DAY") {
-    const { base, perKm } = DELIVERY_FEE_DEFAULTS.NEXT_DAY;
+    const base = config.nextDayBase ?? DELIVERY_FEE_DEFAULTS.NEXT_DAY.base;
+    const perKm = config.nextDayPerKm ?? DELIVERY_FEE_DEFAULTS.NEXT_DAY.perKm;
     return roundCurrency(base + distance * perKm);
   }
 
-  const { base, perKm } = DELIVERY_FEE_DEFAULTS.SCHEDULED;
+  const base = config.scheduledBase ?? DELIVERY_FEE_DEFAULTS.SCHEDULED.base;
+  const perKm = config.scheduledPerKm ?? DELIVERY_FEE_DEFAULTS.SCHEDULED.perKm;
   const hour = scheduledForDate instanceof Date && !Number.isNaN(scheduledForDate.getTime()) ? scheduledForDate.getHours() : -1;
-  const peakSurcharge = hour >= 17 && hour <= 20 ? 1.5 : 0;
-  const offPeakDiscount = hour >= 10 && hour <= 15 ? -0.5 : 0;
+  const peakSurcharge = hour >= 17 && hour <= 20 ? (config.scheduledPeakSurcharge ?? 1.5) : 0;
+  const offPeakDiscount = hour >= 10 && hour <= 15 ? -(config.scheduledOffPeakDiscount ?? 0.5) : 0;
   return roundCurrency(base + distance * perKm + peakSurcharge + offPeakDiscount);
 };
 
@@ -72,6 +78,20 @@ function Checkout(props) {
   const [deliveryMode, setDeliveryMode] = useState("SAME_DAY");
   const [scheduledDate, setScheduledDate] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deliveryConfig, setDeliveryConfig] = useState({});
+
+  useEffect(() => {
+    let isCurrent = true;
+    getDeliverySettings({ token }).then((settings) => {
+      if (isCurrent && settings?.deliveryConfig) {
+        setDeliveryConfig(settings.deliveryConfig);
+      }
+    });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [token]);
 
   useEffect(() => {
     // This is where you can fetch the cart items and set them to orderItems state
@@ -168,7 +188,7 @@ function Checkout(props) {
   };
 
   // Preview estimate before the customer's location/nearest store is known (distance = 0).
-  const getEstimatedDeliveryFee = () => estimateDeliveryFee(deliveryMode, 0, parseScheduledDate());
+  const getEstimatedDeliveryFee = () => estimateDeliveryFee(deliveryMode, 0, parseScheduledDate(), deliveryConfig);
 
   const calculateTotal = (items) => calculateItemsSubtotal(items) + getEstimatedDeliveryFee();
 
@@ -238,6 +258,34 @@ function Checkout(props) {
         return;
       }
 
+      // The final price must use live, database-specific rates. Do not silently
+      // fall back to the default schedule when the settings endpoint is unavailable.
+      let latestDeliverySettings;
+      try {
+        latestDeliverySettings = await getDeliverySettings({ token, allowCached: false });
+      } catch (error) {
+        Toast.show({
+          topOffset: 60,
+          type: "error",
+          text1: "Delivery pricing is unavailable",
+          text2: "Please try again in a moment.",
+        });
+        return;
+      }
+
+      if (!latestDeliverySettings?.deliveryConfig) {
+        Toast.show({
+          topOffset: 60,
+          type: "error",
+          text1: "Delivery pricing is unavailable",
+          text2: "Please try again in a moment.",
+        });
+        return;
+      }
+
+      const latestDeliveryConfig = latestDeliverySettings.deliveryConfig;
+      setDeliveryConfig(latestDeliveryConfig);
+
       let customerLocation = null;
 
       try {
@@ -268,12 +316,32 @@ function Checkout(props) {
         token
       );
 
-      const deliveryDistanceKm = haversineDistanceKm(
+      const straightLineDistanceKm = haversineDistanceKm(
         customerLocation || storeAssignment.customerLocation,
         storeAssignment.storeLocation
       );
-      const normalizedDistanceKm = Number.isFinite(deliveryDistanceKm) ? deliveryDistanceKm : 0;
-      const deliveryFee = estimateDeliveryFee(deliveryMode, normalizedDistanceKm, scheduledForDate);
+
+      // Prefer the server's Google-based driving distance (more accurate than straight-line);
+      // fall back to haversine if the API isn't configured or the lookup fails.
+      const shippingAddressText = [address, city, country].filter(Boolean).join(", ");
+      const googleDistanceKm = await estimateDeliveryDistanceKm({
+        destinationAddress: shippingAddressText,
+        storeId: storeAssignment.storeId,
+      });
+
+      const normalizedDistanceKm = Number.isFinite(googleDistanceKm)
+        ? googleDistanceKm
+        : Number.isFinite(straightLineDistanceKm)
+          ? straightLineDistanceKm
+          : 0;
+      const deliveryFee = estimateDeliveryFee(
+        deliveryMode,
+        normalizedDistanceKm,
+        scheduledForDate,
+        latestDeliveryConfig
+      );
+      const selectedDatabaseName = await getDatabaseNameFromStorage();
+      const currencyCode = getCurrencyConfigForDatabase(selectedDatabaseName).code;
 
       // Create order object with proper structure
       let order = {
@@ -297,6 +365,7 @@ function Checkout(props) {
         deliveryMode,
         deliveryDistanceKm: normalizedDistanceKm,
         deliveryFee,
+        currency: currencyCode,
         scheduledFor: deliveryMode === "SCHEDULED" ? scheduledForDate.toISOString() : null,
         totalPrice: calculateItemsSubtotal(orderItems) + deliveryFee,
         ...storeAssignment,

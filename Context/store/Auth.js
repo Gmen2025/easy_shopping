@@ -48,10 +48,6 @@ export const isDriverUser = (user) => {
     return false;
   }
 
-  if (profile?.isAdmin === true || profile?.is_admin === true || profile?.role === "admin" || profile?.user?.role === "admin" || profile?.profile?.role === "admin") {
-    return true;
-  }
-
   const roleValues = [
     profile?.isDriver,
     profile?.is_driver,
@@ -67,8 +63,29 @@ export const isDriverUser = (user) => {
     profile?.profile?.role,
   ];
 
-  return roleValues.some((value) => looksLikeDriverRole(value));
+  if (roleValues.some((value) => looksLikeDriverRole(value))) {
+    return true;
+  }
+
+  if (profile?.isAdmin === true || profile?.is_admin === true) {
+    return false;
+  }
+
+  return false;
 };
+
+// Company (non-partner) drivers/store-owners get their own bottom-tab dashboard instead of
+// the full Admin panel. Regular partner drivers/store-owners keep the existing experience.
+export const isCompanyDriverUser = (user) => {
+  const profile = extractUserProfile(user);
+  return Boolean(profile?.isDriver && profile?.isCompanyOwnedDriver && !profile?.isAdmin);
+};
+
+export const isCompanyStoreUser = (user) => {
+  const profile = extractUserProfile(user);
+  return Boolean(profile?.isStoreOwner && profile?.isCompanyOwnedStore && !profile?.isAdmin);
+};
+
 const ACTIVITY_UPDATE_INTERVAL = 60000; // Update activity timestamp every minute
 
 

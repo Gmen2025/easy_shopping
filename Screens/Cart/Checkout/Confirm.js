@@ -27,6 +27,16 @@ const Confirm = (props) => {
 
     // Get order from route params or context
     const order = props.route?.params?.order || contextOrder;
+    const itemsSubtotal = Array.isArray(order?.orderItems)
+      ? order.orderItems.reduce(
+          (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1),
+          0
+        )
+      : 0;
+    const deliveryFee = Number(order?.deliveryFee || 0);
+    const finalTotal = Number.isFinite(Number(order?.totalPrice))
+      ? Number(order.totalPrice)
+      : itemsSubtotal + deliveryFee;
     
     const dispatch = useDispatch(); // Initialize the Redux dispatch function
     const [submitting, setSubmitting] = useState(false);
@@ -235,19 +245,17 @@ const Confirm = (props) => {
               ) : (
                 <Text>No items in this order.</Text>
               )}
-              <Text variant="bodyLarge" style={styles.label}>
-                Total Price:
-              </Text>
+              <View style={styles.priceRow}>
+                <Text style={styles.priceLabel}>Items subtotal</Text>
+                <Text style={styles.priceValue}>{formatPrice(itemsSubtotal)}</Text>
+              </View>
+              <View style={styles.priceRow}>
+                <Text style={styles.priceLabel}>Delivery fee</Text>
+                <Text style={styles.priceValue}>{formatPrice(deliveryFee)}</Text>
+              </View>
+              <Text variant="bodyLarge" style={styles.label}>Total Price:</Text>
               <Text style={styles.totalText}>
-                {formatPrice(
-                  Array.isArray(order.orderItems)
-                  ? order.orderItems
-                      .reduce(
-                        (sum, item) => sum + item.price * (item.quantity || 1),
-                        0
-                      )
-                  : 0
-                )}
+                {formatPrice(finalTotal)}
               </Text>
             </Card.Content>
             <Card.Actions style={{ justifyContent: "space-between" }}>
@@ -410,6 +418,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
     marginTop: 6,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  priceLabel: {
+    color: '#374151',
+    fontSize: 15,
+  },
+  priceValue: {
+    color: '#152642',
+    fontSize: 15,
+    fontWeight: '600',
   },
   actionPrimaryText: {
     color: '#0f172a',

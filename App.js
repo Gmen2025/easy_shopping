@@ -17,7 +17,7 @@ import { TelebirrProvider } from "./Context/store/Telebirr";
 import { MaintenanceProvider } from "./Context/store/MaintenanceContext";
 
 //Navigators
-import Main from "./Navigators/Main";
+// import Main from "./Navigators/Main";
 import MaintenanceWrapper from "./Navigators/MaintenanceWrapper";
 
 import Header from "./Shared/Header";

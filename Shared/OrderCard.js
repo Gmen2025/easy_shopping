@@ -436,13 +436,16 @@ const OrderCard = (props) => {
       props.customerEmail ||
       null;
     const fallbackName = props.user?.name || props.customerName || null;
+    // A delivered order being cleaned up isn't a cancellation - don't tell the customer
+    // their completed delivery was "cancelled and refunded".
+    const isDelivered = props.status === "3";
 
     const config = {
       headers: {
         Authorization: `Bearer ${token}`,
       },
       data: {
-        notifyCustomer: true,
+        notifyCustomer: !isDelivered,
         customerEmail: fallbackEmail,
         customerName: fallbackName,
       },
@@ -450,15 +453,17 @@ const OrderCard = (props) => {
 
     try {
       const response = await axios.delete(
-        `${baseUrl}orders/${props._id}?notifyCustomer=true`,
+        `${baseUrl}orders/${props._id}?notifyCustomer=${!isDelivered}`,
         config
       );
 
       if (response.status === 200) {
-        const [notificationResult, emailResult] = await Promise.all([
-          sendOrderDeletionNotification(config),
-          sendOrderDeletionEmail(config),
-        ]);
+        const [notificationResult, emailResult] = isDelivered
+          ? [{ sent: false }, { sent: false }]
+          : await Promise.all([
+              sendOrderDeletionNotification(config),
+              sendOrderDeletionEmail(config),
+            ]);
 
         Toast.show({
           topOffset: 60,
@@ -474,7 +479,7 @@ const OrderCard = (props) => {
             text1: "Customer notified",
             text2: "Order deletion notification/email sent",
           });
-        } else {
+        } else if (!isDelivered) {
           Toast.show({
             topOffset: 60,
             type: "info",
@@ -539,7 +544,8 @@ const OrderCard = (props) => {
         Authorization: `Bearer ${token}`,
       },
       data: {
-        notifyCustomer: true,
+        // shouldAutoDelete() only ever fires for delivered orders - never a cancellation.
+        notifyCustomer: false,
         customerEmail: fallbackEmail,
         customerName: fallbackName,
       },
@@ -547,7 +553,7 @@ const OrderCard = (props) => {
 
     try {
       await axios.delete(
-        `${baseUrl}orders/${props._id}?notifyCustomer=true`,
+        `${baseUrl}orders/${props._id}?notifyCustomer=false`,
         config
       );
       console.log(`Auto-deleted order ${props._id}`);

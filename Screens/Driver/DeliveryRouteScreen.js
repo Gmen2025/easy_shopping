@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Linking, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import MapView, { Marker } from "react-native-maps";
@@ -14,6 +14,13 @@ const googleMapsApiKey =
   process.env.GOOGLE_MAPS_API_KEY ||
   Constants.expoConfig?.extra?.googleMapsApiKey ||
   "";
+
+// Stable module-level fallbacks - must NOT be recreated inline as object literals per render,
+// otherwise the useMemo'd origin/destination below get a new reference every render and the
+// effects that depend on them (fitToCoordinates, fallback ETA) loop forever.
+const DEFAULT_DRIVER_COORDINATES = { latitude: 8.9806, longitude: 38.7578 };
+const DEFAULT_STORE_COORDINATES = { latitude: 8.9851, longitude: 38.7642 };
+const DEFAULT_CUSTOMER_COORDINATES = { latitude: 8.9818, longitude: 38.7728 };
 
 const haversineDistanceKm = (start, end) => {
   if (!start || !end) {
@@ -33,6 +40,22 @@ const haversineDistanceKm = (start, end) => {
   return earthRadiusKm * c;
 };
 
+// Opens the device's Google Maps app/browser with turn-by-turn driving directions for this leg.
+const buildGoogleMapsDrivingUrl = (destination, origin) => {
+  if (!destination?.latitude || !destination?.longitude) {
+    return null;
+  }
+  const params = [
+    "api=1",
+    `destination=${encodeURIComponent(`${destination.latitude},${destination.longitude}`)}`,
+    "travelmode=driving",
+  ];
+  if (origin?.latitude && origin?.longitude) {
+    params.push(`origin=${encodeURIComponent(`${origin.latitude},${origin.longitude}`)}`);
+  }
+  return `https://www.google.com/maps/dir/?${params.join("&")}`;
+};
+
 const DeliveryRouteScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -49,20 +72,38 @@ const DeliveryRouteScreen = () => {
 
   const request = route?.params?.request || {};
   const orderStatus = route?.params?.orderStatus || "Driver Assigned";
+  const exitRouteName = route?.params?.exitRouteName || "User Profile";
   const currentStage = orderStatus === "Picked Up" ? "delivery" : "pickup";
   const liveOrderStatus = request?.rawPayload?.status || orderStatus;
   const isCompleted = liveOrderStatus === "Delivered" || liveOrderStatus === "completed" || orderStatus === "Delivered";
-  const driverCoordinates = request.driverCoordinates || {
-    latitude: 8.9806,
-    longitude: 38.7578,
-  };
-  const storeCoordinates = request.storeLocation || request.pickupLocation || {
-    latitude: 8.9851,
-    longitude: 38.7642,
-  };
-  const customerCoordinates = request.customerLocation || request.deliveryLocation || request.dropOffLocation || {
-    latitude: 8.9818,
-    longitude: 38.7728,
+  const driverCoordinates = useMemo(
+    () => request.driverCoordinates || DEFAULT_DRIVER_COORDINATES,
+    [request.driverCoordinates]
+  );
+  const storeCoordinates = useMemo(
+    () => request.storeLocation || request.pickupLocation || DEFAULT_STORE_COORDINATES,
+    [request.storeLocation, request.pickupLocation]
+  );
+  const customerCoordinates = useMemo(
+    () => request.customerLocation || request.deliveryLocation || request.dropOffLocation || DEFAULT_CUSTOMER_COORDINATES,
+    [request.customerLocation, request.deliveryLocation, request.dropOffLocation]
+  );
+
+  const pickupAddressLabel = request.storeAddress || request.pickupStoreName || "Pickup location";
+  const dropoffAddressLabel = request.revealed
+    ? request.fullAddress || "Delivery address"
+    : request.dropZoneLabel || "Delivery area";
+
+  const openDirections = async (destination, origin) => {
+    const url = buildGoogleMapsDrivingUrl(destination, origin);
+    if (!url) {
+      return;
+    }
+    try {
+      await Linking.openURL(url);
+    } catch (error) {
+      console.warn("Unable to open Google Maps directions:", error);
+    }
   };
 
   const saveDeliveryStatus = async (deliveryStatus) => {
@@ -269,6 +310,17 @@ const DeliveryRouteScreen = () => {
         <View style={styles.bottomPanel}>
           <Text style={styles.panelTitle}>Active route</Text>
           <Text style={styles.panelSubtitle}>{request.pickupStoreName || "Delivery route"}</Text>
+          <TouchableOpacity onPress={() => openDirections(storeCoordinates, driverLocation || driverCoordinates)}>
+            <Text style={styles.addressLink} numberOfLines={1}>📍 Pickup: {pickupAddressLabel}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => openDirections(customerCoordinates, storeCoordinates)}>
+            <Text style={styles.addressLink} numberOfLines={1}>🏁 Drop-off: {dropoffAddressLabel}</Text>
+          </TouchableOpacity>
+          {request.items?.length ? (
+            <Text style={styles.itemsSummary} numberOfLines={2}>
+              {request.itemCount || request.items.length} item{(request.itemCount || request.items.length) === 1 ? "" : "s"}: {request.items.map((entry) => `${entry.quantity || 1}x ${entry.name}`).join(", ")}
+            </Text>
+          ) : null}
           <Text style={styles.stageLabel}>
             {isCompleted
               ? "Delivery completed"
@@ -308,7 +360,7 @@ const DeliveryRouteScreen = () => {
             {isCompleted ? (
               <TouchableOpacity
                 style={styles.primaryAction}
-                onPress={() => navigation.navigate("User Profile")}
+                onPress={() => navigation.navigate(exitRouteName)}
               >
                 <Text style={styles.primaryActionText}>Back to dashboard</Text>
               </TouchableOpacity>
@@ -322,6 +374,7 @@ const DeliveryRouteScreen = () => {
                         request,
                         orderStatus: "Picked Up",
                         mode: "pickup",
+                        exitRouteName,
                       });
                     }
                   }}
@@ -342,7 +395,7 @@ const DeliveryRouteScreen = () => {
                 <TouchableOpacity
                   style={styles.secondaryAction}
                   onPress={() => {
-                    navigation.navigate("User Profile");
+                    navigation.navigate(exitRouteName);
                   }}
                 >
                   <Text style={styles.secondaryActionText}>Deliver later</Text>
@@ -352,7 +405,7 @@ const DeliveryRouteScreen = () => {
                   onPress={async () => {
                     if (deliveryRouteStarted) {
                       if (await saveDeliveryStatus("Delivered")) {
-                        navigation.navigate("User Profile");
+                        navigation.navigate(exitRouteName);
                       }
                       return;
                     }
@@ -421,6 +474,17 @@ const styles = StyleSheet.create({
   panelSubtitle: {
     color: "#6b7280",
     marginTop: 4,
+  },
+  addressLink: {
+    marginTop: 6,
+    color: "#1d4ed8",
+    fontSize: 12,
+    textDecorationLine: "underline",
+  },
+  itemsSummary: {
+    marginTop: 6,
+    color: "#4b5563",
+    fontSize: 12,
   },
   stageLabel: {
     marginTop: 8,

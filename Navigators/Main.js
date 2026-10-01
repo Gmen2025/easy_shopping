@@ -6,12 +6,15 @@ import Icon from 'react-native-vector-icons/FontAwesome'
 import CartIcon from '../Shared/CartIcon'
 import AdminLowStockBadge from '../Shared/AdminLowStockBadge'
 import {AuthContext} from '../Context/store/Auth'
+import { isCompanyDriverUser, isCompanyStoreUser } from '../Context/store/Auth'
 
 import HomeNavigator from './HomeNavigator'
 import CartNavigator from './CartNavigator'
 import UserNavigator from './UserNavigator'
 import AdminNavigator from './AdminNavigator'
 import Drivers from '../Screens/Admin/Drivers'
+import CompanyDriverNavigator from './CompanyDriverNavigator'
+import CompanyStoreDashboard from '../Screens/Store/CompanyStoreDashboard'
 
 const Tab = createBottomTabNavigator();
 
@@ -93,6 +96,36 @@ const Main = () => {
             tabBarIcon: ({ color }) => (
               <Icon
                 name="truck"
+                color={color}
+                size={26}
+              />
+            ),
+          }}
+        />
+      ) : null}
+      {isCompanyDriverUser(context.user) ? (
+        <Tab.Screen
+          name='AdminDriver'
+          component={CompanyDriverNavigator}
+          options={{
+            tabBarIcon: ({ color }) => (
+              <Icon
+                name="truck"
+                color={color}
+                size={26}
+              />
+            ),
+          }}
+        />
+      ) : null}
+      {isCompanyStoreUser(context.user) ? (
+        <Tab.Screen
+          name='AdminStore'
+          component={CompanyStoreDashboard}
+          options={{
+            tabBarIcon: ({ color }) => (
+              <Icon
+                name="building"
                 color={color}
                 size={26}
               />

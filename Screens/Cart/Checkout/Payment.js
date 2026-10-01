@@ -5,6 +5,7 @@ import { useFocusEffect } from "@react-navigation/native";
 
 import { useCheckout } from "../../../Context/store/CheckoutContext";
 import { getDatabaseNameFromStorage } from "../../../assets/common/databaseConfig";
+import { useCurrency } from "../../../assets/common/currency";
 
 
 
@@ -33,8 +34,14 @@ const paymentCards = [
 //new
 const Payment = (props) => {
   const { order } = useCheckout(); // Get the order from the CheckoutContext
+  const { currencyCode, formatPrice } = useCurrency();
 
   const orderData = order || props.route.params?.order; // Fallback to route params if context is not set
+  const itemsSubtotal = Number(orderData?.itemsSubtotal || 0);
+  const deliveryFee = Number(orderData?.deliveryFee || 0);
+  const totalPrice = Number.isFinite(Number(orderData?.totalPrice))
+    ? Number(orderData.totalPrice)
+    : itemsSubtotal + deliveryFee;
 
   const [selected, setSelected] = useState();
   const [card, setCard] = useState();
@@ -150,6 +157,24 @@ const Payment = (props) => {
         <Text style={styles.subtitle}>Choose your preferred payment method to complete checkout.</Text>
       </View>
 
+      {orderData ? (
+        <View style={styles.summaryCard}>
+          <Text style={styles.sectionTitle}>Order Summary</Text>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Items subtotal</Text>
+            <Text style={styles.summaryValue}>{formatPrice(itemsSubtotal)}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Delivery fee ({orderData.currency || currencyCode})</Text>
+            <Text style={styles.summaryValue}>{formatPrice(deliveryFee)}</Text>
+          </View>
+          <View style={[styles.summaryRow, styles.totalRow]}>
+            <Text style={styles.totalLabel}>Total</Text>
+            <Text style={styles.totalValue}>{formatPrice(totalPrice)}</Text>
+          </View>
+        </View>
+      ) : null}
+
       <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>Payment Method</Text>
         {visibleMethods.map((m) => {
@@ -263,6 +288,44 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     borderWidth: 1,
     borderColor: "#dce3ef",
+  },
+  summaryCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#dce3ef",
+  },
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 8,
+  },
+  summaryLabel: {
+    color: "#4b5563",
+    fontSize: 15,
+  },
+  summaryValue: {
+    color: "#152642",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  totalRow: {
+    borderTopWidth: 1,
+    borderTopColor: "#dce3ef",
+    marginTop: 12,
+    paddingTop: 12,
+  },
+  totalLabel: {
+    color: "#152642",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  totalValue: {
+    color: "#0f766e",
+    fontSize: 17,
+    fontWeight: "700",
   },
   sectionTitle: {
     fontSize: 16,

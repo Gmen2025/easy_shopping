@@ -186,6 +186,7 @@ const UserProfile = (props) => {
               <Text style={styles.profileValue}>{context.user ? context.user.phone : "—"}</Text>
             </View>
           </View>
+
         </View>
 
         {/* Privacy & Account Links */}

@@ -15,6 +15,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AuthContext } from "../Context/store/Auth";
 import Icon from "react-native-vector-icons/FontAwesome5";
+// import { FontAwesome as Icon } from '@expo/vector-icons'
+
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import baseUrl from "../assets/common/baseUrl";

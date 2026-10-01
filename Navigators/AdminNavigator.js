@@ -9,11 +9,15 @@ import BroadcastNotifications from "../Screens/Admin/BroadcastNotifications";
 import LowStock from "../Screens/Admin/LowStock";
 import MaintenanceSettings from "../Screens/Admin/MaintenanceSettings";
 import BankAccountSettings from "../Screens/Admin/BankAccountSettings";
+import DeliverySettings from "../Screens/Admin/DeliverySettings";
 import SingleProduct from "../Screens/Products/SingleProduct";
 import ServiceRequests from "../Screens/Service/ServiceRequests";
 import Drivers from "../Screens/Admin/Drivers";
 import StoreOwners from "../Screens/Admin/StoreOwners";
 import Payouts from "../Screens/Admin/Payouts";
+import AssignRoles from "../Screens/Admin/AssignRoles";
+import AdminStores from "../Screens/Admin/AdminStores";
+import AdminDrivers from "../Screens/Admin/AdminDrivers";
 
 const Stack = createStackNavigator();
 
@@ -115,6 +119,18 @@ function MyStack() {
         }}
       />
       <Stack.Screen
+        name="DeliverySettings"
+        component={DeliverySettings}
+        options={{
+          title: 'Delivery Pricing',
+          headerTintColor: '#e6c20eff',
+          headerTitleAlign: 'center',
+          headerTitleStyle:{
+            color:'#e6c20eff'
+          }
+        }}
+      />
+      <Stack.Screen
         name="ProductDetail"
         component={SingleProduct}
         options={{
@@ -158,6 +174,21 @@ function MyStack() {
         name="Payouts"
         component={Payouts}
         options={{ title: "Store Payouts", headerTintColor: "#e6c20eff", headerTitleAlign: "center", headerTitleStyle: { color: "#e6c20eff" } }}
+      />
+      <Stack.Screen
+        name="AssignRoles"
+        component={AssignRoles}
+        options={{ title: "Assign Roles", headerTintColor: "#e6c20eff", headerTitleAlign: "center", headerTitleStyle: { color: "#e6c20eff" } }}
+      />
+      <Stack.Screen
+        name="AdminStores"
+        component={AdminStores}
+        options={{ title: "Company Stores", headerTintColor: "#e6c20eff", headerTitleAlign: "center", headerTitleStyle: { color: "#e6c20eff" } }}
+      />
+      <Stack.Screen
+        name="AdminDrivers"
+        component={AdminDrivers}
+        options={{ title: "Company Drivers", headerTintColor: "#e6c20eff", headerTitleAlign: "center", headerTitleStyle: { color: "#e6c20eff" } }}
       />
     </Stack.Navigator>
   );

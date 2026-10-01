@@ -165,6 +165,12 @@ const Products = (props) => {
         />
         <ActionButton
           icon="truck"
+          label="Delivery Pricing"
+          color="#0f766e"
+          onPress={() => props.navigation.navigate("DeliverySettings")}
+        />
+        <ActionButton
+          icon="truck"
           label="Drivers"
           color="#0f766e"
           onPress={() => props.navigation.navigate("Drivers")}
@@ -180,6 +186,24 @@ const Products = (props) => {
           label="Payouts"
           color="#059669"
           onPress={() => props.navigation.navigate("Payouts")}
+        />
+        <ActionButton
+          icon="user-plus"
+          label="Assign Roles"
+          color="#7c3aed"
+          onPress={() => props.navigation.navigate("AssignRoles")}
+        />
+        <ActionButton
+          icon="building-o"
+          label="Company Stores"
+          color="#2563eb"
+          onPress={() => props.navigation.navigate("AdminStores")}
+        />
+        <ActionButton
+          icon="truck"
+          label="Company Drivers"
+          color="#0f766e"
+          onPress={() => props.navigation.navigate("AdminDrivers")}
         />
       </View>
 
