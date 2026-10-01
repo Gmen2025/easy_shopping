@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useContext } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   FlatList,
@@ -13,13 +13,11 @@ import baseUrl from "../../assets/common/baseUrl";
 import { useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import OrderCard from "../../Shared/OrderCard";
-import { AuthContext } from "../../Context/store/Auth";
 
 const Orders = (props) => {
   const [orderList, setOrderList] = useState();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const context = useContext(AuthContext);
 
   useFocusEffect(
     useCallback(() => {
@@ -37,37 +35,11 @@ const Orders = (props) => {
       });
       const orders = res.data;
       setOrderList(orders);
-      await cleanupOldDeliveredOrders(orders, tokenValue);
     } catch (error) {
       console.log(error);
     } finally {
       setIsRefreshing(false);
       setLoading(false);
-    }
-  };
-
-  const cleanupOldDeliveredOrders = async (orders, token) => {
-    const twoMonthsAgo = new Date();
-    twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
-    const ordersToDelete = orders.filter(
-      //Reminder-check the new status value and update
-      (order) => order.status === "3" && new Date(order.dateOrdered) < twoMonthsAgo
-    );
-    for (const order of ordersToDelete) {
-      try {
-        // These orders are always already-delivered housekeeping cleanup, not cancellations -
-        // never send the customer a "cancelled/refund" email for a completed delivery.
-        await axios.delete(`${baseUrl}orders/${order._id}?notifyCustomer=false`, {
-          headers: { Authorization: `Bearer ${token}` },
-          data: {
-            notifyCustomer: false,
-            customerEmail: order?.user?.email || order?.customerEmail || null,
-            customerName: order?.user?.name || null,
-          },
-        });
-      } catch (error) {
-        console.log(`Failed to auto-delete order ${order._id}:`, error.message);
-      }
     }
   };
 

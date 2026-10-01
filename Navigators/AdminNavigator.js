@@ -1,6 +1,7 @@
 import React from "react";
 import { createStackNavigator } from "@react-navigation/stack";
 
+import AdminDashboard from "../Screens/Admin/AdminDashboard";
 import Products from "../Screens/Admin/Products";
 import Orders from "../Screens/Admin/Orders";
 import Categories from "../Screens/Admin/Categories";
@@ -24,6 +25,14 @@ const Stack = createStackNavigator();
 function MyStack() {
   return (
     <Stack.Navigator>
+      <Stack.Screen
+        name="AdminDashboard"
+        component={AdminDashboard}
+        options={{
+          title: "Admin Dashboard",
+          headerTitleStyle: { color: "#e6c20eff" },
+        }}
+      />
       <Stack.Screen
         name="Products"
         component={Products}

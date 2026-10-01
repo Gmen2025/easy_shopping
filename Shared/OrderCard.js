@@ -508,64 +508,6 @@ const OrderCard = (props) => {
     }
   };
 
-  // Check if order should be auto-deleted (delivered + 2 months old)
-  const shouldAutoDelete = () => {
-    if (props.status === "3" && props.dateOrdered) {
-      // status 3 = delivered
-      const orderDate = new Date(props.dateOrdered);
-      const twoMonthsAgo = new Date();
-      twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
-      return orderDate < twoMonthsAgo;
-    }
-    return false;
-  };
-
-  useEffect(() => {
-    // Check for auto-deletion on mount
-    if (props.editMode && shouldAutoDelete()) {
-      console.log(`Order ${props._id} is eligible for auto-deletion`);
-      // You can uncomment this to enable automatic deletion
-      autoDeleteOrder();
-    }
-  }, [props.status, props.dateOrdered]);
-
-  const autoDeleteOrder = async () => {
-    if (!token) return;
-
-    const fallbackEmail =
-      props.user?.email ||
-      props.email ||
-      props.customerEmail ||
-      null;
-    const fallbackName = props.user?.name || props.customerName || null;
-
-    const config = {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      data: {
-        // shouldAutoDelete() only ever fires for delivered orders - never a cancellation.
-        notifyCustomer: false,
-        customerEmail: fallbackEmail,
-        customerName: fallbackName,
-      },
-    };
-
-    try {
-      await axios.delete(
-        `${baseUrl}orders/${props._id}?notifyCustomer=false`,
-        config
-      );
-      console.log(`Auto-deleted order ${props._id}`);
-
-      if (props.onDelete) {
-        props.onDelete(props._id);
-      }
-    } catch (error) {
-      console.log("Auto-delete error:", error.response?.data || error.message);
-    }
-  };
-
   return (
     <View style={[styles.container]}>
       <View style={styles.container}>
@@ -675,15 +617,6 @@ const OrderCard = (props) => {
                 </EasyButton>
               </View>
             </View>
-            {shouldAutoDelete() && (
-              <View style={styles.autoDeleteWarning}>
-                <Icon name="exclamation-triangle" size={16} color="#E74C3C" />
-                <Text style={styles.autoDeleteText}>
-                  This delivered order is over 2 months old and eligible for
-                  auto-deletion
-                </Text>
-              </View>
-            )}
           </View>
         ) : null}
       </View>
