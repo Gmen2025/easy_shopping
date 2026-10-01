@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import MapView, { Marker } from "react-native-maps";
 import MapViewDirections from "react-native-maps-directions";
+import Icon from "react-native-vector-icons/FontAwesome";
 import * as Location from "expo-location";
 import Constants from "expo-constants";
 
@@ -73,6 +74,13 @@ const DeliveryRouteScreen = () => {
   const request = route?.params?.request || {};
   const orderStatus = route?.params?.orderStatus || "Driver Assigned";
   const exitRouteName = route?.params?.exitRouteName || "User Profile";
+  const isCompanyDriverRoute = exitRouteName === "CompanyDriverHome";
+  const customerPhone =
+    request.customerPhone ||
+    request.rawPayload?.customer?.phone ||
+    request.rawPayload?.address?.phone ||
+    request.dropoffAddress?.phone ||
+    "";
   const currentStage = orderStatus === "Picked Up" ? "delivery" : "pickup";
   const liveOrderStatus = request?.rawPayload?.status || orderStatus;
   const isCompleted = liveOrderStatus === "Delivered" || liveOrderStatus === "completed" || orderStatus === "Delivered";
@@ -103,6 +111,19 @@ const DeliveryRouteScreen = () => {
       await Linking.openURL(url);
     } catch (error) {
       console.warn("Unable to open Google Maps directions:", error);
+    }
+  };
+
+  const callCustomer = async () => {
+    const dialablePhone = String(customerPhone).trim().replace(/[^\d+*#,;]/g, "");
+    if (!dialablePhone) {
+      return;
+    }
+
+    try {
+      await Linking.openURL(`tel:${dialablePhone}`);
+    } catch (error) {
+      setStatusError("Unable to open the phone dialer");
     }
   };
 
@@ -316,6 +337,14 @@ const DeliveryRouteScreen = () => {
           <TouchableOpacity onPress={() => openDirections(customerCoordinates, storeCoordinates)}>
             <Text style={styles.addressLink} numberOfLines={1}>🏁 Drop-off: {dropoffAddressLabel}</Text>
           </TouchableOpacity>
+          {isCompanyDriverRoute && Boolean(customerPhone) ? (
+            <TouchableOpacity style={styles.phoneLink} onPress={callCustomer}>
+              <Icon name="phone" size={13} color="#047857" />
+              <Text style={styles.phoneLinkText} numberOfLines={1}>
+                Call customer: {customerPhone}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
           {request.items?.length ? (
             <Text style={styles.itemsSummary} numberOfLines={2}>
               {request.itemCount || request.items.length} item{(request.itemCount || request.items.length) === 1 ? "" : "s"}: {request.items.map((entry) => `${entry.quantity || 1}x ${entry.name}`).join(", ")}
@@ -479,6 +508,20 @@ const styles = StyleSheet.create({
     marginTop: 6,
     color: "#1d4ed8",
     fontSize: 12,
+    textDecorationLine: "underline",
+  },
+  phoneLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 6,
+    marginTop: 8,
+    paddingVertical: 4,
+  },
+  phoneLinkText: {
+    color: "#047857",
+    fontSize: 12,
+    fontWeight: "700",
     textDecorationLine: "underline",
   },
   itemsSummary: {
