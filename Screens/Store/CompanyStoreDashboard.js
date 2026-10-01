@@ -18,11 +18,11 @@ import { useCurrency } from "../../assets/common/currency";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 
 const DASHBOARD_PERIODS = [
-  { key: "daily", label: "Day" },
-  { key: "weekly", label: "Week" },
-  { key: "monthly", label: "Month" },
-  { key: "quarterly", label: "Quarter" },
-  { key: "yearly", label: "Year" },
+  { key: "daily", label: "24 Hours" },
+  { key: "weekly", label: "7 Days" },
+  { key: "monthly", label: "30 Days" },
+  { key: "quarterly", label: "90 Days" },
+  { key: "yearly", label: "365 Days" },
 ];
 
 const CompanyStoreDashboard = () => {
