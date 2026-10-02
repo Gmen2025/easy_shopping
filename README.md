@@ -86,6 +86,16 @@ npx expo start
 
 ## 🔧 Configuration
 
+### Native Android builds
+
+The checked-in `android/` project is the source of truth for Android builds, including EAS Build.
+Changes to native settings in `app.json` or `app.config.js` (such as icons, permissions,
+plugins, and Google Services files) do not automatically update that project. Apply those
+changes to `android/` as well and rebuild the native app. The Expo Doctor native-config
+sync check is disabled for this reason. Its React Native Directory check still reports
+known compatibility and maintenance issues; packages without directory metadata are
+not reported.
+
 ### Backend API
 
 The app connects to a backend API. Configure in `assets/common/baseUrl.js`:
@@ -405,4 +415,3 @@ Production notes:
 - Replace in-memory token storage with your database.
 - Protect all routes with your JWT auth middleware.
 - Remove invalid tokens when Expo receipts return `DeviceNotRegistered`.
-

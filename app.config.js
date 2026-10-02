@@ -1,7 +1,5 @@
-const appJson = require("./app.json");
-
 module.exports = ({ config }) => {
-  const baseConfig = appJson.expo || config || {};
+  const baseConfig = config;
   const existingExtra = baseConfig.extra || {};
 
   const stripePublishableKey =

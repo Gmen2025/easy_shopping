@@ -7,12 +7,6 @@
     "orientation": "portrait",
     "icon": "./assets/addugenet_icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/addugenet_icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "ios": {
       "bundleIdentifier": "com.addugenet.eshop",
       "buildNumber": "2",

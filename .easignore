@@ -38,6 +38,14 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-# Folders
-./android
-./ios
+# Native build artifacts (.easignore replaces .gitignore, so android/.gitignore is not applied)
+android/.gradle/
+android/.kotlin/
+android/.idea/
+android/build/
+android/app/build/
+android/app/.cxx/
+android/local.properties
+**/.cxx/
+*.hprof
+*.iml
