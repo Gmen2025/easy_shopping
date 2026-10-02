@@ -85,6 +85,9 @@ const Confirm = (props) => {
           storeId: order.storeId || order.pickupStore?._id || order.pickupStore?.id || null,
           storeAssignment: order.storeAssignment || null,
           storeAssignmentStatus: order.storeAssignmentStatus || "assigned",
+          scheduledFor: order.scheduledFor || order.scheduledDeliveryDate || null,
+          scheduledDeliveryDate:
+            order.scheduledDeliveryDate || order.scheduledFor || null,
           orderItems: order.orderItems.map((item) => ({
             product: item._id || item.id,
             quantity: item.quantity || 1,

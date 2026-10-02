@@ -16,6 +16,7 @@ import { AuthContext } from "../../Context/store/Auth";
 import baseUrl from "../../assets/common/baseUrl";
 import { useCurrency } from "../../assets/common/currency";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
+import { formatScheduledDeliveryDate } from "../../assets/common/delivery";
 
 const INCOME_PERIODS = [
   { key: "daily", label: "24 Hours" },
@@ -54,6 +55,12 @@ const normalizeQueueEntry = (entry = {}) => {
       : "",
     revealed: Boolean(entry.dropoffRevealed),
     deliveryStatus: entry.deliveryStatus,
+    deliveryMode: entry.deliveryMode || entry.rawPayload?.deliveryMode,
+    scheduledDeliveryDate:
+      entry.scheduledDeliveryDate ||
+      entry.scheduledFor ||
+      entry.rawPayload?.scheduledDeliveryDate ||
+      entry.rawPayload?.scheduledFor,
     itemCount: entry.itemCount || 0,
     items: entry.items || [],
     rawPayload: entry,
@@ -226,6 +233,14 @@ const CompanyDriverDashboard = ({ navigation }) => {
           <Text style={styles.orderBadge}>Order #{String(item._id).slice(-6).toUpperCase()}</Text>
           <Text style={styles.payoutText}>Fee: {formatPrice(item.deliveryFee || 0)}</Text>
         </View>
+        {item.deliveryMode === "SCHEDULED" ||
+        item.scheduledFor ||
+        item.scheduledDeliveryDate ||
+        item.scheduledDate ? (
+          <Text style={styles.itemListText}>
+            Scheduled delivery: {formatScheduledDeliveryDate(item) || "Date unavailable"}
+          </Text>
+        ) : null}
 
         {/* Pickup Info */}
         <View style={styles.addressSection}>
@@ -313,6 +328,14 @@ const CompanyDriverDashboard = ({ navigation }) => {
             <Text style={styles.statusPillText}>{item.deliveryStatus || "In Progress"}</Text>
           </View>
         </View>
+        {item.deliveryMode === "SCHEDULED" ||
+        item.scheduledFor ||
+        item.scheduledDeliveryDate ||
+        item.scheduledDate ? (
+          <Text style={styles.itemListText}>
+            Scheduled delivery: {formatScheduledDeliveryDate(item) || "Date unavailable"}
+          </Text>
+        ) : null}
 
         <View style={styles.addressSection}>
           <View style={styles.iconContainer}>

@@ -33,6 +33,38 @@ const getCachedDeliverySettings = async () => {
 const getOrderId = (order) =>
   order?.orderId || order?._id || order?.rawPayload?.orderId || order?.rawPayload?._id;
 
+export const formatScheduledDeliveryDate = (order) => {
+  const value =
+    order?.scheduledDeliveryDate ||
+    order?.scheduledFor ||
+    order?.scheduledDate ||
+    order?.rawPayload?.scheduledDeliveryDate ||
+    order?.rawPayload?.scheduledFor;
+  if (!value) {
+    return null;
+  }
+
+  const dateOnlyMatch = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const parsedDate = dateOnlyMatch
+    ? new Date(
+        Number(dateOnlyMatch[1]),
+        Number(dateOnlyMatch[2]) - 1,
+        Number(dateOnlyMatch[3]),
+        12
+      )
+    : new Date(value);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return null;
+  }
+
+  return parsedDate.toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
 export const updateDeliveryStatus = async (order, deliveryStatus) => {
   const orderId = getOrderId(order);
   const token = await AsyncStorage.getItem("token");
@@ -97,4 +129,3 @@ export const estimateDeliveryDistanceKm = async ({ destinationAddress, storeId }
     return null;
   }
 };
-

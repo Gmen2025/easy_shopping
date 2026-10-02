@@ -15,6 +15,7 @@ import baseUrl from "../assets/common/baseUrl";
 import { AuthContext } from "../Context/store/Auth";
 import UserOrderItems from "./UserOrderItems";
 import { useCurrency } from "../assets/common/currency";
+import { formatScheduledDeliveryDate } from "../assets/common/delivery";
 
 const OrderCard = (props) => {
   const context = useContext(AuthContext);
@@ -133,6 +134,10 @@ const OrderCard = (props) => {
       bankName: props.bankName,
       transferReference: props.transferReference,
       senderName: props.senderName,
+      deliveryMode: props.deliveryMode,
+      scheduledFor: props.scheduledFor || props.scheduledDeliveryDate || null,
+      scheduledDeliveryDate:
+        props.scheduledDeliveryDate || props.scheduledFor || null,
     };
 
     axios
@@ -520,6 +525,19 @@ const OrderCard = (props) => {
         <Text style={styles.label}>
           Date Ordered: {formatOrderDateTime(props.dateOrdered)}
         </Text>
+        {props.deliveryMode ? (
+          <Text style={styles.label}>
+            Delivery option: {props.deliveryMode.replace(/_/g, " ")}
+          </Text>
+        ) : null}
+        {props.deliveryMode === "SCHEDULED" ||
+        props.scheduledFor ||
+        props.scheduledDeliveryDate ||
+        props.scheduledDate ? (
+          <Text style={styles.label}>
+            Scheduled delivery: {formatScheduledDeliveryDate(props) || "Date unavailable"}
+          </Text>
+        ) : null}
         {props.editMode && (
           <>
             <Text>User: {props.user?.name || "N/A"}</Text>

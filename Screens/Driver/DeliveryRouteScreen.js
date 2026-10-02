@@ -8,7 +8,10 @@ import Icon from "react-native-vector-icons/FontAwesome";
 import * as Location from "expo-location";
 import Constants from "expo-constants";
 
-import { updateDeliveryStatus } from "../../assets/common/delivery";
+import {
+  formatScheduledDeliveryDate,
+  updateDeliveryStatus,
+} from "../../assets/common/delivery";
 
 const googleMapsApiKey =
   process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
@@ -331,6 +334,14 @@ const DeliveryRouteScreen = () => {
         <View style={styles.bottomPanel}>
           <Text style={styles.panelTitle}>Active route</Text>
           <Text style={styles.panelSubtitle}>{request.pickupStoreName || "Delivery route"}</Text>
+          {request.deliveryMode === "SCHEDULED" ||
+          request.scheduledFor ||
+          request.scheduledDeliveryDate ||
+          request.scheduledDate ? (
+            <Text style={styles.addressLink}>
+              Scheduled delivery: {formatScheduledDeliveryDate(request) || "Date unavailable"}
+            </Text>
+          ) : null}
           <TouchableOpacity onPress={() => openDirections(storeCoordinates, driverLocation || driverCoordinates)}>
             <Text style={styles.addressLink} numberOfLines={1}>📍 Pickup: {pickupAddressLabel}</Text>
           </TouchableOpacity>

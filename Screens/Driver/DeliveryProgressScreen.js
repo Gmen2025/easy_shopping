@@ -3,7 +3,10 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 
-import { updateDeliveryStatus } from "../../assets/common/delivery";
+import {
+  formatScheduledDeliveryDate,
+  updateDeliveryStatus,
+} from "../../assets/common/delivery";
 
 const DeliveryProgressScreen = () => {
   const navigation = useNavigation();
@@ -58,6 +61,18 @@ const DeliveryProgressScreen = () => {
             <Text style={styles.label}>Customer</Text>
             <Text style={styles.value}>{request.customerName || "Customer"}</Text>
           </View>
+
+          {request.deliveryMode === "SCHEDULED" ||
+          request.scheduledFor ||
+          request.scheduledDeliveryDate ||
+          request.scheduledDate ? (
+            <View style={styles.infoBox}>
+              <Text style={styles.label}>Scheduled delivery</Text>
+              <Text style={styles.value}>
+                {formatScheduledDeliveryDate(request) || "Date unavailable"}
+              </Text>
+            </View>
+          ) : null}
 
           <TouchableOpacity style={styles.button} onPress={handleComplete}>
             <Text style={styles.buttonText}>{isDelivered ? "Back to dashboard" : isPickupMode && orderStatus !== "Picked Up" ? "Confirm pickup" : "Return to route"}</Text>

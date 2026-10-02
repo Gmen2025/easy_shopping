@@ -195,6 +195,8 @@ const StripePaymentSupported = (props) => {
         deliveryDistanceKm: orderData.deliveryDistanceKm,
         deliveryFee: orderData.deliveryFee,
         scheduledFor: orderData.scheduledFor || null,
+        scheduledDeliveryDate:
+          orderData.scheduledDeliveryDate || orderData.scheduledFor || null,
         methodName: "Card Payment",
         paymentId: transactionId,
         paymentStatus: "paid",

@@ -18,6 +18,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import baseUrl from "../../assets/common/baseUrl";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
+import { formatScheduledDeliveryDate } from "../../assets/common/delivery";
 
 const emptyForm = {
   name: "",
@@ -395,9 +396,19 @@ const AdminDrivers = () => {
                   Unassigned deliveries near "{unassignedDeliveries.driverName}" ({unassignedDeliveries.orders.length})
                 </Text>
                 {unassignedDeliveries.orders.map((order) => (
-                  <Text key={order._id} style={styles.detail}>
-                    • Order {String(order._id).slice(-6)} — {order.store?.name || "No store"}
-                  </Text>
+                  <View key={order._id} style={{ marginBottom: 6 }}>
+                    <Text style={styles.detail}>
+                      • Order {String(order._id).slice(-6)} — {order.store?.name || "No store"}
+                    </Text>
+                    {order.deliveryMode === "SCHEDULED" ||
+                    order.scheduledFor ||
+                    order.scheduledDeliveryDate ||
+                    order.scheduledDate ? (
+                      <Text style={styles.detail}>
+                        Scheduled delivery: {formatScheduledDeliveryDate(order) || "Date unavailable"}
+                      </Text>
+                    ) : null}
+                  </View>
                 ))}
                 {unassignedDeliveries.orders.length === 0 ? <Text style={styles.detail}>All nearby deliveries are covered by partner drivers.</Text> : null}
               </View>
@@ -421,6 +432,14 @@ const AdminDrivers = () => {
                 <View key={order._id} style={styles.rejectionRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.name}>Order {String(order._id).slice(-6)} — {order.store?.name || "No store"}</Text>
+                    {order.deliveryMode === "SCHEDULED" ||
+                    order.scheduledFor ||
+                    order.scheduledDeliveryDate ||
+                    order.scheduledDate ? (
+                      <Text style={styles.detail}>
+                        Scheduled delivery: {formatScheduledDeliveryDate(order) || "Date unavailable"}
+                      </Text>
+                    ) : null}
                     {(order.companyDriverResponses || [])
                       .filter((entry) => entry.status === "rejected")
                       .map((entry) => (

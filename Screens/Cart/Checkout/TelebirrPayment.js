@@ -76,6 +76,9 @@ const TelebirrPayment = (props) => {
         storeId: orderData.storeId || orderData.pickupStore?._id || orderData.pickupStore?.id || null,
         storeAssignment: orderData.storeAssignment || null,
         storeAssignmentStatus: orderData.storeAssignmentStatus || "assigned",
+        scheduledFor: orderData.scheduledFor || orderData.scheduledDeliveryDate || null,
+        scheduledDeliveryDate:
+          orderData.scheduledDeliveryDate || orderData.scheduledFor || null,
         paymentId: transactionId,
         paymentStatus: "paid",
         paymentMethod: "Telebirr",

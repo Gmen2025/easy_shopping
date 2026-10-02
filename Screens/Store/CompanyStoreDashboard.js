@@ -16,6 +16,7 @@ import { AuthContext } from "../../Context/store/Auth";
 import baseUrl from "../../assets/common/baseUrl";
 import { useCurrency } from "../../assets/common/currency";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
+import { formatScheduledDeliveryDate } from "../../assets/common/delivery";
 
 const DASHBOARD_PERIODS = [
   { key: "daily", label: "24 Hours" },
@@ -137,6 +138,14 @@ const CompanyStoreDashboard = () => {
     if (!value) return "";
     return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" });
   };
+
+  const recentOrders = [
+    dashboard?.recentOrders,
+    dashboard?.orders?.recent,
+    dashboard?.orders?.recentOrders,
+    dashboard?.recentSales,
+    dashboard?.orders,
+  ].find(Array.isArray) || [];
 
   const renderMetric = (icon, label, value, tone = "#1f2937") => (
     <View style={styles.metricCard}>
@@ -271,20 +280,44 @@ const CompanyStoreDashboard = () => {
             </View>
           </View>
 
-          {dashboard.recentOrders?.length > 0 && (
+          {dashboard && (
             <>
-              <Text style={styles.sectionTitle}>Recent completed orders</Text>
-              <View style={styles.recentCard}>
-                {dashboard.recentOrders.map((order) => (
-                  <View key={order._id} style={styles.recentRow}>
-                    <View>
-                      <Text style={styles.recentOrder}>Order #{String(order._id).slice(-6).toUpperCase()}</Text>
-                      <Text style={styles.recentMeta}>{order.units} item(s) · {formatDate(order.completedAt)}</Text>
+              <Text style={styles.sectionTitle}>Recent orders</Text>
+              {recentOrders.length > 0 ? (
+                <View style={styles.recentCard}>
+                  {recentOrders.map((order, index) => (
+                    <View
+                      key={order._id || order.orderId || index}
+                      style={styles.recentRow}
+                    >
+                      <View>
+                        <Text style={styles.recentOrder}>
+                          Order #{String(order._id || order.orderId || index).slice(-6).toUpperCase()}
+                        </Text>
+                        <Text style={styles.recentMeta}>
+                          {order.units ?? order.itemCount ?? "—"} item(s) ·{" "}
+                          {formatDate(order.completedAt || order.dateOrdered || order.createdAt)}
+                        </Text>
+                        {order.deliveryMode === "SCHEDULED" ||
+                        order.scheduledFor ||
+                        order.scheduledDeliveryDate ||
+                        order.scheduledDate ? (
+                          <Text style={styles.recentMeta}>
+                            Scheduled delivery: {formatScheduledDeliveryDate(order) || "Date unavailable"}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <Text style={styles.recentAmount}>
+                        {formatPrice(order.sales ?? order.totalPrice ?? 0)}
+                      </Text>
                     </View>
-                    <Text style={styles.recentAmount}>{formatPrice(order.sales)}</Text>
-                  </View>
-                ))}
-              </View>
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.recentCard}>
+                  <Text style={styles.recentMeta}>No recent order details are available.</Text>
+                </View>
+              )}
             </>
           )}
         </>

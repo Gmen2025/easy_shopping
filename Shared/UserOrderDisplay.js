@@ -8,6 +8,7 @@ import baseUrl from "../assets/common/baseUrl";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AuthContext } from "../Context/store/Auth";
 import { useCurrency } from "../assets/common/currency";
+import { formatScheduledDeliveryDate } from "../assets/common/delivery";
 
 const UserOrderDisplay = (props) => {
   // State to hold user order data
@@ -132,6 +133,19 @@ const UserOrderDisplay = (props) => {
                 Delivery: {order.deliveryStatus || "Pending"}
                 {order.driver?.name ? ` · Driver: ${order.driver.name}` : ""}
               </Text>
+              {order.deliveryMode ? (
+                <Text style={{ marginBottom: 5, color: "#555" }}>
+                  Delivery option: {order.deliveryMode.replace(/_/g, " ")}
+                </Text>
+              ) : null}
+              {order.deliveryMode === "SCHEDULED" ||
+              order.scheduledFor ||
+              order.scheduledDeliveryDate ||
+              order.scheduledDate ? (
+                <Text style={{ marginBottom: 5, color: "#555" }}>
+                  Scheduled delivery: {formatScheduledDeliveryDate(order) || "Date unavailable"}
+                </Text>
+              ) : null}
               {Array.isArray(order.orderItems) &&
               order.orderItems.length > 0 ? (
                 order.orderItems.map((item, idx) => (

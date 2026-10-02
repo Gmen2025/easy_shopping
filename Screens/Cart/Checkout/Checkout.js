@@ -398,6 +398,7 @@ function Checkout(props) {
         deliveryFee,
         currency: currencyCode,
         scheduledFor: deliveryMode === "SCHEDULED" ? scheduledForDate.toISOString() : null,
+        scheduledDeliveryDate: deliveryMode === "SCHEDULED" ? scheduledForDate.toISOString() : null,
         totalPrice: calculateItemsSubtotal(orderItems) + deliveryFee,
         ...storeAssignment,
         pickupStoreName: storeAssignment.pickupStoreName || "Nearby Store",
