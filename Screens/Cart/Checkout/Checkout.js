@@ -27,6 +27,28 @@ const DELIVERY_MODE_OPTIONS = [
   { value: "SCHEDULED", label: "Scheduled delivery" },
 ];
 
+const getUpcomingDeliveryDays = () =>
+  Array.from({ length: 14 }, (_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() + index + 1);
+    date.setHours(12, 0, 0, 0);
+
+    const value = [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, "0"),
+      String(date.getDate()).padStart(2, "0"),
+    ].join("-");
+
+    return {
+      value,
+      label: date.toLocaleDateString(undefined, {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+      }),
+    };
+  });
+
 // Mirrors helpers/delivery.js computeDeliveryFee() defaults; used only if the admin-configured
 // rates can't be fetched from the server.
 const DELIVERY_FEE_DEFAULTS = {
@@ -183,8 +205,17 @@ function Checkout(props) {
     if (deliveryMode !== "SCHEDULED" || !scheduledDate.trim()) {
       return null;
     }
-    const parsed = new Date(scheduledDate);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
+    const [year, month, day] = scheduledDate.split("-").map(Number);
+    const parsed = new Date(year, month - 1, day, 12);
+    if (
+      Number.isNaN(parsed.getTime()) ||
+      parsed.getFullYear() !== year ||
+      parsed.getMonth() !== month - 1 ||
+      parsed.getDate() !== day
+    ) {
+      return null;
+    }
+    return parsed;
   };
 
   // Preview estimate before the customer's location/nearest store is known (distance = 0).
@@ -459,12 +490,23 @@ function Checkout(props) {
         ))}
       </Picker>
       {deliveryMode === "SCHEDULED" ? (
-        <Input
-          placeholder="Scheduled date/time (e.g. 2026-08-20 14:00)"
-          name="scheduledDate"
-          value={scheduledDate}
-          onChangeText={(text) => setScheduledDate(text)}
-        />
+        <View>
+          <Text style={{ marginTop: 10, fontWeight: "bold" }}>Delivery day *</Text>
+          <Picker
+            selectedValue={scheduledDate}
+            onValueChange={(day) => setScheduledDate(day)}
+            style={{ marginBottom: 10, marginTop: -2, width: 250 }}
+            mode="dropdown"
+          >
+            <Picker.Item label="Select a delivery day..." value="" />
+            {getUpcomingDeliveryDays().map((day) => (
+              <Picker.Item key={day.value} label={day.label} value={day.value} />
+            ))}
+          </Picker>
+          <Text style={{ marginTop: 2, fontSize: 12, color: "#6b7280" }}>
+            Choose a day in the next 14 days.
+          </Text>
+        </View>
       ) : null}
       <Text style={{ marginTop: 10, fontWeight: "bold" }}>
         Estimated delivery fee: {formatPrice(getEstimatedDeliveryFee())}
