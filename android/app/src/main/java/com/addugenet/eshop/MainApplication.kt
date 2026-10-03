@@ -18,7 +18,7 @@ class MainApplication : Application(), ReactApplication {
   override val reactHost: ReactHost
     get() = ExpoReactHostFactory.getDefaultReactHost(
       applicationContext,
-      PackageList(this).packages,
+      PackageList(this).packages.apply { add(MapsConfigurationPackage()) },
       useDevSupport = BuildConfig.DEBUG
     )
 

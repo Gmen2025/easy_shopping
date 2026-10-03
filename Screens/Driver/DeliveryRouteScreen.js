@@ -7,6 +7,7 @@ import MapViewDirections from "react-native-maps-directions";
 import Icon from "react-native-vector-icons/FontAwesome";
 import * as Location from "expo-location";
 import Constants from "expo-constants";
+import { canRenderNativeMap, MAP_UNAVAILABLE_MESSAGE } from "../../assets/common/mapsConfiguration";
 
 import {
   formatScheduledDeliveryDate,
@@ -278,7 +279,7 @@ const DeliveryRouteScreen = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <MapView
+        {canRenderNativeMap ? <MapView
           ref={mapRef}
           style={styles.map}
           initialRegion={{
@@ -329,7 +330,11 @@ const DeliveryRouteScreen = () => {
               }}
             />
           ) : null}
-        </MapView>
+        </MapView> : (
+          <View style={[styles.map, { alignItems: "center", justifyContent: "center", padding: 24 }]}>
+            <Text>{MAP_UNAVAILABLE_MESSAGE}</Text>
+          </View>
+        )}
 
         <View style={styles.bottomPanel}>
           <Text style={styles.panelTitle}>Active route</Text>

@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import MapViewDirections from "react-native-maps-directions";
+import { canRenderNativeMap, MAP_UNAVAILABLE_MESSAGE } from "../../assets/common/mapsConfiguration";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import Constants from "expo-constants";
@@ -327,7 +328,7 @@ const OrderTrackingScreen = (props) => {
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         {/* Map */}
-        {mapPoints.length > 0 ? (
+        {canRenderNativeMap && mapPoints.length > 0 ? (
           <View style={styles.mapWrapper}>
             <MapView ref={mapRef} style={styles.map} initialRegion={DEFAULT_REGION}>
               {googleMapsApiKey && routeOrigin && routeDestination ? (
@@ -403,7 +404,9 @@ const OrderTrackingScreen = (props) => {
           <View style={styles.noMapCard}>
             <Icon name="map-marker" size={28} color="#9ca3af" />
             <Text style={styles.mutedText}>
-              Map will appear once location coordinates are available.
+              {canRenderNativeMap
+                ? "Map will appear once location coordinates are available."
+                : MAP_UNAVAILABLE_MESSAGE}
             </Text>
           </View>
         )}

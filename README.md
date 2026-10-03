@@ -110,6 +110,27 @@ node --test scripts/storeRouting.test.cjs
 
 ### Native Android builds
 
+#### Google Maps API key
+
+Set `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` (or `GOOGLE_MAPS_API_KEY`) in the
+environment used for the build. Local Expo builds can read it from the untracked
+`.env`; EAS builds require the variable in the selected EAS environment.
+Enable **Maps SDK for Android** in the Google Cloud project and restrict its
+Android key to package `com.addugenet.eshop` and the signing certificate SHA-1
+for that build. Directions requests additionally need the appropriate API enabled.
+Do not put key values in tracked source files.
+
+The checked-in Gradle project resolves the Expo configuration and supplies the
+`com.google.android.geo.API_KEY` manifest metadata through a placeholder. Native
+code exposes only whether the installed manifest contains a key. If the key or
+native configuration module is missing, map screens display an unavailable
+message rather than creating a crashing native map; delivery controls remain usable.
+An OTA update or Metro reload cannot add native manifest metadata: rebuild and
+reinstall the Android app after configuring the key.
+
+Validate key wiring and the missing-key guard with
+`node --test scripts/mapsConfiguration.test.cjs`.
+
 The checked-in `android/` project is the source of truth for Android builds, including EAS Build.
 Changes to native settings in `app.json` or `app.config.js` (such as icons, permissions,
 plugins, and Google Services files) do not automatically update that project. Apply those

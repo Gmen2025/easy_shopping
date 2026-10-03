@@ -27,6 +27,7 @@ module.exports = ({ config }) => {
   const googleMapsApiKey =
     process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
     process.env.GOOGLE_MAPS_API_KEY ||
+    baseConfig.android?.config?.googleMaps?.apiKey ||
     existingExtra.googleMapsApiKey ||
     "";
 
@@ -35,6 +36,13 @@ module.exports = ({ config }) => {
     android: {
       ...(baseConfig.android || {}),
       softwareKeyboardLayoutMode: "resize",
+      config: {
+        ...(baseConfig.android?.config || {}),
+        googleMaps: {
+          ...(baseConfig.android?.config?.googleMaps || {}),
+          apiKey: googleMapsApiKey,
+        },
+      },
       // Use EAS file env var in cloud builds; fallback to local file for local/dev usage.
       googleServicesFile:
         process.env.GOOGLE_SERVICES_JSON ||
