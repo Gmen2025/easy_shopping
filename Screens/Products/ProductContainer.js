@@ -25,10 +25,6 @@ import CategoriesFilter from "./CategoriesFilter";
 import AdvancedFilters from "./AdvancedFilters";
 import getImageUrl from "../../assets/common/getImageUrl";
 
-//loading static resources
-//const data = require("../../assets/data/products.json");
-//const productsCategories = require("../../assets/data/categories.json");
-
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
@@ -51,7 +47,6 @@ const ProductContainer = (props) => {
     sortBy: "relevance",
   };
 
-  //initializing the state variables
   const [products, setProducts] = useState([]);
   const [focus, setFocus] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
@@ -64,18 +59,9 @@ const ProductContainer = (props) => {
   const [loadError, setLoadError] = useState("");
 
   const extractId = (value) => {
-    if (!value) {
-      return "";
-    }
-
-    if (typeof value === "string") {
-      return value;
-    }
-
-    if (typeof value === "object") {
-      return value.$oid || value._id || "";
-    }
-
+    if (!value) return "";
+    if (typeof value === "string") return value;
+    if (typeof value === "object") return value.$oid || value._id || "";
     return "";
   };
 
@@ -84,84 +70,69 @@ const ProductContainer = (props) => {
     return `${prefix}-${id}-${index}`;
   };
 
-  //initializing the products when the applivation is loaded
-  useFocusEffect((
+  useFocusEffect(
     useCallback(() => {
-    let mounted = true;
+      let mounted = true;
 
-    // Reset state variables
-    setFocus(false); //initial value when loaded the application
-    setActive(-1);
-    setLoadError("");
-
-    const loadCatalog = async () => {
-      if (mounted) {
-        setLoading(true);
-      }
-
-      try {
-        const [productsRes, categoriesRes] = await Promise.all([
-          getWithRetry(`${baseUrl}products`, {}, { retries: 2, delayMs: 1200 }),
-          getWithRetry(`${baseUrl}categories`, {}, { retries: 1, delayMs: 800 }),
-        ]);
-
-        if (!mounted) {
-          return;
-        }
-
-        const fetchedProducts = Array.isArray(productsRes.data)
-          ? productsRes.data
-          : productsRes.data.products;
-        const normalizedProducts = (fetchedProducts || []).map((product) => ({
-          ...product,
-          image: getImageUrl(product),
-        }));
-        setProducts(normalizedProducts);
-
-        const fetchedCategories = Array.isArray(categoriesRes.data)
-          ? categoriesRes.data
-          : categoriesRes.data.categories;
-        setCategories(fetchedCategories || []);
-        setLoadError("");
-      } catch (err) {
-        if (!mounted) {
-          return;
-        }
-
-        if (isServiceUnavailableError(err)) {
-          setLoadError("Server is waking up. Please retry in a few seconds.");
-        } else {
-          setLoadError("Could not load products right now. Please try again.");
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadCatalog();
-
-
-    return () => {
-      mounted = false;
-      // cleanup to avoid memory leaks or remaining cach in the browser
-      setProducts([]);
       setFocus(false);
-      setSearchKeyword("");
-      setCategories([]);
       setActive(-1);
-      setSelectedCategoryId(null);
-      setShowAdvancedFilters(false);
-      setAdvancedFilters(defaultAdvancedFilters);
       setLoadError("");
-    };
-    }, 
-    [],
-  )
-  ))
 
-  //search product method
+      const loadCatalog = async () => {
+        if (mounted) setLoading(true);
+
+        try {
+          const [productsRes, categoriesRes] = await Promise.all([
+            getWithRetry(`${baseUrl}products`, {}, { retries: 2, delayMs: 1200 }),
+            getWithRetry(`${baseUrl}categories`, {}, { retries: 1, delayMs: 800 }),
+          ]);
+
+          if (!mounted) return;
+
+          const fetchedProducts = Array.isArray(productsRes.data)
+            ? productsRes.data
+            : productsRes.data.products;
+          const normalizedProducts = (fetchedProducts || []).map((product) => ({
+            ...product,
+            image: getImageUrl(product),
+          }));
+          setProducts(normalizedProducts);
+
+          const fetchedCategories = Array.isArray(categoriesRes.data)
+            ? categoriesRes.data
+            : categoriesRes.data.categories;
+          setCategories(fetchedCategories || []);
+          setLoadError("");
+        } catch (err) {
+          if (!mounted) return;
+
+          if (isServiceUnavailableError(err)) {
+            setLoadError("Server is waking up. Please retry in a few seconds.");
+          } else {
+            setLoadError("Could not load products right now. Please try again.");
+          }
+        } finally {
+          if (mounted) setLoading(false);
+        }
+      };
+
+      loadCatalog();
+
+      return () => {
+        mounted = false;
+        setProducts([]);
+        setFocus(false);
+        setSearchKeyword("");
+        setCategories([]);
+        setActive(-1);
+        setSelectedCategoryId(null);
+        setShowAdvancedFilters(false);
+        setAdvancedFilters(defaultAdvancedFilters);
+        setLoadError("");
+      };
+    }, [])
+  );
+
   const searchProduct = (text) => {
     setSearchKeyword(text);
   };
@@ -292,29 +263,22 @@ const ProductContainer = (props) => {
     return sets;
   }, [products]);
 
-  //Categories filter method
   const changeCtg = (ctg) => {
     if (ctg === "all") {
       setSelectedCategoryId(null);
-      setActive(-1); // Set active to -1 for "All" category
+      setActive(-1);
     } else {
       const categoryValue = categories.find((item) => item.name === ctg);
-      if (!categoryValue) {
-        return;
-      }
+      if (!categoryValue) return;
 
       const categoryId = extractId(categoryValue._id);
       setSelectedCategoryId(categoryId);
       const categoryIndex = categories.findIndex(
         (category) => category.name === ctg
       );
-      setActive(categoryIndex); // Set active to the index of the selected category
+      setActive(categoryIndex);
     }
   };
-  //calls a prop function to clear the search screen
-  // This function is passed to the SearchedProducts component to clear the search results 
-  // and return to the main product list.
-  //clearSearchScreen = () => {setFocus(false);};
 
   const renderTopContent = (showCategories = false) => (
     <>
@@ -325,15 +289,18 @@ const ProductContainer = (props) => {
       />
       <TouchableOpacity
         style={styles.serviceAction}
+        activeOpacity={0.85}
         onPress={() => props.navigation.navigate("Service Request")}
       >
         <Text style={styles.serviceActionText}>Request Machine Service</Text>
       </TouchableOpacity>
       <Searchbar
-        placeholder="Search"
+        placeholder="Search products..."
+        placeholderTextColor="#6B7280"
         value={searchKeyword}
         style={styles.searchbar}
         inputStyle={styles.searchInput}
+        iconColor="#111827"
         clearIcon={searchKeyword ? "close" : null}
         onClear={clearSearch}
         onChangeText={(text) => searchProduct(text)}
@@ -342,6 +309,7 @@ const ProductContainer = (props) => {
       />
       <TouchableOpacity
         style={styles.advancedToggle}
+        activeOpacity={0.85}
         onPress={toggleAdvancedFilters}
       >
         <View style={styles.advancedToggleInner}>
@@ -359,7 +327,7 @@ const ProductContainer = (props) => {
       />
       {featuredProductSets.length > 0 ? (
         <View style={styles.featuredSection}>
-          <Text style={styles.featuredTitle}>Featured Products</Text>
+          <Text style={styles.featuredTitle}>FEATURED PRODUCTS</Text>
           <FlatList
             horizontal
             pagingEnabled
@@ -369,7 +337,7 @@ const ProductContainer = (props) => {
             snapToAlignment="start"
             decelerationRate="fast"
             renderItem={({ item: setItems, index: setIndex }) => (
-              <View style={[styles.featuredSetScreen, { width: featuredSetWidth }] }>
+              <View style={[styles.featuredSetScreen, { width: featuredSetWidth }]}>
                 <Text style={styles.featuredSetTitle}>Set {setIndex + 1}</Text>
                 <View style={styles.featuredGrid}>
                   {setItems.map((item, itemIndex) => (
@@ -399,7 +367,7 @@ const ProductContainer = (props) => {
       ) : null}
       <Text style={styles.resultMeta}>{filteredProducts.length} products found</Text>
       {showCategories ? (
-        <View>
+        <View style={styles.categoriesContainer}>
           <CategoriesFilter
             categories={categories}
             categoryFilter={changeCtg}
@@ -410,22 +378,20 @@ const ProductContainer = (props) => {
       ) : null}
     </>
   );
-  
+
   return (
     <>
-      {loading == false ? (
+      {!loading ? (
         <SafeAreaView style={styles.safeArea}>
           <View style={styles.container}>
-            {focus == true ? (
-              <>
-                <SearchedProducts
-                  productsFiltered={filteredProducts}
-                  topContent={renderTopContent(false)}
-                  clearSearchScreen={() => {
-                    setFocus(false);
-                  }}
-                />
-              </>
+            {focus ? (
+              <SearchedProducts
+                productsFiltered={filteredProducts}
+                topContent={renderTopContent(false)}
+                clearSearchScreen={() => {
+                  setFocus(false);
+                }}
+              />
             ) : (
               <View style={styles.listContainer}>
                 <FlatList
@@ -440,11 +406,11 @@ const ProductContainer = (props) => {
                     buildProductKey(item, index, "catalog")
                   }
                   numColumns={2}
-                  columnWrapperStyle={{ justifyContent: "space-between" }}
+                  columnWrapperStyle={{ justifyContent: "space-between", paddingHorizontal: 10 }}
                   contentContainerStyle={styles.flatListContent}
                   ListHeaderComponent={renderTopContent(true)}
                   ListEmptyComponent={(
-                    <View style={[styles.center, { height: 180 }]}> 
+                    <View style={[styles.center, { height: 180 }]}>
                       <Text style={styles.emptyText}>No products available right now</Text>
                     </View>
                   )}
@@ -454,8 +420,8 @@ const ProductContainer = (props) => {
           </View>
         </SafeAreaView>
       ) : (
-        <View style={[styles.center, { height: "100%" }]}>
-          <ActivityIndicator size="large" color="#8a6c09" />
+        <View style={[styles.center, { height: "100%", backgroundColor: "#FAFAFA" }]}>
+          <ActivityIndicator size="large" color="#0F172A" />
           <Text style={styles.loadingText}>Loading Products...</Text>
         </View>
       )}
@@ -466,76 +432,69 @@ const ProductContainer = (props) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#f3f6fb",
+    backgroundColor: "#FAFAFA",
   },
   container: {
-    flex: 1, // Ensure the container takes up the full screen
-    backgroundColor: "#f3f6fb",
-  },
-  heroHeader: {
-    marginHorizontal: 10,
-    marginTop: 8,
-    marginBottom: 8,
-    borderRadius: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 14,
-    backgroundColor: "goldenrod",
-  },
-  heroTitle: {
-    color: "#ffffff",
-    fontSize: 22,
-    fontWeight: "700",
-    marginBottom: 2,
-  },
-  heroSubtitle: {
-    color: "#ffffff",
-    fontSize: 13,
-    lineHeight: 18,
+    flex: 1,
+    backgroundColor: "#FAFAFA",
   },
   searchbar: {
-    marginHorizontal: 10,
-    marginTop: 8,
-    borderRadius: 12,
-    backgroundColor: "#ffffff",
+    marginHorizontal: 12,
+    marginTop: 10,
+    borderRadius: 8,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#dce3ef",
+    borderColor: "#E5E7EB",
+    elevation: 2,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
   topGraphic: {
-    borderRadius: 12,
-    backgroundColor: "#e8edf7",
+    borderRadius: 8,
+    backgroundColor: "#F3F4F6",
   },
   searchInput: {
     fontSize: 14,
-    color: "#1f2937",
+    color: "#111827",
   },
   listContainer: {
     flex: 1,
-    backgroundColor: "#f3f6fb",
+    backgroundColor: "#FAFAFA",
   },
   flatListContent: {
-    paddingBottom: 26,
+    paddingBottom: 32,
   },
   serviceAction: {
-    marginHorizontal: 10,
+    marginHorizontal: 12,
     marginTop: 12,
-    backgroundColor: "#8a6c09",
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    backgroundColor: "#0F172A",
+    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     alignItems: "center",
+    elevation: 2,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   serviceActionText: {
-    color: "#ffffff",
+    color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "700",
+    letterSpacing: 0.3,
   },
   advancedToggle: {
-    marginHorizontal: 10,
-    marginTop: 8,
-    backgroundColor: "goldenrod",
-    borderRadius: 10,
-    paddingVertical: 11,
-    paddingHorizontal: 12,
+    marginHorizontal: 12,
+    marginTop: 10,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
   advancedToggleInner: {
     flexDirection: "row",
@@ -543,34 +502,35 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   advancedToggleText: {
-    color: "white",
+    color: "#111827",
     fontWeight: "700",
     fontSize: 14,
     letterSpacing: 0.2,
   },
   advancedToggleIcon: {
-    color: "white",
+    color: "#111827",
     fontWeight: "700",
-    fontSize: 13,
+    fontSize: 12,
   },
   featuredSection: {
-    marginTop: 10,
-    marginBottom: 6,
+    marginTop: 16,
+    marginBottom: 8,
   },
   featuredTitle: {
-    marginHorizontal: 12,
+    marginHorizontal: 14,
     marginBottom: 10,
-    color: "#334155",
+    color: "#000000",
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "800",
+    letterSpacing: 0.8,
   },
   featuredSetScreen: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     marginBottom: 8,
   },
   featuredSetTitle: {
     marginBottom: 8,
-    color: "#475569",
+    color: "#374151",
     fontSize: 12,
     fontWeight: "700",
   },
@@ -580,37 +540,41 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   featuredCard: {
-    marginBottom: 8,
-    borderRadius: 12,
+    marginBottom: 10,
+    borderRadius: 8,
     overflow: "hidden",
-    backgroundColor: "#e5e7eb",
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#dce3ef",
+    borderColor: "#E5E7EB",
   },
   featuredImage: {
     width: "100%",
     height: "100%",
   },
   resultMeta: {
-    marginHorizontal: 12,
-    marginTop: 8,
-    color: "#5b6778",
-    fontSize: 12,
-    fontWeight: "600",
+    marginHorizontal: 14,
+    marginTop: 12,
+    color: "#000000",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  categoriesContainer: {
+    marginTop: 6,
+    marginBottom: 8,
   },
   errorBanner: {
-    marginHorizontal: 10,
-    marginTop: 8,
+    marginHorizontal: 12,
+    marginTop: 10,
     borderWidth: 1,
-    borderColor: "#f4c7c3",
-    borderRadius: 10,
-    backgroundColor: "#fff1f0",
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+    borderColor: "#FCA5A5",
+    borderRadius: 8,
+    backgroundColor: "#FEF2F2",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
   },
   errorText: {
-    color: "#a73f38",
-    fontSize: 12,
+    color: "#991B1B",
+    fontSize: 13,
     fontWeight: "600",
   },
   center: {
@@ -618,13 +582,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   emptyText: {
-    color: "#64748b",
+    color: "#111827",
     fontSize: 15,
+    fontWeight: "600",
   },
   loadingText: {
-    color: "#475569",
-    marginTop: 8,
+    color: "#111827",
+    marginTop: 12,
     fontWeight: "600",
+    fontSize: 15,
   },
 });
 
