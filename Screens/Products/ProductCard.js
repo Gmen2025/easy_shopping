@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   addButton: {
-    backgroundColor: "#0F172A",
+    backgroundColor: "#eac749ff",
     borderRadius: 6,
     paddingVertical: 8,
     alignItems: "center",
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   addText: {
-    color: "#FFFFFF",
+    color: "#030501",
     fontWeight: "700",
     fontSize: 12,
     letterSpacing: 0.2,

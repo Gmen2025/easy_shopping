@@ -25,7 +25,7 @@ import CategoriesFilter from "./CategoriesFilter";
 import AdvancedFilters from "./AdvancedFilters";
 import getImageUrl from "../../assets/common/getImageUrl";
 
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+if (Platform.OS === "android" && !global.nativeFabricUIManager && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
   serviceAction: {
     marginHorizontal: 12,
     marginTop: 12,
-    backgroundColor: "#0F172A",
+    backgroundColor: "#eac749ff",
     borderRadius: 8,
     paddingVertical: 14,
     paddingHorizontal: 16,
@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
   },
   serviceActionText: {
-    color: "#FFFFFF",
+    color: "#030501",
     fontSize: 15,
     fontWeight: "700",
     letterSpacing: 0.3,

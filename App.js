@@ -22,6 +22,7 @@ import MaintenanceWrapper from "./Navigators/MaintenanceWrapper";
 
 import Header from "./Shared/Header";
 import { attachDatabaseInterceptor } from "./assets/common/attachDatabaseInterceptor";
+import { mergeNotificationItems } from "./assets/common/notificationInbox";
 import {
   registerForPushNotifications,
   getStoredPushToken,
@@ -211,7 +212,8 @@ export default function App() {
         if (savedNotifications) {
           const parsedNotifications = JSON.parse(savedNotifications);
           if (Array.isArray(parsedNotifications)) {
-            setNotificationItems(parsedNotifications.slice(0, 20));
+            const savedItems = mergeNotificationItems([], parsedNotifications);
+            setNotificationItems((currentItems) => mergeNotificationItems(savedItems, currentItems));
             lastSavedNotificationsJson.current = savedNotifications;
           }
         }
@@ -263,7 +265,7 @@ export default function App() {
       isRead: !increaseUnread,
     };
 
-    setNotificationItems((prevItems) => [newItem, ...prevItems].slice(0, 20));
+    setNotificationItems((prevItems) => mergeNotificationItems(prevItems, [newItem]));
   }, []);
 
   const handleNotificationReceived = useCallback((notification) => {

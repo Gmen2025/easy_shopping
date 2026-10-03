@@ -15,6 +15,9 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
 - **Checkout Stock Guard**: Prevents checkout/payment when requested quantity exceeds available stock
 - **User Accounts**: Registration, login, email verification
 - **Order Tracking**: View order history and status
+- **Notification Inbox**: Received and opened notifications share one entry per
+  identifier. Saved duplicates are removed on startup, read status is preserved,
+  and the inbox retains the latest 20 unique entries.
 - **Profile Management**: Edit profile and manage addresses
 - **Password Recovery**: Forgot password functionality
 
@@ -88,6 +91,12 @@ npx expo start
    - Press `i` for iOS simulator
 
 ## 🔧 Configuration
+
+Notification inbox regression tests:
+
+```bash
+node --test scripts/notificationInbox.test.mjs
+```
 
 ### Native Android builds
 

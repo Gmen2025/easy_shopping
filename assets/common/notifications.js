@@ -13,7 +13,8 @@ const PUSH_TOKEN_STORAGE_KEY = "expo_push_token";
 //  This configuration ensures that all notifications will trigger these behaviors regardless of the app state.
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),
@@ -165,7 +166,11 @@ export const addNotificationReceivedListener = (listener) => {
   return Notifications.addNotificationReceivedListener((notification) => {
     console.log(
       "Notification received while app is running:",
-      JSON.stringify(notification?.request?.content || {}, null, 2)
+      JSON.stringify({
+        title: notification?.request?.content?.title,
+        body: notification?.request?.content?.body,
+        data: notification?.request?.content?.data,
+      }, null, 2)
     );
 
     if (typeof listener === "function") {
@@ -180,7 +185,11 @@ export const addNotificationResponseListener = (listener) => {
   return Notifications.addNotificationResponseReceivedListener((response) => {
     console.log(
       "Notification response: user interacted with notification",
-      JSON.stringify(response?.notification?.request?.content || {}, null, 2)
+      JSON.stringify({
+        title: response?.notification?.request?.content?.title,
+        body: response?.notification?.request?.content?.body,
+        data: response?.notification?.request?.content?.data,
+      }, null, 2)
     );
 
     if (typeof listener === "function") {
