@@ -34,6 +34,7 @@ const CompanyStoreDashboard = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("daily");
   const [loading, setLoading] = useState(true);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
+  const [dashboardError, setDashboardError] = useState("");
   const [actingId, setActingId] = useState("");
 
   const loadProducts = useCallback(async () => {
@@ -54,6 +55,7 @@ const CompanyStoreDashboard = () => {
 
   const loadDashboard = useCallback(async () => {
     setLoadingDashboard(true);
+    setDashboardError("");
     try {
       const token = await AsyncStorage.getItem("token");
       const currentDb = await getDatabaseNameFromStorage();
@@ -63,6 +65,7 @@ const CompanyStoreDashboard = () => {
       setDashboard(response.data || null);
     } catch (error) {
       setDashboard(null);
+      setDashboardError(error?.response?.data?.message || "Unable to load store analytics. Please try again.");
     } finally {
       setLoadingDashboard(false);
     }
@@ -84,6 +87,7 @@ const CompanyStoreDashboard = () => {
         headers: { Authorization: `Bearer ${token}`, "x-database-name": currentDb },
       });
       setProducts((current) => current.filter((item) => item._id !== product._id));
+      await loadDashboard();
     } catch (error) {
       Alert.alert("Unable to mark ready", error?.response?.data?.message || "Please try again.");
     } finally {
@@ -208,7 +212,7 @@ const CompanyStoreDashboard = () => {
           </>
         ) : !loadingDashboard ? (
           <TouchableOpacity style={styles.retryButton} onPress={loadDashboard}>
-            <Text style={styles.retryText}>Analytics unavailable · Tap to retry</Text>
+            <Text style={styles.retryText}>{dashboardError} Tap to retry</Text>
           </TouchableOpacity>
         ) : null}
       </View>

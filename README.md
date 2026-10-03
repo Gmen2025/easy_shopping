@@ -22,6 +22,9 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
 - **Product Management**: Add, edit, delete products
 - **Category Management**: Manage product categories
 - **Order Management**: View all orders, update status, delete orders
+- **Company Store Analytics**: AdminStore shows assigned orders and orders containing
+  owned or marked-ready products; sales count completed orders only. Analytics
+  refresh after marking a product ready, and load failures display a retry message.
 - **Low Stock Monitor**: Dedicated low-stock screen with configurable minimum threshold
 - **Low Stock Badge**: Admin tab badge shows current low-stock count
 - **Auto Cleanup**: Automatic deletion of old delivered orders (2+ months)
