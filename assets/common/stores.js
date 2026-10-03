@@ -27,8 +27,10 @@ export const normalizeStore = (payload) => {
     return null;
   }
 
-  const latitude = Number(payload.latitude ?? payload.location?.latitude ?? payload.coords?.latitude);
-  const longitude = Number(payload.longitude ?? payload.location?.longitude ?? payload.coords?.longitude);
+  const rawLatitude = payload.latitude ?? payload.location?.latitude ?? payload.coords?.latitude ?? payload.location?.coordinates?.[1];
+  const rawLongitude = payload.longitude ?? payload.location?.longitude ?? payload.coords?.longitude ?? payload.location?.coordinates?.[0];
+  const latitude = rawLatitude == null ? NaN : Number(rawLatitude);
+  const longitude = rawLongitude == null ? NaN : Number(rawLongitude);
 
   return {
     _id: payload._id || payload.id || `store-${Date.now()}`,
@@ -42,7 +44,8 @@ export const normalizeStore = (payload) => {
     phone: payload.phone || payload.contactPhone || "",
     latitude: Number.isFinite(latitude) ? latitude : null,
     longitude: Number.isFinite(longitude) ? longitude : null,
-    isActive: payload.isActive !== false,
+    isActive: payload.isActive !== false && payload.isOpen !== false,
+    isCompanyOwned: payload.isCompanyOwned === true || payload.raw?.isCompanyOwned === true,
     createdAt: payload.createdAt || new Date().toISOString(),
     raw: payload,
   };
@@ -110,7 +113,12 @@ export const getNearbyStores = async (customerLocation, token = null) => {
 
 export const findNearestStore = async (customerLocation, token = null) => {
   const nearby = await getNearbyStores(customerLocation, token);
-  return nearby[0] || null;
+  const partner = nearby.find((store) => !store.isCompanyOwned && store.distanceKm <= 10);
+  if (partner) return partner;
+  const companies = nearby.filter((store) => store.isCompanyOwned);
+  return companies.length === 1
+    ? companies[0]
+    : companies.find((store) => Number.isFinite(store.distanceKm)) || null;
 };
 
 export const buildStoreAssignmentPayload = async (customerLocation, token = null) => {

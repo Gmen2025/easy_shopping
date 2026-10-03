@@ -28,6 +28,10 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
 - **Company Store Analytics**: AdminStore shows assigned orders and orders containing
   owned or marked-ready products; sales count completed orders only. Analytics
   refresh after marking a product ready, and load failures display a retry message.
+- **Company Order Fallback**: With no eligible partner store within 10 km or driver
+  within 5 km, the backend assigns the nearest available company account without
+  a radius limit. AdminStore receives assigned orders in its overview; AdminDriver
+  receives deliveries in its active queue without having to claim them.
 - **Low Stock Monitor**: Dedicated low-stock screen with configurable minimum threshold
 - **Low Stock Badge**: Admin tab badge shows current low-stock count
 - **Auto Cleanup**: Automatic deletion of old delivered orders (2+ months)
@@ -96,6 +100,12 @@ Notification inbox regression tests:
 
 ```bash
 node --test scripts/notificationInbox.test.mjs
+```
+
+Store pickup-selection regression tests:
+
+```bash
+node --test scripts/storeRouting.test.cjs
 ```
 
 ### Native Android builds

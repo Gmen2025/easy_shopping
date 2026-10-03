@@ -286,7 +286,7 @@ const CompanyStoreDashboard = () => {
 
           {dashboard && (
             <>
-              <Text style={styles.sectionTitle}>Recent orders</Text>
+              <Text style={styles.sectionTitle}>Assigned & fulfilled orders</Text>
               {recentOrders.length > 0 ? (
                 <View style={styles.recentCard}>
                   {recentOrders.map((order, index) => (
@@ -353,7 +353,7 @@ const CompanyStoreDashboard = () => {
           refreshing={loading || loadingDashboard}
           contentContainerStyle={styles.list}
           ListHeaderComponent={dashboardHeader}
-          ListEmptyComponent={<View style={styles.emptyCard}><Text style={styles.empty}>No products need fulfillment near you right now.</Text></View>}
+          ListEmptyComponent={<View style={styles.emptyCard}><Text style={styles.empty}>No products need fulfillment right now. Automatically assigned orders appear in your overview.</Text></View>}
         />
       )}
     </View>
