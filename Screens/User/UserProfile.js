@@ -3,13 +3,10 @@ import {
   View,
   Text,
   ScrollView,
-  Button,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
   Linking,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import OrderCard from "../../Shared/OrderCard";
 import EasyButton from "../../Shared/StyledComponenets/EasyButton";
 import Toast from "react-native-toast-message";
@@ -18,10 +15,9 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 import { useFocusEffect } from "@react-navigation/native";
 import axios from "axios";
 import baseUrl from "../../assets/common/baseUrl";
-import AsyncStorage from "@react-native-async-storage/async-storage"; //Store data in the device
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { AuthContext } from "../../Context/store/Auth";
-import UserOrderDisplay from "../../Shared/UserOrderDisplay";
 
 const UserProfile = (props) => {
   const context = useContext(AuthContext);
@@ -43,11 +39,10 @@ const UserProfile = (props) => {
         await Linking.openURL(url);
         return;
       } catch (error) {
-        // Continue to the next URL fallback.
+        // Continue to next fallback
       }
     }
 
-    // Final fallback to Telegram app deep links.
     const deepLinkUrls = [
       `tg://resolve?domain=${supportTelegramUsername}`,
       `tg://msg?to=${supportTelegramUsername}`,
@@ -59,14 +54,14 @@ const UserProfile = (props) => {
         await Linking.openURL(url);
         return;
       } catch (error) {
-        // Continue to the next URL fallback.
+        // Continue to next fallback
       }
     }
 
     Toast.show({
       type: "error",
       text1: "Unable to open Telegram",
-      text2: "Please verify the Telegram username or browser availability.",
+      text2: "Please verify Telegram username or browser availability.",
     });
   };
 
@@ -92,12 +87,7 @@ const UserProfile = (props) => {
     useCallback(() => {
       const currentUserId = context.user?._id;
 
-      //console.log("UserProfile mounted, isAuthenticated:", context.isAuthenticated);
-      //console.log("Fetching user profile for:", context);
-      //console.log("Context.user value: ", context.user);
-
       if (!context.isAuthenticated || !currentUserId) {
-        // UserNavigator will automatically switch to auth screens when unauthenticated.
         return;
       }
 
@@ -107,9 +97,7 @@ const UserProfile = (props) => {
         try {
           const savedToken = await AsyncStorage.getItem("token");
           if (!savedToken) {
-            if (isActive) {
-              setOrders([]);
-            }
+            if (isActive) setOrders([]);
             return;
           }
 
@@ -150,18 +138,20 @@ const UserProfile = (props) => {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <Icon name="user-circle" size={56} color="#8a6c09" />
+          <View style={styles.avatarContainer}>
+            <Icon name="user-circle" size={64} color="#8a6c09" />
+          </View>
           <Text style={styles.headerTitle}>My Profile</Text>
         </View>
 
         {/* Profile Info Card */}
-        <View style={styles.profileCard}>
+        <View style={styles.card}>
           <View style={styles.profileItem}>
-            <Icon name="user" size={18} color="#8a6c09" style={{ marginRight: 12 }} />
-            <View style={{ flex: 1 }}>
+            <Icon name="user" size={16} color="#8a6c09" style={styles.profileIcon} />
+            <View style={styles.profileTextContainer}>
               <Text style={styles.profileLabel}>Name</Text>
               <Text style={styles.profileValue}>{context.user ? context.user.name : "—"}</Text>
             </View>
@@ -170,8 +160,8 @@ const UserProfile = (props) => {
           <View style={styles.divider} />
 
           <View style={styles.profileItem}>
-            <Icon name="envelope" size={18} color="#8a6c09" style={{ marginRight: 12 }} />
-            <View style={{ flex: 1 }}>
+            <Icon name="envelope" size={16} color="#8a6c09" style={styles.profileIcon} />
+            <View style={styles.profileTextContainer}>
               <Text style={styles.profileLabel}>Email</Text>
               <Text style={styles.profileValue}>{context.user?.email || "—"}</Text>
             </View>
@@ -180,45 +170,12 @@ const UserProfile = (props) => {
           <View style={styles.divider} />
 
           <View style={styles.profileItem}>
-            <Icon name="phone" size={18} color="#8a6c09" style={{ marginRight: 12 }} />
-            <View style={{ flex: 1 }}>
+            <Icon name="phone" size={16} color="#8a6c09" style={styles.profileIcon} />
+            <View style={styles.profileTextContainer}>
               <Text style={styles.profileLabel}>Phone</Text>
               <Text style={styles.profileValue}>{context.user ? context.user.phone : "—"}</Text>
             </View>
           </View>
-
-        </View>
-
-        {/* Privacy & Account Links */}
-        <View style={styles.supportSection}>
-          <View style={styles.sectionHeader}>
-            <Icon name="shield" size={20} color="#8a6c09" />
-            <Text style={styles.sectionTitle}>Privacy & Account</Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.contactItem}
-            onPress={() => openExternalLink(privacyPolicyUrl)}
-          >
-            <Icon name="file-text-o" size={16} color="#8a6c09" style={{ marginRight: 12 }} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.contactLabel}>Policy</Text>
-              <Text style={styles.contactValue}>Privacy Policy</Text>
-            </View>
-            <Icon name="external-link" size={14} color="#888" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.contactItem}
-            onPress={() => openExternalLink(accountDeletionUrl)}
-          >
-            <Icon name="user-times" size={16} color="#8a6c09" style={{ marginRight: 12 }} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.contactLabel}>Account</Text>
-              <Text style={styles.contactValue}>Account Deletion</Text>
-            </View>
-            <Icon name="external-link" size={14} color="#888" />
-          </TouchableOpacity>
         </View>
 
         {/* Action Buttons */}
@@ -227,27 +184,27 @@ const UserProfile = (props) => {
             onPress={() => props.navigation.navigate("EditProfile")}
             secondary
             large
-            style={styles.editButton}
+            style={styles.actionButton}
           >
-            <Icon name="edit" size={16} color="white" style={{ marginRight: 8 }} />
-            <Text style={styles.buttonText}>Edit Profile</Text>
+            <Icon name="edit" size={16} color="#1f2937" style={{ marginRight: 8 }} />
+            <Text style={styles.darkButtonText}>Edit Profile</Text>
           </EasyButton>
 
           <EasyButton
             onPress={() => props.navigation.navigate("ServiceRequests")}
             tertiary
             large
-            style={styles.requestButton}
+            style={styles.actionButton}
           >
-            <Icon name="wrench" size={16} color="white" style={{ marginRight: 8 }} />
-            <Text style={styles.buttonText}>My Service Requests</Text>
+            <Icon name="wrench" size={16} color="#1f2937" style={{ marginRight: 8 }} />
+            <Text style={styles.darkButtonText}>My Service Requests</Text>
           </EasyButton>
         </View>
 
         {/* My Orders Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Icon name="shopping-bag" size={20} color="#8a6c09" />
+            <Icon name="shopping-bag" size={18} color="#8a6c09" />
             <Text style={styles.sectionTitle}>My Orders</Text>
           </View>
 
@@ -264,17 +221,49 @@ const UserProfile = (props) => {
             </View>
           ) : (
             <View style={styles.emptyState}>
-              <Icon name="inbox" size={40} color="#888" />
+              <Icon name="inbox" size={36} color="#a0aec0" />
               <Text style={styles.emptyStateText}>No orders yet</Text>
               <Text style={styles.emptyStateSubtext}>Start shopping to see your orders here</Text>
             </View>
           )}
         </View>
 
-        {/* Help & Support Section */}
-        <View style={styles.supportSection}>
+        {/* Privacy & Account Links */}
+        <View style={styles.card}>
           <View style={styles.sectionHeader}>
-            <Icon name="headphones" size={20} color="#8a6c09" />
+            <Icon name="shield" size={18} color="#8a6c09" />
+            <Text style={styles.sectionTitle}>Privacy & Account</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.contactItem}
+            onPress={() => openExternalLink(privacyPolicyUrl)}
+          >
+            <Icon name="file-text-o" size={16} color="#8a6c09" style={{ marginRight: 12 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.contactLabel}>Policy</Text>
+              <Text style={styles.contactValue}>Privacy Policy</Text>
+            </View>
+            <Icon name="external-link" size={14} color="#a0aec0" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.contactItem}
+            onPress={() => openExternalLink(accountDeletionUrl)}
+          >
+            <Icon name="user-times" size={16} color="#8a6c09" style={{ marginRight: 12 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.contactLabel}>Account</Text>
+              <Text style={styles.contactValue}>Account Deletion</Text>
+            </View>
+            <Icon name="external-link" size={14} color="#a0aec0" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Help & Support Section */}
+        <View style={styles.card}>
+          <View style={styles.sectionHeader}>
+            <Icon name="headphones" size={18} color="#8a6c09" />
             <Text style={styles.sectionTitle}>Help & Support</Text>
           </View>
           <Text style={styles.supportSubtitle}>Need assistance? Contact us:</Text>
@@ -288,7 +277,7 @@ const UserProfile = (props) => {
               <Text style={styles.contactLabel}>Email</Text>
               <Text style={styles.contactValue}>girmahalie2026@gmail.com</Text>
             </View>
-            <Icon name="chevron-right" size={14} color="#888" />
+            <Icon name="chevron-right" size={14} color="#a0aec0" />
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -300,7 +289,7 @@ const UserProfile = (props) => {
               <Text style={styles.contactLabel}>Phone</Text>
               <Text style={styles.contactValue}>+251 954 141 473</Text>
             </View>
-            <Icon name="chevron-right" size={14} color="#888" />
+            <Icon name="chevron-right" size={14} color="#a0aec0" />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -312,7 +301,7 @@ const UserProfile = (props) => {
               <Text style={styles.contactLabel}>WhatsApp</Text>
               <Text style={styles.contactValue}>Chat on WhatsApp</Text>
             </View>
-            <Icon name="chevron-right" size={14} color="#888" />
+            <Icon name="chevron-right" size={14} color="#a0aec0" />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -324,11 +313,11 @@ const UserProfile = (props) => {
               <Text style={styles.contactLabel}>Telegram</Text>
               <Text style={styles.contactValue}>Message on Telegram</Text>
             </View>
-            <Icon name="chevron-right" size={14} color="#888" />
+            <Icon name="chevron-right" size={14} color="#a0aec0" />
           </TouchableOpacity>
 
           <Text style={styles.supportHours}>
-            <Icon name="clock-o" size={14} color="#8a6c09" /> Support Hours: Mon-Sat, 9 AM - 6 PM
+            <Icon name="clock-o" size={13} color="#8a6c09" /> Support Hours: Mon-Sat, 9 AM - 6 PM
           </Text>
         </View>
 
@@ -343,8 +332,8 @@ const UserProfile = (props) => {
           }}
           style={styles.signOutButton}
         >
-          <Icon name="sign-out" size={16} color="white" style={{ marginRight: 8 }} />
-          <Text style={styles.signOutText}>Sign Out</Text>
+          <Icon name="sign-out" size={16} color="#1f2937" style={{ marginRight: 8 }} />
+          <Text style={styles.darkButtonText}>Sign Out</Text>
         </EasyButton>
       </ScrollView>
     </View>
@@ -354,156 +343,156 @@ const UserProfile = (props) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f8fafc',
   },
   scrollContainer: {
     paddingHorizontal: 16,
-    paddingTop: 20,
+    paddingTop: 24,
     paddingBottom: 40,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 20,
+  },
+  avatarContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 50,
+    padding: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   headerTitle: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '700',
-    color: '#333',
-    marginTop: 12,
-    letterSpacing: 0.5,
+    color: '#1e293b',
+    marginTop: 10,
+    letterSpacing: -0.3,
   },
-  profileCard: {
-    backgroundColor: '#f9f9f9',
-    borderRadius: 12,
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
     padding: 16,
-    marginBottom: 24,
+    marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
   },
   profileItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 8,
+  },
+  profileIcon: {
+    marginRight: 14,
+  },
+  profileTextContainer: {
+    flex: 1,
   },
   profileLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#888',
+    color: '#64748b',
     textTransform: 'uppercase',
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
     marginBottom: 2,
   },
   profileValue: {
     fontSize: 15,
-    fontWeight: '500',
-    color: '#333',
+    fontWeight: '600',
+    color: '#1e293b',
   },
   divider: {
     height: 1,
-    backgroundColor: '#e0e0e0',
-    marginVertical: 4,
+    backgroundColor: '#f1f5f9',
+    marginVertical: 8,
   },
   actionButtons: {
-    marginBottom: 24,
+    marginBottom: 20,
+    gap: 10,
   },
-  editButton: {
-    marginBottom: 10,
+  actionButton: {
+    backgroundColor: '#e2e8f0',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
-    elevation: 4,
+    borderRadius: 10,
+    paddingVertical: 12,
   },
-  requestButton: {
-    marginBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    elevation: 4,
-  },
-  passwordButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    elevation: 4,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
+  darkButtonText: {
+    color: '#1f2937',
+    fontSize: 15,
     fontWeight: '600',
   },
   section: {
-    marginBottom: 28,
+    marginBottom: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 2,
-    borderBottomColor: '#e0e0e0',
+    marginBottom: 14,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#333',
-    marginLeft: 10,
+    color: '#1e293b',
+    marginLeft: 8,
   },
   ordersList: {
-    gap: 12,
+    gap: 10,
   },
   orderItemWrapper: {
-    marginBottom: 8,
+    marginBottom: 4,
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 40,
+    paddingVertical: 32,
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   emptyStateText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    color: '#333',
-    marginTop: 12,
+    color: '#334155',
+    marginTop: 10,
   },
   emptyStateSubtext: {
     fontSize: 13,
-    color: '#888',
-    marginTop: 6,
+    color: '#64748b',
+    marginTop: 4,
     textAlign: 'center',
-  },
-  supportSection: {
-    backgroundColor: '#f9f9f9',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
   supportSubtitle: {
     fontSize: 13,
-    color: '#666',
-    marginBottom: 12,
+    color: '#64748b',
+    marginBottom: 10,
   },
   contactItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 12,
+    marginVertical: 4,
     paddingVertical: 10,
-    paddingHorizontal: 10,
-    backgroundColor: '#ffffff',
+    paddingHorizontal: 12,
+    backgroundColor: '#f8fafc',
     borderRadius: 8,
     borderLeftWidth: 3,
     borderLeftColor: '#8a6c09',
   },
   contactLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
-    color: '#888',
+    color: '#64748b',
     textTransform: 'uppercase',
-    letterSpacing: 0.2,
-    marginBottom: 2,
+    letterSpacing: 0.4,
+    marginBottom: 1,
   },
   contactValue: {
     fontSize: 14,
@@ -512,36 +501,20 @@ const styles = StyleSheet.create({
   },
   supportHours: {
     fontSize: 12,
-    color: '#888',
+    color: '#64748b',
     marginTop: 12,
-    fontStyle: 'italic',
     textAlign: 'center',
   },
   signOutButton: {
-    backgroundColor: '#e53935',
+    backgroundColor: '#fee2e2',
+    borderColor: '#fca5a5',
+    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 8,
-    elevation: 4,
-  },
-  signOutText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  order: {
-    marginTop: 10,
-    alignItem: 'center',
-    marginBottom: 10,
-  },
-  orderDetails: {
-    marginTop: 20,
-    borderStyle: 'solid',
-    borderRadius: 20,
-    borderColor: 'grey',
-    borderWidth: 5,
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 8,
   },
 });
 

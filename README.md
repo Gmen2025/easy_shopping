@@ -110,6 +110,11 @@ node --test scripts/storeRouting.test.cjs
 
 ### Native Android builds
 
+Hermes compiler selection uses the React Native Gradle plugin's platform-aware
+default (`hermes-compiler` for the installed React Native version). Do not override
+it with the legacy `react-native/sdks/hermesc` path; that executable is no longer
+shipped there and causes EAS release bundling to fail.
+
 #### Google Maps API key
 
 Set `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` (or `GOOGLE_MAPS_API_KEY`) in the
