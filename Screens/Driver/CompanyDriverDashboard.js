@@ -538,7 +538,7 @@ const CompanyDriverDashboard = ({ navigation }) => {
               <Text style={styles.sectionHeaderTitle}>Unassigned Company Deliveries</Text>
               {orders.length === 0 ? (
                 <View style={styles.emptyCard}>
-                  <Text style={styles.helperText}>No unassigned deliveries right now. Automatic assignments appear in your active queue.</Text>
+                  <Text style={styles.helperText}>No delivery offers right now. Offers go to the nearest available company driver when no partner driver can take the delivery.</Text>
                 </View>
               ) : (
                 orders.map((item) => renderOrder(item))
