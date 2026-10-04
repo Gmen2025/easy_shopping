@@ -66,7 +66,6 @@ const DeliveryRouteScreen = () => {
   const [routeCoordinates, setRouteCoordinates] = useState([]);
   const [routeError, setRouteError] = useState("");
   const [fallbackEstimate, setFallbackEstimate] = useState(null);
-  const [serviceAreaMessage, setServiceAreaMessage] = useState("");
   const [pickupRouteStarted, setPickupRouteStarted] = useState(false);
   const [deliveryRouteStarted, setDeliveryRouteStarted] = useState(false);
   const [locationStatus, setLocationStatus] = useState("Waiting for live GPS");
@@ -143,37 +142,12 @@ const DeliveryRouteScreen = () => {
     return orderStatus === "Picked Up" ? customerCoordinates : storeCoordinates;
   }, [customerCoordinates, orderStatus, storeCoordinates]);
 
-  const shouldUseLiveLocation = useMemo(() => {
-    if (!driverLocation) {
-      return false;
-    }
-
-    const distanceKm = haversineDistanceKm(driverLocation, destination);
-    return distanceKm <= 300;
-  }, [destination, driverLocation]);
-
   const origin = useMemo(() => {
-    if (driverLocation && shouldUseLiveLocation) {
+    if (driverLocation) {
       return driverLocation;
     }
     return orderStatus === "Picked Up" ? storeCoordinates : driverCoordinates;
-  }, [driverCoordinates, driverLocation, orderStatus, shouldUseLiveLocation, storeCoordinates]);
-
-  const hasValidRoutePoints = Boolean(
-    origin?.latitude != null &&
-      origin?.longitude != null &&
-      destination?.latitude != null &&
-      destination?.longitude != null
-  );
-
-  const isOutsideServiceArea = useMemo(() => {
-    if (!hasValidRoutePoints) {
-      return false;
-    }
-
-    const distanceKm = haversineDistanceKm(origin, destination);
-    return distanceKm > 300;
-  }, [destination, hasValidRoutePoints, origin]);
+  }, [driverCoordinates, driverLocation, orderStatus, storeCoordinates]);
 
   const orderId = request.id || request.orderId || request._id || request.rawPayload?.orderId || request.rawPayload?._id;
   const latestGps = useRef(null);
@@ -238,6 +212,7 @@ const DeliveryRouteScreen = () => {
     const startWatchingLocation = async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
+        if (active) setLocationStatus("Location permission denied. Enable location access to calculate driving directions.");
         return;
       }
 
@@ -273,9 +248,14 @@ const DeliveryRouteScreen = () => {
           setLocationStatus("Tracking live location");
         }
       );
+      if (!active) subscription.remove();
     };
 
-    startWatchingLocation();
+    startWatchingLocation().catch((error) => {
+      if (!active) return;
+      console.warn("[Route] GPS unavailable:", error?.message);
+      setLocationStatus("Live GPS unavailable. Check location services and permissions.");
+    });
 
     return () => {
       active = false;
@@ -300,13 +280,6 @@ const DeliveryRouteScreen = () => {
   }, [destination, origin]);
 
   useEffect(() => {
-    if (isOutsideServiceArea) {
-      setRouteError("");
-      setServiceAreaMessage("Outside service area. Route guidance is unavailable for this delivery.");
-      setFallbackEstimate(null);
-      return;
-    }
-
     if (routeStats.distance > 0 || routeStats.duration > 0) {
       setFallbackEstimate(null);
       return;
@@ -315,10 +288,9 @@ const DeliveryRouteScreen = () => {
     if (origin?.latitude != null && origin?.longitude != null && destination?.latitude != null && destination?.longitude != null) {
       const distanceKm = haversineDistanceKm(origin, destination);
       const estimatedMinutes = Math.max(5, Math.round(distanceKm * 2));
-      setServiceAreaMessage("");
       setFallbackEstimate({ distanceKm, estimatedMinutes });
     }
-  }, [destination, isOutsideServiceArea, origin, routeStats.distance, routeStats.duration]);
+  }, [destination, origin, routeStats.distance, routeStats.duration]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -405,8 +377,8 @@ const DeliveryRouteScreen = () => {
                   : "Stage 2: Drive to customer and confirm drop-off"}
           </Text>
           <Text style={styles.locationStatus}>{locationStatus}</Text>
-          {(routeError || serviceAreaMessage || statusError) ? (
-            <Text style={styles.routeWarning}>{routeError || serviceAreaMessage || statusError}</Text>
+          {(routeError || statusError) ? (
+            <Text style={styles.routeWarning}>{routeError || statusError}</Text>
           ) : null}
           <View style={styles.metricsRow}>
             <View style={styles.metricBox}>

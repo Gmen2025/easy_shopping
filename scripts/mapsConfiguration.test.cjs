@@ -76,6 +76,9 @@ test("delivery routes use Expo GPS and a driver marker instead of native user-lo
   assert.ok(!source.includes("react-native-maps-directions"));
   assert.ok(source.includes("drivers/me/orders/${orderId}/route"));
   assert.ok(source.includes('coordinates={routeCoordinates}'));
+  assert.ok(!source.includes("Outside service area"));
+  assert.ok(!source.includes("distanceKm <= 300"));
+  assert.ok(!source.includes("distanceKm > 300"));
 });
 
 test("Expo config wires the same key to native Android config and JavaScript without discarding other settings", () => {

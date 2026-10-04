@@ -160,6 +160,10 @@ separate web-service request: this library uses the Directions API endpoint.
 The driver's active-route screen now requests driving routes from the authenticated
 backend and draws a polyline. It refreshes at most once per minute using live GPS;
 the server selects the pickup/customer destination from the assigned order.
+Live GPS is used regardless of distance to the destination; there is no artificial
+300-km service-area cutoff. Google determines whether a driving route exists.
+GPS permission/fetch failures are shown explicitly, and distance estimates do not
+clear backend routing errors.
 Set the separate `GOOGLE_ROUTES_API_KEY` on the backend and enable Routes API.
 The Android SDK key remains Android-restricted. The customer tracking screen still
 uses the older direct Directions integration and is not changed by this driver fix.
