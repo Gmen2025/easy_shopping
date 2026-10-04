@@ -30,6 +30,54 @@ test("iOS maps are unaffected by the Android manifest requirement", () => {
   assert.equal(loadConfiguration("ios", undefined).canRenderNativeMap, true);
 });
 
+test("directions failures preserve the diagnostic reason without exposing API keys or claiming tiles loaded", () => {
+  const { formatDirectionsError } = loadConfiguration("android", { isConfigured: true });
+  assert.match(formatDirectionsError("REQUEST_DENIED: API is not enabled"), /REQUEST_DENIED: API is not enabled/);
+  assert.match(formatDirectionsError(new Error("Network request failed")), /Network request failed/);
+  const secret = "AIzaExampleSecret123";
+  const message = formatDirectionsError(`Denied ${secret} https://example.invalid?key=another-secret&mode=driving`);
+  assert.ok(!message.includes(secret));
+  assert.ok(!message.includes("another-secret"));
+  assert.ok(!message.includes("Showing the map"));
+  assert.match(formatDirectionsError(null), /Check your connection/);
+});
+
+test("delivery routes use Expo GPS and a driver marker instead of native user-location events", () => {
+  const filename = path.join(__dirname, "..", "Screens", "Driver", "DeliveryRouteScreen.js");
+  const { ast } = babel.transformSync(fs.readFileSync(filename, "utf8"), {
+    filename, configFile: false, babelrc: false, ast: true, code: false,
+    parserOpts: { plugins: ["jsx"] },
+  });
+  const maps = [];
+  const markers = [];
+  const locationCalls = [];
+  function visit(node) {
+    if (!node || typeof node !== "object") return;
+    if (node.type === "JSXOpeningElement" && node.name.name === "MapView") maps.push(node);
+    if (node.type === "JSXOpeningElement" && node.name.name === "Marker") markers.push(node);
+    if (node.type === "CallExpression" && node.callee.type === "MemberExpression" &&
+      node.callee.object.name === "Location") locationCalls.push(node.callee.property.name);
+    for (const value of Object.values(node)) {
+      if (Array.isArray(value)) value.forEach(visit);
+      else if (value && typeof value === "object") visit(value);
+    }
+  }
+  visit(ast);
+  assert.equal(maps.length, 1);
+  for (const name of ["showsUserLocation", "followsUserLocation"]) {
+    const prop = maps[0].attributes.find((attribute) => attribute.name?.name === name);
+    assert.equal(prop?.value?.expression?.value, false, `${name} must explicitly disable the native location layer`);
+  }
+  assert.ok(locationCalls.includes("getCurrentPositionAsync"));
+  assert.ok(locationCalls.includes("watchPositionAsync"));
+  assert.ok(markers.some((marker) => marker.attributes.some((attribute) =>
+    attribute.name?.name === "coordinate" && attribute.value?.expression?.name === "driverLocation")));
+  const source = fs.readFileSync(filename, "utf8");
+  assert.ok(!source.includes("react-native-maps-directions"));
+  assert.ok(source.includes("drivers/me/orders/${orderId}/route"));
+  assert.ok(source.includes('coordinates={routeCoordinates}'));
+});
+
 test("Expo config wires the same key to native Android config and JavaScript without discarding other settings", () => {
   const savedPublic = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
   const savedPrivate = process.env.GOOGLE_MAPS_API_KEY;

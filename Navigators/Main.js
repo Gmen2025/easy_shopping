@@ -14,7 +14,7 @@ import UserNavigator from './UserNavigator'
 import AdminNavigator from './AdminNavigator'
 import Drivers from '../Screens/Admin/Drivers'
 import CompanyDriverNavigator from './CompanyDriverNavigator'
-import CompanyStoreDashboard from '../Screens/Store/CompanyStoreDashboard'
+import CompanyStoreNavigator from './CompanyStoreNavigator'
 
 const Tab = createBottomTabNavigator();
 
@@ -121,7 +121,7 @@ const Main = () => {
       {isCompanyStoreUser(context.user) ? (
         <Tab.Screen
           name='AdminStore'
-          component={CompanyStoreDashboard}
+          component={CompanyStoreNavigator}
           options={{
             tabBarIcon: ({ color }) => (
               <Icon

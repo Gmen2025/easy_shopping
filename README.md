@@ -28,6 +28,12 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
 - **Company Store Analytics**: AdminStore shows assigned orders and orders containing
   owned or marked-ready products; sales count completed orders only. Analytics
   refresh after marking a product ready, and load failures display a retry message.
+- **Company Store Order Details**: Tap an order in AdminStore's assigned and
+  fulfilled orders list to view its products, quantities, current catalog prices,
+  order/delivery status, schedule, and totals. Assigned orders include all items;
+  mixed-store fulfillments include only store-associated products. Details use
+  the latest loaded dashboard snapshot (up to 20 recent orders); return and
+  refresh for updates.
 - **Company Order Fallback**: With no eligible partner store within 10 km or driver
   within 5 km, the backend routes to the nearest available company account without
   a radius limit. AdminStore receives assigned orders in its overview; AdminDriver
@@ -109,6 +115,12 @@ Store pickup-selection regression tests:
 node --test scripts/storeRouting.test.cjs
 ```
 
+AdminStore order navigation and product-detail regression tests:
+
+```bash
+node --test scripts/companyStoreOrders.test.cjs
+```
+
 ### Native Android builds
 
 Hermes compiler selection uses the React Native Gradle plugin's platform-aware
@@ -131,6 +143,22 @@ The checked-in Gradle project resolves the Expo configuration and supplies the
 code exposes only whether the installed manifest contains a key. If the key or
 native configuration module is missing, map screens display an unavailable
 message rather than creating a crashing native map; delivery controls remain usable.
+Delivery routes use Expo Location for live GPS and render a custom driver marker.
+MapView's native user-location layer and follow mode are disabled to avoid
+unsupported `topUserLocationChange` events in mismatched native map builds;
+the existing route camera updates continue to follow route coordinates.
+If the map is blank with only the Google logo, JavaScript key presence and live
+GPS do not confirm SDK authorization. Check billing, Maps SDK for Android, and
+the installed APK's package/signing SHA-1 restriction. Driving directions are a
+separate web-service request: this library uses the Directions API endpoint.
+The driver's active-route screen now requests driving routes from the authenticated
+backend and draws a polyline. It refreshes at most once per minute using live GPS;
+the server selects the pickup/customer destination from the assigned order.
+Set the separate `GOOGLE_ROUTES_API_KEY` on the backend and enable Routes API.
+The Android SDK key remains Android-restricted. The customer tracking screen still
+uses the older direct Directions integration and is not changed by this driver fix.
+Failures are displayed with key values redacted; estimated straight-line distance
+and ETA are not Google driving directions.
 An OTA update or Metro reload cannot add native manifest metadata: rebuild and
 reinstall the Android app after configuring the key.
 

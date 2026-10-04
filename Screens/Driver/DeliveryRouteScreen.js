@@ -2,23 +2,19 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Linking, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import MapView, { Marker } from "react-native-maps";
-import MapViewDirections from "react-native-maps-directions";
+import MapView, { Marker, Polyline } from "react-native-maps";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
 import Icon from "react-native-vector-icons/FontAwesome";
 import * as Location from "expo-location";
-import Constants from "expo-constants";
-import { canRenderNativeMap, MAP_UNAVAILABLE_MESSAGE } from "../../assets/common/mapsConfiguration";
+import baseUrl from "../../assets/common/baseUrl";
+import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
+import { canRenderNativeMap, formatDirectionsError, MAP_UNAVAILABLE_MESSAGE } from "../../assets/common/mapsConfiguration";
 
 import {
   formatScheduledDeliveryDate,
   updateDeliveryStatus,
 } from "../../assets/common/delivery";
-
-const googleMapsApiKey =
-  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
-  process.env.GOOGLE_MAPS_API_KEY ||
-  Constants.expoConfig?.extra?.googleMapsApiKey ||
-  "";
 
 // Stable module-level fallbacks - must NOT be recreated inline as object literals per render,
 // otherwise the useMemo'd origin/destination below get a new reference every render and the
@@ -67,6 +63,7 @@ const DeliveryRouteScreen = () => {
   const mapRef = useRef(null);
   const [driverLocation, setDriverLocation] = useState(null);
   const [routeStats, setRouteStats] = useState({ distance: 0, duration: 0 });
+  const [routeCoordinates, setRouteCoordinates] = useState([]);
   const [routeError, setRouteError] = useState("");
   const [fallbackEstimate, setFallbackEstimate] = useState(null);
   const [serviceAreaMessage, setServiceAreaMessage] = useState("");
@@ -178,14 +175,61 @@ const DeliveryRouteScreen = () => {
     return distanceKm > 300;
   }, [destination, hasValidRoutePoints, origin]);
 
+  const orderId = request.id || request.orderId || request._id || request.rawPayload?.orderId || request.rawPayload?._id;
+  const latestGps = useRef(null);
+  latestGps.current = driverLocation;
+
   useEffect(() => {
-    console.log("[Route Debug] key present:", Boolean(googleMapsApiKey));
-    console.log("[Route Debug] origin:", origin);
-    console.log("[Route Debug] destination:", destination);
-    console.log("[Route Debug] hasValidRoutePoints:", hasValidRoutePoints);
-    console.log("[Route Debug] usingLiveLocation:", shouldUseLiveLocation);
-    console.log("[Route Debug] isOutsideServiceArea:", isOutsideServiceArea);
-  }, [destination, googleMapsApiKey, hasValidRoutePoints, isOutsideServiceArea, origin, shouldUseLiveLocation]);
+    const controller = new AbortController();
+    let pending = false;
+    let lastRequest = 0;
+    setRouteCoordinates([]);
+    setRouteStats({ distance: 0, duration: 0 });
+    setRouteError("");
+    const loadRoute = async () => {
+      if (pending || !latestGps.current || Date.now() - lastRequest < 60000 || isCompleted) return;
+      if (!orderId) {
+        setRouteError("Driving directions unavailable: missing delivery order ID.");
+        return;
+      }
+      pending = true;
+      lastRequest = Date.now();
+      try {
+        const token = await AsyncStorage.getItem("token");
+        const database = await getDatabaseNameFromStorage();
+        const response = await axios.post(`${baseUrl}drivers/me/orders/${orderId}/route`, {
+          origin: latestGps.current,
+        }, {
+          headers: { Authorization: `Bearer ${token}`, "x-database-name": database },
+          signal: controller.signal, timeout: 20000,
+        });
+        const result = response.data;
+        if (!Array.isArray(result.coordinates) || result.coordinates.length < 2 ||
+          !result.coordinates.every((point) => Number.isFinite(point?.latitude) &&
+            Number.isFinite(point?.longitude) && Math.abs(point.latitude) <= 90 &&
+            Math.abs(point.longitude) <= 180) ||
+          !Number.isFinite(result.distance) || !Number.isFinite(result.duration)) {
+          throw new Error("The server returned incomplete driving-route data.");
+        }
+        if (controller.signal.aborted) return;
+        setRouteCoordinates(result.coordinates);
+        setRouteStats({ distance: result.distance, duration: result.duration });
+        setRouteError("");
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        const message = formatDirectionsError(error.response?.data?.message || error);
+        console.warn("[Route]", message);
+        setRouteError(message);
+        setRouteCoordinates([]);
+        setRouteStats({ distance: 0, duration: 0 });
+      } finally {
+        pending = false;
+      }
+    };
+    loadRoute();
+    const timer = setInterval(loadRoute, 2000);
+    return () => { clearInterval(timer); controller.abort(); };
+  }, [orderId, orderStatus, isCompleted]);
 
   useEffect(() => {
     let active = true;
@@ -288,8 +332,8 @@ const DeliveryRouteScreen = () => {
             latitudeDelta: 0.08,
             longitudeDelta: 0.08,
           }}
-          showsUserLocation
-          followsUserLocation
+          showsUserLocation={false}
+          followsUserLocation={false}
         >
           {driverLocation ? (
             <Marker coordinate={driverLocation}>
@@ -308,26 +352,11 @@ const DeliveryRouteScreen = () => {
               <Text style={styles.markerText}>🏠</Text>
             </View>
           </Marker>
-          {driverLocation && hasValidRoutePoints && googleMapsApiKey ? (
-            <MapViewDirections
-              origin={origin}
-              destination={destination}
-              apikey={googleMapsApiKey}
+          {routeCoordinates.length > 1 ? (
+            <Polyline
+              coordinates={routeCoordinates}
               strokeWidth={4}
               strokeColor="#8a6c09"
-              onReady={(result) => {
-                setRouteError("");
-                setRouteStats({
-                  distance: result.distance,
-                  duration: result.duration,
-                });
-              }}
-              onError={(error) => {
-                console.warn("[Route Debug] MapViewDirections error:", error);
-                console.log("[Route Debug] route request failed with key:", Boolean(googleMapsApiKey));
-                setRouteError("Route unavailable right now. Showing the map without navigation.");
-                setRouteStats({ distance: 0, duration: 0 });
-              }}
             />
           ) : null}
         </MapView> : (
@@ -381,7 +410,7 @@ const DeliveryRouteScreen = () => {
           ) : null}
           <View style={styles.metricsRow}>
             <View style={styles.metricBox}>
-              <Text style={styles.metricLabel}>ETA</Text>
+              <Text style={styles.metricLabel}>{fallbackEstimate ? "Estimated ETA" : "ETA"}</Text>
               <Text style={styles.metricValue}>
                 {routeStats.duration > 0
                   ? `${Math.max(1, Math.round(routeStats.duration))} min`
@@ -391,7 +420,7 @@ const DeliveryRouteScreen = () => {
               </Text>
             </View>
             <View style={styles.metricBox}>
-              <Text style={styles.metricLabel}>Distance</Text>
+              <Text style={styles.metricLabel}>{fallbackEstimate ? "Straight-line distance" : "Distance"}</Text>
               <Text style={styles.metricValue}>
                 {routeStats.distance > 0
                   ? `${routeStats.distance.toFixed(1)} km`

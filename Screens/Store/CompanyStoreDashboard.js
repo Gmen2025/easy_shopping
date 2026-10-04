@@ -26,7 +26,7 @@ const DASHBOARD_PERIODS = [
   { key: "yearly", label: "365 Days" },
 ];
 
-const CompanyStoreDashboard = () => {
+const CompanyStoreDashboard = ({ navigation }) => {
   const { logout, user } = useContext(AuthContext);
   const { formatPrice } = useCurrency();
   const [products, setProducts] = useState([]);
@@ -290,9 +290,15 @@ const CompanyStoreDashboard = () => {
               {recentOrders.length > 0 ? (
                 <View style={styles.recentCard}>
                   {recentOrders.map((order, index) => (
-                    <View
+                    <TouchableOpacity
                       key={order._id || order.orderId || index}
                       style={styles.recentRow}
+                      accessibilityRole="button"
+                      accessibilityLabel={`View products for order ${order._id || order.orderId}`}
+                      onPress={() => navigation.navigate("CompanyStoreOrderDetails", {
+                        order,
+                        storeName: dashboard.store?.name,
+                      })}
                     >
                       <View>
                         <Text style={styles.recentOrder}>
@@ -301,6 +307,9 @@ const CompanyStoreDashboard = () => {
                         <Text style={styles.recentMeta}>
                           {order.units ?? order.itemCount ?? "—"} item(s) ·{" "}
                           {formatDate(order.completedAt || order.dateOrdered || order.createdAt)}
+                        </Text>
+                        <Text style={styles.recentMeta}>
+                          {order.deliveryStatus || order.status || "Status unavailable"} · View products
                         </Text>
                         {order.deliveryMode === "SCHEDULED" ||
                         order.scheduledFor ||
@@ -314,7 +323,7 @@ const CompanyStoreDashboard = () => {
                       <Text style={styles.recentAmount}>
                         {formatPrice(order.sales ?? order.totalPrice ?? 0)}
                       </Text>
-                    </View>
+                    </TouchableOpacity>
                   ))}
                 </View>
               ) : (
