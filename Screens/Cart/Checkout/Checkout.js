@@ -20,12 +20,10 @@ import { useSelector } from "react-redux";
 import axios from "axios";
 import baseUrl from "../../../assets/common/baseUrl";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Location from "expo-location";
+import { resolveDeliveryLocation } from "../../../assets/common/deliveryLocation";
+import { getShippingAddressText } from "../../../assets/common/orderTracking";
 import { validateOrderStock } from "../../../assets/common/inventory";
-import {
-  buildStoreAssignmentPayload,
-  haversineDistanceKm,
-} from "../../../assets/common/stores";
+import { buildStoreAssignmentPayload } from "../../../assets/common/stores";
 import {
   getDeliverySettings,
   estimateDeliveryDistanceKm,
@@ -336,54 +334,19 @@ function Checkout(props) {
       const latestDeliveryConfig = latestDeliverySettings.deliveryConfig;
       setDeliveryConfig(latestDeliveryConfig);
 
-      let customerLocation = null;
+      const shippingAddressText = getShippingAddressText({
+        address1: address, address2, city, zip, country,
+      });
+      const customerLocation = await resolveDeliveryLocation(shippingAddressText, country);
+      const storeAssignment = await buildStoreAssignmentPayload(customerLocation, token);
 
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === "granted") {
-          const currentPosition = await Promise.race([
-            Location.getCurrentPositionAsync({
-              accuracy: Location.Accuracy.Balanced,
-            }),
-            new Promise((_, reject) =>
-              setTimeout(() => reject(new Error("location_timeout")), 8000)
-            ),
-          ]);
-          customerLocation = {
-            latitude: currentPosition.coords.latitude,
-            longitude: currentPosition.coords.longitude,
-          };
-        }
-      } catch (error) {
-        console.warn("Unable to read current location for store assignment:", error);
-      }
-
-      const storeAssignment = await buildStoreAssignmentPayload(
-        customerLocation || {
-          latitude: 8.9806,
-          longitude: 38.7578,
-        },
-        token
-      );
-
-      const straightLineDistanceKm = haversineDistanceKm(
-        customerLocation || storeAssignment.customerLocation,
-        storeAssignment.storeLocation
-      );
-
-      const shippingAddressText = [address, city, country]
-        .filter(Boolean)
-        .join(", ");
       const googleDistanceKm = await estimateDeliveryDistanceKm({
         destinationAddress: shippingAddressText,
         storeId: storeAssignment.storeId,
+        token,
       });
 
-      const normalizedDistanceKm = Number.isFinite(googleDistanceKm)
-        ? googleDistanceKm
-        : Number.isFinite(straightLineDistanceKm)
-        ? straightLineDistanceKm
-        : 0;
+      const normalizedDistanceKm = googleDistanceKm;
       const deliveryFee = estimateDeliveryFee(
         deliveryMode,
         normalizedDistanceKm,
@@ -423,10 +386,8 @@ function Checkout(props) {
         totalPrice: calculateItemsSubtotal(orderItems) + deliveryFee,
         ...storeAssignment,
         pickupStoreName: storeAssignment.pickupStoreName || "Nearby Store",
-        customerLocation: storeAssignment.customerLocation || {
-          latitude: 8.9806,
-          longitude: 38.7578,
-        },
+        customerLocation,
+        customerLocationSource: "shipping-address",
         paymentMethod: null,
         methodName: null,
         cardType: null,
@@ -440,7 +401,7 @@ function Checkout(props) {
         topOffset: 60,
         type: "error",
         text1: "Something went wrong",
-        text2: "Please check your connection and try again",
+        text2: error?.message || "Please check your connection and try again",
       });
     } finally {
       setIsSubmitting(false);

@@ -56,6 +56,10 @@ module.exports = ({ config }) => {
       telebirrMockEnabled,
       socketUrl,
       googleMapsApiKey,
+      googleDirectionsApiKey:
+        process.env.EXPO_PUBLIC_GOOGLE_DIRECTIONS_API_KEY ||
+        existingExtra.googleDirectionsApiKey ||
+        "",
     },
   };
 };

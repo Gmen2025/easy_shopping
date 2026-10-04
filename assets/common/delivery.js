@@ -109,23 +109,36 @@ export const getDeliverySettings = async ({ token, allowCached = true } = {}) =>
   }
 };
 
-// Asks the server to compute driving distance via the Google Distance Matrix API (server-side
-// key). Prefers the assigned store's own address as the origin; falls back to the admin's
-// single hub address. Returns null if the API isn't configured or the lookup fails, in which
-// case callers should fall back to a straight-line (haversine) estimate.
-export const estimateDeliveryDistanceKm = async ({ destinationAddress, storeId } = {}) => {
+// The server computes road distance using its restricted Google API key.
+export const estimateDeliveryDistanceKm = async ({ destinationAddress, storeId, token } = {}) => {
   if (!destinationAddress) {
-    return null;
+    throw new Error("A delivery address is required to calculate driving distance.");
+  }
+
+  const authToken = token || await AsyncStorage.getItem("token");
+  if (!authToken) {
+    throw new Error("Please sign in again to calculate delivery driving distance.");
   }
 
   try {
     const response = await axios.post(
       `${baseUrl}settings/delivery/estimate-distance`,
       { destinationAddress, storeId },
-      { timeout: 10000 }
+      {
+        headers: { Authorization: `Bearer ${authToken}` },
+        timeout: 10000,
+      }
     );
-    return Number.isFinite(response.data?.distanceKm) ? response.data.distanceKm : null;
+    if (response.data?.success !== false &&
+      Number.isFinite(response.data?.distanceKm) && response.data.distanceKm >= 0) {
+      return response.data.distanceKm;
+    }
+    throw new Error(response.data?.message || "The server did not return a driving distance.");
   } catch (error) {
-    return null;
+    throw new Error(
+      error?.response?.data?.message ||
+        error?.message ||
+        "Driving distance is unavailable. Please try again later."
+    );
   }
 };

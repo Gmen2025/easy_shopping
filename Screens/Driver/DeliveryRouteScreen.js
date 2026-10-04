@@ -15,35 +15,11 @@ import {
   formatScheduledDeliveryDate,
   updateDeliveryStatus,
 } from "../../assets/common/delivery";
-
-// Stable module-level fallbacks - must NOT be recreated inline as object literals per render,
-// otherwise the useMemo'd origin/destination below get a new reference every render and the
-// effects that depend on them (fitToCoordinates, fallback ETA) loop forever.
-const DEFAULT_DRIVER_COORDINATES = { latitude: 8.9806, longitude: 38.7578 };
-const DEFAULT_STORE_COORDINATES = { latitude: 8.9851, longitude: 38.7642 };
-const DEFAULT_CUSTOMER_COORDINATES = { latitude: 8.9818, longitude: 38.7728 };
-
-const haversineDistanceKm = (start, end) => {
-  if (!start || !end) {
-    return 0;
-  }
-
-  const toRad = (value) => (value * Math.PI) / 180;
-  const earthRadiusKm = 6371;
-  const dLat = toRad(end.latitude - start.latitude);
-  const dLon = toRad(end.longitude - start.longitude);
-  const lat1 = toRad(start.latitude);
-  const lat2 = toRad(end.latitude);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.sin(dLon / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return earthRadiusKm * c;
-};
+import { formatDistance, toLatLng } from "../../assets/common/orderTracking";
 
 // Opens the device's Google Maps app/browser with turn-by-turn driving directions for this leg.
 const buildGoogleMapsDrivingUrl = (destination, origin) => {
-  if (!destination?.latitude || !destination?.longitude) {
+  if (destination?.latitude == null || destination?.longitude == null) {
     return null;
   }
   const params = [
@@ -51,7 +27,7 @@ const buildGoogleMapsDrivingUrl = (destination, origin) => {
     `destination=${encodeURIComponent(`${destination.latitude},${destination.longitude}`)}`,
     "travelmode=driving",
   ];
-  if (origin?.latitude && origin?.longitude) {
+  if (origin?.latitude != null && origin?.longitude != null) {
     params.push(`origin=${encodeURIComponent(`${origin.latitude},${origin.longitude}`)}`);
   }
   return `https://www.google.com/maps/dir/?${params.join("&")}`;
@@ -65,7 +41,6 @@ const DeliveryRouteScreen = () => {
   const [routeStats, setRouteStats] = useState({ distance: 0, duration: 0 });
   const [routeCoordinates, setRouteCoordinates] = useState([]);
   const [routeError, setRouteError] = useState("");
-  const [fallbackEstimate, setFallbackEstimate] = useState(null);
   const [pickupRouteStarted, setPickupRouteStarted] = useState(false);
   const [deliveryRouteStarted, setDeliveryRouteStarted] = useState(false);
   const [locationStatus, setLocationStatus] = useState("Waiting for live GPS");
@@ -85,17 +60,34 @@ const DeliveryRouteScreen = () => {
   const liveOrderStatus = request?.rawPayload?.status || orderStatus;
   const isCompleted = liveOrderStatus === "Delivered" || liveOrderStatus === "completed" || orderStatus === "Delivered";
   const driverCoordinates = useMemo(
-    () => request.driverCoordinates || DEFAULT_DRIVER_COORDINATES,
-    [request.driverCoordinates]
+    () => toLatLng(request.driverCoordinates) || toLatLng(request.rawPayload?.driverCoordinates),
+    [request.driverCoordinates, request.rawPayload]
   );
   const storeCoordinates = useMemo(
-    () => request.storeLocation || request.pickupLocation || DEFAULT_STORE_COORDINATES,
-    [request.storeLocation, request.pickupLocation]
+    () =>
+      toLatLng(request.storeLocation) ||
+      toLatLng(request.pickupLocation) ||
+      toLatLng(request.pickupStore) ||
+      toLatLng(request.storeAssignment?.coordinates) ||
+      toLatLng(request.rawPayload?.storeLocation) ||
+      toLatLng(request.rawPayload?.pickupStore),
+    [request.storeLocation, request.pickupLocation, request.pickupStore, request.storeAssignment, request.rawPayload]
   );
   const customerCoordinates = useMemo(
-    () => request.customerLocation || request.deliveryLocation || request.dropOffLocation || DEFAULT_CUSTOMER_COORDINATES,
-    [request.customerLocation, request.deliveryLocation, request.dropOffLocation]
+    () => toLatLng(
+      request.customerLocation
+    ) || toLatLng(request.deliveryLocation) ||
+      toLatLng(request.dropOffLocation) ||
+      toLatLng(request.rawPayload?.customerLocation),
+    [
+      request.customerLocation,
+      request.deliveryLocation,
+      request.dropOffLocation,
+      request.rawPayload,
+    ]
   );
+  const deliveryCountry =
+    request.country || request.dropoffAddress?.country || request.rawPayload?.country || "";
 
   const pickupAddressLabel = request.storeAddress || request.pickupStoreName || "Pickup location";
   const dropoffAddressLabel = request.revealed
@@ -266,7 +258,7 @@ const DeliveryRouteScreen = () => {
   }, []);
 
   useEffect(() => {
-    if (mapRef.current && origin) {
+    if (mapRef.current && origin && destination) {
       mapRef.current.fitToCoordinates([origin, destination], {
         edgePadding: {
           top: 100,
@@ -279,23 +271,10 @@ const DeliveryRouteScreen = () => {
     }
   }, [destination, origin]);
 
-  useEffect(() => {
-    if (routeStats.distance > 0 || routeStats.duration > 0) {
-      setFallbackEstimate(null);
-      return;
-    }
-
-    if (origin?.latitude != null && origin?.longitude != null && destination?.latitude != null && destination?.longitude != null) {
-      const distanceKm = haversineDistanceKm(origin, destination);
-      const estimatedMinutes = Math.max(5, Math.round(distanceKm * 2));
-      setFallbackEstimate({ distanceKm, estimatedMinutes });
-    }
-  }, [destination, origin, routeStats.distance, routeStats.duration]);
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {canRenderNativeMap ? <MapView
+        {canRenderNativeMap && origin && destination ? <MapView
           ref={mapRef}
           style={styles.map}
           initialRegion={{
@@ -333,7 +312,11 @@ const DeliveryRouteScreen = () => {
           ) : null}
         </MapView> : (
           <View style={[styles.map, { alignItems: "center", justifyContent: "center", padding: 24 }]}>
-            <Text>{MAP_UNAVAILABLE_MESSAGE}</Text>
+            <Text>
+              {canRenderNativeMap
+                ? "Map and driving route will appear when pickup, delivery, and driver coordinates are available."
+                : MAP_UNAVAILABLE_MESSAGE}
+            </Text>
           </View>
         )}
 
@@ -382,23 +365,19 @@ const DeliveryRouteScreen = () => {
           ) : null}
           <View style={styles.metricsRow}>
             <View style={styles.metricBox}>
-              <Text style={styles.metricLabel}>{fallbackEstimate ? "Estimated ETA" : "ETA"}</Text>
+              <Text style={styles.metricLabel}>Driving ETA</Text>
               <Text style={styles.metricValue}>
                 {routeStats.duration > 0
                   ? `${Math.max(1, Math.round(routeStats.duration))} min`
-                  : fallbackEstimate
-                    ? `${fallbackEstimate.estimatedMinutes} min`
-                    : "—"}
+                  : "—"}
               </Text>
             </View>
             <View style={styles.metricBox}>
-              <Text style={styles.metricLabel}>{fallbackEstimate ? "Straight-line distance" : "Distance"}</Text>
+              <Text style={styles.metricLabel}>Driving distance</Text>
               <Text style={styles.metricValue}>
                 {routeStats.distance > 0
-                  ? `${routeStats.distance.toFixed(1)} km`
-                  : fallbackEstimate
-                    ? `${fallbackEstimate.distanceKm.toFixed(1)} km`
-                    : "—"}
+                  ? formatDistance(routeStats.distance, deliveryCountry)
+                  : "—"}
               </Text>
             </View>
           </View>

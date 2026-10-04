@@ -6,6 +6,7 @@ import android.content.res.Configuration
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
+import com.facebook.react.ReactPackage
 import com.facebook.react.ReactHost
 import com.facebook.react.common.ReleaseLevel
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
@@ -15,12 +16,15 @@ import expo.modules.ExpoReactHostFactory
 
 class MainApplication : Application(), ReactApplication {
 
-  override val reactHost: ReactHost
-    get() = ExpoReactHostFactory.getDefaultReactHost(
-      applicationContext,
-      PackageList(this).packages.apply { add(MapsConfigurationPackage()) },
-      useDevSupport = BuildConfig.DEBUG
+  override val reactHost: ReactHost by lazy {
+    ExpoReactHostFactory.getDefaultReactHost(
+      context = applicationContext,
+      packageList =
+        PackageList(this).packages.apply {
+          add(MapsConfigurationPackage())
+        }
     )
+  }
 
   override fun onCreate() {
     super.onCreate()

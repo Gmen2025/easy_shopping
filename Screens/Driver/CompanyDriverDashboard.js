@@ -43,6 +43,7 @@ const normalizeQueueEntry = (entry = {}) => {
     payout: entry.deliveryFee ? `${entry.deliveryFee}` : "",
     customerName: entry.customer?.name || "Customer",
     customerPhone: entry.customer?.phone || "",
+    country: entry.address?.country || entry.rawPayload?.country || "",
     dropZoneLabel: [dropZone.city, dropZone.zip].filter(Boolean).join(", ") || "Nearby area",
     approxDropLocation: Array.isArray(approxCoordinates)
       ? { latitude: approxCoordinates[1], longitude: approxCoordinates[0] }

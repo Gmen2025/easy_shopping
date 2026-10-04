@@ -15,6 +15,7 @@ import { useCurrency } from '../../../assets/common/currency';
 import { deductInventoryFromOrder, validateOrderStock } from '../../../assets/common/inventory';
 import { getDatabaseNameFromStorage } from '../../../assets/common/databaseConfig';
 import { isCashOnDeliveryAvailable, isCashOnDeliveryMethod } from '../../../assets/common/paymentAvailability';
+import { getTrackingOrder } from '../../../assets/common/orderTracking';
 
 
 
@@ -144,7 +145,7 @@ const Confirm = (props) => {
           if (order.deliveryMode === "SAME_DAY" && createdOrder?._id) {
             props.navigation.navigate("User", {
               screen: "OrderTracking",
-              params: { orderId: createdOrder._id, order: createdOrder },
+              params: { orderId: createdOrder._id, order: getTrackingOrder(order, createdOrder) },
             });
           } else {
             props.navigation.navigate("CartHome");

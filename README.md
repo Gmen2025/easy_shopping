@@ -165,15 +165,47 @@ Live GPS is used regardless of distance to the destination; there is no artifici
 GPS permission/fetch failures are shown explicitly, and distance estimates do not
 clear backend routing errors.
 Set the separate `GOOGLE_ROUTES_API_KEY` on the backend and enable Routes API.
-The Android SDK key remains Android-restricted. The customer tracking screen still
-uses the older direct Directions integration and is not changed by this driver fix.
-Failures are displayed with key values redacted; estimated straight-line distance
-and ETA are not Google driving directions.
+The Android SDK key remains Android-restricted. Customer tracking uses direct
+Directions API requests and requires a separate
+`EXPO_PUBLIC_GOOGLE_DIRECTIONS_API_KEY`. Enable Directions API for that key;
+the Android SDK key and its Android-app restriction cannot authorize a Directions
+web-service request. An embedded client key is public, so restrict it to the
+Directions API and use a backend proxy with a server-restricted key for production.
+There is no SDK-key fallback. If directions fail or are not configured, neither
+customer nor driver tracking draws a straight-line substitute or shows a distance
+or ETA estimate.
+Immediately after purchase, tracking uses the checkout pickup/customer coordinates
+until the tracking response supplies them. Pending orders show the pickup-to-delivery
+route even before a driver reports GPS; assigned drivers show the active pickup
+or delivery leg. The camera fits the coordinates after the native map is ready.
+Checkout geocodes the entered shipping address for store assignment and the drop-off,
+not the device's current GPS position, and verifies the result belongs to the selected
+country. Android's native geocoder requires location permission. If the address cannot
+be resolved or verified, checkout reports the error instead of substituting a coordinate.
+Tracking resolves shipping addresses on older orders as well; until resolution succeeds
+it shows only known map points. US route distances display in miles; other countries
+continue to display kilometers.
+Use Refresh to retry an address lookup after granting permission or fixing connectivity.
+Failures are displayed with key values redacted. Checkout also requires the backend's
+road-distance estimate to price delivery; it does not substitute a straight-line distance.
+The distance-estimation request includes the customer's Bearer token, using the
+stored session token if checkout has not loaded it yet. A missing session reports
+that sign-in is required rather than sending an unauthenticated request.
+Checkout distance requires the backend's `GOOGLE_MAPS_API_KEY` authorized for
+Distance Matrix API; the mobile Directions key does not configure this endpoint.
+Backend error messages are preserved when a driving distance is unavailable.
 An OTA update or Metro reload cannot add native manifest metadata: rebuild and
 reinstall the Android app after configuring the key.
+For EAS development builds, set `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` in the
+**development** EAS environment (a local `.env` does not configure an already
+installed EAS APK). Build with `eas build --platform android --profile development`,
+install the new APK, and restart the dev client. A missing native map configuration
+module message means the installed APK predates the checked-in native integration.
 
 Validate key wiring and the missing-key guard with
 `node --test scripts/mapsConfiguration.test.cjs`.
+Validate post-purchase coordinates and route selection with
+`node --test scripts/orderTracking.test.cjs`.
 
 The checked-in `android/` project is the source of truth for Android builds, including EAS Build.
 Changes to native settings in `app.json` or `app.config.js` (such as icons, permissions,

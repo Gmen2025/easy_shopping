@@ -24,6 +24,7 @@ import { useContext } from "react";
 import { AuthContext } from "../../../Context/store/Auth";
 import { useCurrency } from "../../../assets/common/currency";
 import { deductInventoryFromOrder, validateOrderStock } from "../../../assets/common/inventory";
+import { getTrackingOrder } from "../../../assets/common/orderTracking";
 
 const width = Dimensions.get("window").width;
 const stripeCurrency =
@@ -180,6 +181,7 @@ const StripePaymentSupported = (props) => {
         pickupStoreName: orderData.pickupStoreName || orderData.pickupStore?.name || null,
         storeLocation: orderData.storeLocation || null,
         customerLocation: orderData.customerLocation || null,
+        customerLocationSource: orderData.customerLocationSource,
         pickupStoreId: orderData.pickupStoreId || orderData.pickupStore?._id || orderData.pickupStore?.id || null,
         storeId: orderData.storeId || orderData.pickupStore?._id || orderData.pickupStore?.id || null,
         storeAssignment: orderData.storeAssignment || null,
@@ -243,7 +245,7 @@ const StripePaymentSupported = (props) => {
           if (orderData.deliveryMode === "SAME_DAY" && createdOrder?._id) {
             props.navigation.navigate("User", {
               screen: "OrderTracking",
-              params: { orderId: createdOrder._id, order: createdOrder },
+              params: { orderId: createdOrder._id, order: getTrackingOrder(orderData, createdOrder) },
             });
           } else {
             props.navigation.navigate("CartHome");

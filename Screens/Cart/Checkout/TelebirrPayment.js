@@ -19,6 +19,7 @@ import axios from "axios";
 import baseUrl from "../../../assets/common/baseUrl";
 import { useCurrency } from "../../../assets/common/currency";
 import { deductInventoryFromOrder, validateOrderStock } from "../../../assets/common/inventory";
+import { getTrackingOrder } from "../../../assets/common/orderTracking";
 
 const TelebirrPayment = (props) => {
   // Change from destructured props to props
@@ -124,7 +125,7 @@ const TelebirrPayment = (props) => {
           if (orderData.deliveryMode === "SAME_DAY" && createdOrder?._id) {
             props.navigation.navigate("User", {
               screen: "OrderTracking",
-              params: { orderId: createdOrder._id, order: createdOrder },
+              params: { orderId: createdOrder._id, order: getTrackingOrder(orderData, createdOrder) },
             });
           } else {
             props.navigation.navigate("CartHome");

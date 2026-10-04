@@ -9,9 +9,11 @@ import {
   StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import MapView, { Marker, Polyline } from "react-native-maps";
+import MapView, { Marker } from "react-native-maps";
 import MapViewDirections from "react-native-maps-directions";
-import { canRenderNativeMap, MAP_UNAVAILABLE_MESSAGE } from "../../assets/common/mapsConfiguration";
+import { canRenderNativeMap, formatDirectionsError, MAP_UNAVAILABLE_MESSAGE } from "../../assets/common/mapsConfiguration";
+import { formatDistance, getTrackingAddress, getShippingAddressText, getTrackingLocations, getTrackingRoute, toLatLng } from "../../assets/common/orderTracking";
+import { resolveDeliveryLocation } from "../../assets/common/deliveryLocation";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import Constants from "expo-constants";
@@ -23,10 +25,9 @@ import {
   getCustomerSocket,
 } from "../../assets/common/socketClient";
 
-const googleMapsApiKey =
-  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
-  Constants.expoConfig?.extra?.googleMapsApiKey ||
-  "";
+const googleDirectionsApiKey =
+  process.env.EXPO_PUBLIC_GOOGLE_DIRECTIONS_API_KEY ||
+  Constants.expoConfig?.extra?.googleDirectionsApiKey || "";
 
 const DEFAULT_REGION = {
   latitude: 8.9806,
@@ -46,15 +47,6 @@ const POLL_INTERVAL_MS = 15000;
 const NEARBY_POLL_INTERVAL_MS = 30000;
 const NEARBY_DRIVERS_RADIUS_KM = 5;
 
-const toLatLng = (value) => {
-  if (!value) return null;
-  const latitude = Number(value.latitude);
-  const longitude = Number(value.longitude);
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
-  if (latitude === 0 && longitude === 0) return null;
-  return { latitude, longitude };
-};
-
 const formatRecordedAt = (value) => {
   if (!value) return "Waiting for GPS fix";
   const date = new Date(value);
@@ -63,6 +55,7 @@ const formatRecordedAt = (value) => {
 };
 
 const OrderTrackingScreen = (props) => {
+  const order = props.route?.params?.order;
   const orderId =
     props.route?.params?.orderId || props.route?.params?.order?._id || "";
 
@@ -75,9 +68,37 @@ const OrderTrackingScreen = (props) => {
   const [nearbyDrivers, setNearbyDrivers] = useState([]);
   const [socketConnected, setSocketConnected] = useState(false);
   const [routeStats, setRouteStats] = useState(null);
+  const [routeError, setRouteError] = useState("");
+  const [mapReady, setMapReady] = useState(false);
+  const [resolvedDropoff, setResolvedDropoff] = useState(null);
+  const [dropoffError, setDropoffError] = useState("");
+  const [dropoffRetry, setDropoffRetry] = useState(0);
+  const dropoffAddress = useMemo(() => getTrackingAddress(tracking, order), [tracking, order]);
+  const shippingAddressText = getShippingAddressText(dropoffAddress);
+  const hasAddressCoordinates = order?.customerLocationSource === "shipping-address" &&
+    toLatLng(order?.customerLocation) != null;
+
+  useEffect(() => {
+    let cancelled = false;
+    setResolvedDropoff(null);
+    setDropoffError("");
+    if (!shippingAddressText || hasAddressCoordinates) {
+      return undefined;
+    }
+    resolveDeliveryLocation(shippingAddressText, dropoffAddress.country).then((point) => {
+      if (!cancelled) setResolvedDropoff({ address: shippingAddressText, point });
+    }).catch((err) => {
+      if (!cancelled) setDropoffError(err?.message || "Unable to locate the delivery address.");
+    });
+    return () => { cancelled = true; };
+  }, [shippingAddressText, dropoffAddress.country, hasAddressCoordinates, dropoffRetry]);
 
   const fetchTracking = useCallback(async () => {
-    if (!orderId) return;
+    if (!orderId) {
+      setError("Unable to load tracking: missing order ID.");
+      setLoading(false);
+      return;
+    }
     try {
       const token = await AsyncStorage.getItem("token");
       const response = await axios.get(`${baseUrl}orders/${orderId}/tracking`, {
@@ -160,20 +181,26 @@ const OrderTrackingScreen = (props) => {
   }, [orderId, fetchTracking]);
 
   const deliveryStatus = liveStatus || tracking?.deliveryStatus || "Pending";
-  const pickup = useMemo(() => toLatLng(tracking?.pickup), [tracking]);
-  const dropoff = useMemo(() => toLatLng(tracking?.dropoff), [tracking]);
-  const driverPoint = liveDriverLocation || toLatLng(tracking?.driverLocation);
+  const { pickup, dropoff } = useMemo(
+    () => getTrackingLocations(tracking, order,
+      resolvedDropoff?.address === shippingAddressText ? resolvedDropoff.point : null),
+    [tracking, order, resolvedDropoff, shippingAddressText]
+  );
+  const driverPoint = useMemo(
+    () => toLatLng(liveDriverLocation) || toLatLng(tracking?.driverLocation),
+    [liveDriverLocation, tracking?.driverLocation]
+  );
   const isDelivered = deliveryStatus === "Delivered";
   const isDeliveryLeg = deliveryStatus === "Picked Up";
 
-  const routeOrigin = isDelivered
-    ? pickup
-    : driverPoint || (isDeliveryLeg ? pickup : null);
-  const routeDestination = isDelivered
-    ? dropoff
-    : isDeliveryLeg
-      ? dropoff
-      : pickup;
+  const { origin: routeOrigin, destination: routeDestination } =
+    getTrackingRoute(deliveryStatus, pickup, dropoff, driverPoint);
+
+  useEffect(() => {
+    setRouteStats(null);
+    setRouteError("");
+  }, [routeOrigin?.latitude, routeOrigin?.longitude,
+    routeDestination?.latitude, routeDestination?.longitude]);
 
   useEffect(() => {
     if (!pickup) return undefined;
@@ -226,13 +253,13 @@ const OrderTrackingScreen = (props) => {
   );
 
   useEffect(() => {
-    if (mapRef.current && mapPoints.length > 1) {
+    if (mapReady && mapRef.current && mapPoints.length > 0) {
       mapRef.current.fitToCoordinates(mapPoints, {
         edgePadding: { top: 60, right: 60, bottom: 60, left: 60 },
         animated: true,
       });
     }
-  }, [mapPoints]);
+  }, [mapReady, mapPoints]);
 
   const activeStepIndex = Math.max(
     0,
@@ -240,7 +267,6 @@ const OrderTrackingScreen = (props) => {
   );
 
   const driverInfo = tracking?.driver || null;
-  const dropoffAddress = tracking?.dropoff || {};
   const dropoffAddressText = [
     dropoffAddress.address1,
     dropoffAddress.city,
@@ -249,7 +275,7 @@ const OrderTrackingScreen = (props) => {
     .filter(Boolean)
     .join(", ");
 
-  if (loading && !tracking) {
+  if (loading && !tracking && !pickup && !dropoff) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
@@ -281,7 +307,10 @@ const OrderTrackingScreen = (props) => {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.btnAction} onPress={fetchTracking}>
+        <TouchableOpacity style={styles.btnAction} onPress={() => {
+          fetchTracking();
+          setDropoffRetry((value) => value + 1);
+        }}>
           <Icon name="refresh" size={14} color="#000" />
           <Text style={styles.btnActionText}>Refresh</Text>
         </TouchableOpacity>
@@ -344,34 +373,39 @@ const OrderTrackingScreen = (props) => {
         </View>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {dropoffError ? <Text style={styles.errorText}>{dropoffError}</Text> : null}
+        {shippingAddressText && !dropoff && !dropoffError ? (
+          <Text style={styles.mutedText}>Locating the delivery address...</Text>
+        ) : null}
 
         {/* Map View */}
         {canRenderNativeMap && mapPoints.length > 0 ? (
           <View style={styles.mapWrapper}>
-            <MapView ref={mapRef} style={styles.map} initialRegion={DEFAULT_REGION}>
-              {googleMapsApiKey && routeOrigin && routeDestination ? (
+            <MapView
+              ref={mapRef}
+              style={styles.map}
+              initialRegion={{ ...DEFAULT_REGION, ...(pickup || dropoff || driverPoint) }}
+              onMapReady={() => setMapReady(true)}
+            >
+              {googleDirectionsApiKey && routeOrigin && routeDestination ? (
                 <MapViewDirections
                   origin={routeOrigin}
                   destination={routeDestination}
-                  apikey={googleMapsApiKey}
+                  apikey={googleDirectionsApiKey}
                   strokeWidth={4}
                   strokeColor="#0f172a"
                   mode="DRIVING"
                   onReady={(result) => {
+                    setRouteError("");
                     setRouteStats({
                       distance: result.distance,
                       duration: result.duration,
                     });
                   }}
-                  onError={() => setRouteStats(null)}
-                />
-              ) : null}
-
-              {!googleMapsApiKey && routeOrigin && routeDestination ? (
-                <Polyline
-                  coordinates={[routeOrigin, routeDestination]}
-                  strokeColor="#0f172a"
-                  strokeWidth={4}
+                  onError={(message) => {
+                    setRouteStats(null);
+                    setRouteError(formatDirectionsError(message));
+                  }}
                 />
               ) : null}
 
@@ -422,6 +456,12 @@ const OrderTrackingScreen = (props) => {
             </Text>
           </View>
         )}
+        {canRenderNativeMap && routeOrigin && routeDestination &&
+          (!googleDirectionsApiKey || routeError) ? (
+            <Text style={styles.errorText}>
+              {routeError || "Driving directions are not configured. Route distance and ETA are unavailable until a Directions API key is set."}
+            </Text>
+          ) : null}
 
         {/* Trip Information Details */}
         <View style={styles.card}>
@@ -482,7 +522,7 @@ const OrderTrackingScreen = (props) => {
                 <View style={styles.rowContent}>
                   <Text style={styles.cardLabel}>Estimated Arrival</Text>
                   <Text style={styles.cardValue}>
-                    {routeStats.distance.toFixed(1)} km away • ~{Math.round(routeStats.duration)} mins
+                    {formatDistance(routeStats.distance, dropoffAddress.country)} away • ~{Math.round(routeStats.duration)} mins
                   </Text>
                 </View>
               </View>
@@ -524,14 +564,19 @@ const OrderTrackingScreen = (props) => {
                     </Text>
                   </View>
                   <Text style={styles.distanceBadge}>
-                    {driver.distanceKm != null ? `${driver.distanceKm} km` : "Nearby"}
+                    {driver.distanceKm != null
+                      ? formatDistance(driver.distanceKm, dropoffAddress.country)
+                      : "Nearby"}
                   </Text>
                 </View>
               </React.Fragment>
             ))
           ) : (
             <Text style={styles.mutedText}>
-              No active drivers detected within {NEARBY_DRIVERS_RADIUS_KM} km of pickup point.
+              No active drivers detected within {formatDistance(
+                NEARBY_DRIVERS_RADIUS_KM,
+                dropoffAddress.country
+              )} of pickup point.
             </Text>
           )}
         </View>

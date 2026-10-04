@@ -30,6 +30,11 @@ test("iOS maps are unaffected by the Android manifest requirement", () => {
   assert.equal(loadConfiguration("ios", undefined).canRenderNativeMap, true);
 });
 
+test("Android map diagnostics distinguish an outdated APK from a build with no SDK key", () => {
+  assert.match(loadConfiguration("android", undefined).MAP_UNAVAILABLE_MESSAGE, /missing the native map configuration module/);
+  assert.match(loadConfiguration("android", { isConfigured: false }).MAP_UNAVAILABLE_MESSAGE, /no Android Google Maps API key/);
+});
+
 test("directions failures preserve the diagnostic reason without exposing API keys or claiming tiles loaded", () => {
   const { formatDirectionsError } = loadConfiguration("android", { isConfigured: true });
   assert.match(formatDirectionsError("REQUEST_DENIED: API is not enabled"), /REQUEST_DENIED: API is not enabled/);
@@ -40,6 +45,15 @@ test("directions failures preserve the diagnostic reason without exposing API ke
   assert.ok(!message.includes("another-secret"));
   assert.ok(!message.includes("Showing the map"));
   assert.match(formatDirectionsError(null), /Check your connection/);
+});
+
+test("Directions API authorization errors identify the Android SDK key mismatch without repeating IP details", () => {
+  const { formatDirectionsError } = loadConfiguration("android", { isConfigured: true });
+  const message = formatDirectionsError(
+    "This IP or mobile application is not authorized to use this API key. Request received from IP address 192.0.2.1, with empty referer"
+  );
+  assert.match(message, /separate key authorized for the Directions API/);
+  assert.doesNotMatch(message, /192\.0\.2\.1|empty referer/);
 });
 
 test("delivery routes use Expo GPS and a driver marker instead of native user-location events", () => {
@@ -84,9 +98,11 @@ test("delivery routes use Expo GPS and a driver marker instead of native user-lo
 test("Expo config wires the same key to native Android config and JavaScript without discarding other settings", () => {
   const savedPublic = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
   const savedPrivate = process.env.GOOGLE_MAPS_API_KEY;
+  const savedDirections = process.env.EXPO_PUBLIC_GOOGLE_DIRECTIONS_API_KEY;
   try {
     delete process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
     delete process.env.GOOGLE_MAPS_API_KEY;
+    delete process.env.EXPO_PUBLIC_GOOGLE_DIRECTIONS_API_KEY;
     const config = {
       android: { config: { googleMaps: { apiKey: "test-config-key" }, otherSetting: true } },
       extra: { otherExtra: true },
@@ -98,6 +114,13 @@ test("Expo config wires the same key to native Android config and JavaScript wit
     assert.equal(configured.extra.otherExtra, true);
     process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY = "test-env-key";
     assert.equal(configureApp({ config }).android.config.googleMaps.apiKey, "test-env-key");
+    assert.equal(configureApp({ config: {
+      ...config, extra: { googleDirectionsApiKey: "test-directions-key" },
+    } }).extra.googleDirectionsApiKey, "test-directions-key");
+    process.env.EXPO_PUBLIC_GOOGLE_DIRECTIONS_API_KEY = "test-directions-env-key";
+    const configuredDirections = configureApp({ config });
+    assert.equal(configuredDirections.extra.googleDirectionsApiKey, "test-directions-env-key");
+    assert.equal(configuredDirections.android.config.googleMaps.apiKey, "test-env-key");
     delete process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
     assert.equal(configureApp({ config: {} }).android.config.googleMaps.apiKey, "");
   } finally {
@@ -105,5 +128,16 @@ test("Expo config wires the same key to native Android config and JavaScript wit
     else process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY = savedPublic;
     if (savedPrivate === undefined) delete process.env.GOOGLE_MAPS_API_KEY;
     else process.env.GOOGLE_MAPS_API_KEY = savedPrivate;
+    if (savedDirections === undefined) delete process.env.EXPO_PUBLIC_GOOGLE_DIRECTIONS_API_KEY;
+    else process.env.EXPO_PUBLIC_GOOGLE_DIRECTIONS_API_KEY = savedDirections;
   }
+});
+
+test("customer Directions requests never fall back to the Android Maps SDK key", () => {
+  const screen = fs.readFileSync(
+    path.join(__dirname, "..", "Screens", "User", "OrderTrackingScreen.js"),
+    "utf8"
+  );
+  assert.match(screen, /EXPO_PUBLIC_GOOGLE_DIRECTIONS_API_KEY/);
+  assert.doesNotMatch(screen, /EXPO_PUBLIC_GOOGLE_MAPS_API_KEY|extra\?\.googleMapsApiKey/);
 });
