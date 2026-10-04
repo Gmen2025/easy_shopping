@@ -6,6 +6,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useCheckout } from "../../../Context/store/CheckoutContext";
 import { getDatabaseNameFromStorage } from "../../../assets/common/databaseConfig";
 import { useCurrency } from "../../../assets/common/currency";
+import { isCashOnDeliveryAvailable } from "../../../assets/common/paymentAvailability";
 
 
 
@@ -48,6 +49,7 @@ const Payment = (props) => {
   const [isCardPaymentAvailable, setIsCardPaymentAvailable] = useState(false);
   const [isTelebirrAvailable, setIsTelebirrAvailable] = useState(true);
   const [isUSAStore, setIsUSAStore] = useState(false);
+  const [isCashAvailable, setIsCashAvailable] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -58,6 +60,9 @@ const Payment = (props) => {
         if (isMounted) {
           const isUSA = dbName === "E_ShopUSA";
           setIsUSAStore(isUSA);
+          setIsCashAvailable(isCashOnDeliveryAvailable(dbName, __DEV__));
+          setSelected();
+          setCard();
           setIsCardPaymentAvailable(isUSA);
           // Telebirr disabled for all stores
           setIsTelebirrAvailable(false);
@@ -80,9 +85,15 @@ const Payment = (props) => {
     if (!isTelebirrAvailable && selected === 4) {
       setSelected();
     }
-  }, [isCardPaymentAvailable, isTelebirrAvailable, selected]);
+    if (!isCashAvailable && selected === 1) {
+      setSelected();
+    }
+  }, [isCardPaymentAvailable, isTelebirrAvailable, isCashAvailable, selected]);
 
   const visibleMethods = methods.filter((method) => {
+    if (method.value === 1) {
+      return isCashAvailable;
+    }
     if (method.value === 3) {
       return isCardPaymentAvailable;
     }
@@ -93,7 +104,7 @@ const Payment = (props) => {
 
   const isMethodDisabled = (methodValue) => {
     if (methodValue === 1) {
-      return isUSAStore;
+      return !isCashAvailable;
     }
     if (methodValue === 3) {
       return !isCardPaymentAvailable;
@@ -107,6 +118,11 @@ const Payment = (props) => {
   const handleConfirm = () => {
   if (!selected) {
     Alert.alert('Error', 'Please select a payment method');
+    return;
+  }
+
+  if (isMethodDisabled(selected)) {
+    Alert.alert("Unavailable", "This payment method is not available for the selected store and build.");
     return;
   }
 
@@ -177,6 +193,9 @@ const Payment = (props) => {
 
       <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>Payment Method</Text>
+        {isUSAStore && isCashAvailable ? (
+          <Text style={styles.infoText}>Cash on delivery is enabled for development testing only. It is not available in release builds.</Text>
+        ) : null}
         {visibleMethods.map((m) => {
           const isSelected = selected === m.value;
           const isDisabled = isMethodDisabled(m.value);

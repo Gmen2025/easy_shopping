@@ -12,6 +12,12 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
 - **Multiple Payment Options**: 
   - Credit/Debit cards via Stripe
   - Telebirr mobile money
+- **USA Development Cash Checkout**: Cash on delivery is selectable for the USA
+  database only when React Native `__DEV__` is true (development/debug bundles).
+  It is hidden and blocked at order confirmation in release bundles, including
+  preview and production builds. Ethiopia cash checkout remains unchanged.
+  This is a mobile build gate, not a backend authorization policy. Development
+  cash checkout creates real orders in the selected database; use test products.
 - **Checkout Stock Guard**: Prevents checkout/payment when requested quantity exceeds available stock
 - **User Accounts**: Registration, login, email verification
 - **Order Tracking**: View order history and status

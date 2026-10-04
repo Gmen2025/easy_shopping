@@ -13,6 +13,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCheckout } from '../../../Context/store/CheckoutContext'; // Import the useCheckout hook
 import { useCurrency } from '../../../assets/common/currency';
 import { deductInventoryFromOrder, validateOrderStock } from '../../../assets/common/inventory';
+import { getDatabaseNameFromStorage } from '../../../assets/common/databaseConfig';
+import { isCashOnDeliveryAvailable, isCashOnDeliveryMethod } from '../../../assets/common/paymentAvailability';
 
 
 
@@ -58,6 +60,16 @@ const Confirm = (props) => {
       setSubmitting(true);
       try {
         const token = await AsyncStorage.getItem("token");
+        const databaseName = await getDatabaseNameFromStorage();
+        if ((isCashOnDeliveryMethod(order.paymentMethod) || isCashOnDeliveryMethod(order.methodName)) &&
+          !isCashOnDeliveryAvailable(databaseName, __DEV__)) {
+          Toast.show({
+            topOffset: 60, type: "error",
+            text1: "Cash on delivery unavailable",
+            text2: "USA cash checkout is available only in development/debug builds.",
+          });
+          return;
+        }
         const stockValidation = await validateOrderStock({
           orderItems: order.orderItems,
           token,
@@ -102,7 +114,7 @@ const Confirm = (props) => {
 
         console.log("Order to submit: ", orderItem);
         const res = await axios.post(`${baseUrl}orders`, orderItem, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${token}`, "x-database-name": databaseName },
           timeout: 45000,
         });
 
