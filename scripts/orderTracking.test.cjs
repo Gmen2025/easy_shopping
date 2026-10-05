@@ -561,6 +561,7 @@ test("road distance requests authenticate with the supplied checkout token or st
     assert.equal(await delivery.estimateDeliveryDistanceKm({
       destinationAddress: "Chicago, IL, United States",
       storeId: "test-store",
+      customerLocation: { latitude: 41.95, longitude: -87.65 },
       token,
     }), 12.5);
     assert.equal(calls.length, 1);
@@ -568,6 +569,7 @@ test("road distance requests authenticate with the supplied checkout token or st
     assert.equal(url, "https://example.invalid/api/settings/delivery/estimate-distance");
     assert.deepEqual(plain(body), {
       destinationAddress: "Chicago, IL, United States", storeId: "test-store",
+      customerLocation: { latitude: 41.95, longitude: -87.65 },
     });
     assert.equal(options.headers.Authorization, `Bearer ${token || "stored-test-token"}`);
     assert.equal(options.timeout, 10000);

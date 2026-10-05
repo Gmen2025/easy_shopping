@@ -222,6 +222,10 @@ continue to display kilometers.
 Use Refresh to retry an address lookup after granting permission or fixing connectivity.
 Failures are displayed with key values redacted. Checkout also requires the backend's
 road-distance estimate to price delivery; it does not substitute a straight-line distance.
+Checkout sends the geocoded shipping coordinates with the distance request so the
+backend can select the pickup store even when the mobile store cache is empty.
+The server uses nearby eligible partners first, then an available AdminStore,
+and only requires a separately configured hub if no selected store provides an origin.
 USA delivery settings and checkout interpret the existing `sameDayPerKm`,
 `nextDayPerKm` and `scheduledPerKm` amounts as per-mile rates for `E_ShopUSA`.
 The amounts are not converted: 10 km is charged as approximately 6.21371 miles.

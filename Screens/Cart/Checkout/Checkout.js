@@ -345,6 +345,7 @@ function Checkout(props) {
       const googleDistanceKm = await estimateDeliveryDistanceKm({
         destinationAddress: shippingAddressText,
         storeId: storeAssignment.storeId,
+        customerLocation,
         token,
       });
 

@@ -116,7 +116,7 @@ export const getDeliverySettings = async ({ token, allowCached = true } = {}) =>
 };
 
 // The server computes road distance using its restricted Google API key.
-export const estimateDeliveryDistanceKm = async ({ destinationAddress, storeId, token } = {}) => {
+export const estimateDeliveryDistanceKm = async ({ destinationAddress, storeId, customerLocation, token } = {}) => {
   if (!destinationAddress) {
     throw new Error("A delivery address is required to calculate driving distance.");
   }
@@ -129,7 +129,7 @@ export const estimateDeliveryDistanceKm = async ({ destinationAddress, storeId, 
   try {
     const response = await axios.post(
       `${baseUrl}settings/delivery/estimate-distance`,
-      { destinationAddress, storeId },
+      { destinationAddress, storeId, customerLocation },
       {
         headers: { Authorization: `Bearer ${authToken}` },
         timeout: 10000,
