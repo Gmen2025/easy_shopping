@@ -2,9 +2,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 
 import baseUrl from "./baseUrl";
-import { getDatabaseNameFromStorage } from "./databaseConfig";
+import { getDatabaseNameFromStorage, sanitizeDatabaseName } from "./databaseConfig";
 
 const DELIVERY_SETTINGS_CACHE_PREFIX = "deliverySettings:";
+
+export const getDeliveryDistanceUnit = (databaseName) =>
+  sanitizeDatabaseName(databaseName) === "E_ShopUSA" ? "mile" : "km";
+
+export const getDeliveryPricingDistance = (distanceKm, databaseName) =>
+  Number(distanceKm) / (getDeliveryDistanceUnit(databaseName) === "mile" ? 1.609344 : 1);
 
 const getDeliverySettingsCacheKey = async () => {
   const databaseName = await getDatabaseNameFromStorage();

@@ -27,6 +27,7 @@ import { buildStoreAssignmentPayload } from "../../../assets/common/stores";
 import {
   getDeliverySettings,
   estimateDeliveryDistanceKm,
+  getDeliveryPricingDistance,
 } from "../../../assets/common/delivery";
 import {
   getCurrencyConfigForDatabase,
@@ -89,9 +90,10 @@ const estimateDeliveryFee = (
   deliveryMode,
   distanceKm,
   scheduledForDate,
-  config = {}
+  config = {},
+  databaseName
 ) => {
-  const distance = Number(distanceKm) || 0;
+  const distance = getDeliveryPricingDistance(distanceKm, databaseName) || 0;
 
   if (deliveryMode === "SAME_DAY") {
     const base = config.sameDayBase ?? DELIVERY_FEE_DEFAULTS.SAME_DAY.base;
@@ -347,13 +349,14 @@ function Checkout(props) {
       });
 
       const normalizedDistanceKm = googleDistanceKm;
+      const selectedDatabaseName = await getDatabaseNameFromStorage();
       const deliveryFee = estimateDeliveryFee(
         deliveryMode,
         normalizedDistanceKm,
         scheduledForDate,
-        latestDeliveryConfig
+        latestDeliveryConfig,
+        selectedDatabaseName
       );
-      const selectedDatabaseName = await getDatabaseNameFromStorage();
       const currencyCode =
         getCurrencyConfigForDatabase(selectedDatabaseName).code;
 

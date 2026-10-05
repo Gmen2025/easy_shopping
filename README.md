@@ -214,6 +214,12 @@ continue to display kilometers.
 Use Refresh to retry an address lookup after granting permission or fixing connectivity.
 Failures are displayed with key values redacted. Checkout also requires the backend's
 road-distance estimate to price delivery; it does not substitute a straight-line distance.
+USA delivery settings and checkout interpret the existing `sameDayPerKm`,
+`nextDayPerKm` and `scheduledPerKm` amounts as per-mile rates for `E_ShopUSA`.
+The amounts are not converted: 10 km is charged as approximately 6.21371 miles.
+Other databases retain per-kilometer pricing. API/order distances remain stored in
+kilometers; only the distance multiplied by the rate is converted. Deploy the
+matching backend update before using the new mobile checkout calculation.
 The distance-estimation request includes the customer's Bearer token, using the
 stored session token if checkout has not loaded it yet. A missing session reports
 that sign-in is required rather than sending an unauthenticated request.

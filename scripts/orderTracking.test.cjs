@@ -454,6 +454,13 @@ function loadDelivery(distanceResponse, { storedToken = "stored-test-token", pos
     plugins: ["@babel/plugin-transform-modules-commonjs"],
   });
   const exports = {};
+  const databaseFilename = path.join(__dirname, "..", "assets", "common", "databaseConfig.js");
+  const { code: databaseCode } = babel.transformSync(fs.readFileSync(databaseFilename, "utf8"), {
+    filename: databaseFilename, configFile: false, babelrc: false,
+    plugins: ["@babel/plugin-transform-modules-commonjs"],
+  });
+  const databaseExports = {};
+  vm.runInNewContext(databaseCode, { exports: databaseExports, require: () => ({}) });
   const dependencies = {
     "@react-native-async-storage/async-storage": {
       getItem: async (key) => {
@@ -463,7 +470,7 @@ function loadDelivery(distanceResponse, { storedToken = "stored-test-token", pos
     },
     axios: { post: post || (async () => ({ data: distanceResponse })) },
     "./baseUrl": "https://example.invalid/api/",
-    "./databaseConfig": {},
+    "./databaseConfig": databaseExports,
   };
   vm.runInNewContext(code, {
     exports,
@@ -474,6 +481,53 @@ function loadDelivery(distanceResponse, { storedToken = "stored-test-token", pos
   });
   return exports;
 }
+
+test("mobile checkout charges USA per mile for all modes while preserving non-USA per-km fees", () => {
+  const delivery = loadDelivery({});
+  assert.equal(delivery.getDeliveryPricingDistance(1.609344, "E_ShopUSA"), 1);
+  const filename = path.join(__dirname, "..", "Screens", "Cart", "Checkout", "Checkout.js");
+  const { ast } = babel.transformSync(fs.readFileSync(filename, "utf8"), {
+    filename, configFile: false, babelrc: false, ast: true, code: false,
+    parserOpts: { plugins: ["jsx"] },
+  });
+  const declarations = ast.program.body.filter((node) => node.type === "VariableDeclaration" &&
+    node.declarations.some((item) =>
+      ["DELIVERY_FEE_DEFAULTS", "roundCurrency", "estimateDeliveryFee"].includes(item.id.name)));
+  ast.program.body = declarations;
+  const { code } = babel.transformFromAstSync(ast, null, { configFile: false, babelrc: false });
+  const context = {
+    getDeliveryPricingDistance: delivery.getDeliveryPricingDistance,
+    Date, result: null,
+  };
+  const config = {
+    sameDayBase: 0, sameDayPremium: 0, sameDayPerKm: 2,
+    nextDayBase: 0, nextDayPerKm: 2,
+    scheduledBase: 0, scheduledPerKm: 2,
+    scheduledPeakSurcharge: 0, scheduledOffPeakDiscount: 0,
+  };
+  for (const mode of ["SAME_DAY", "NEXT_DAY", "SCHEDULED"]) {
+    for (const database of ["E_ShopUSA", "E_ShoppingUSA", "E_Shopping", "E_Shopping_2"]) {
+      context.mode = mode;
+      context.database = database;
+      context.config = config;
+      const runContext = { ...context };
+      vm.runInNewContext(`${code}\nresult = estimateDeliveryFee(mode, 10, new Date(), config, database);`, runContext);
+      assert.equal(runContext.result, database.includes("USA") ? 12.43 : 20);
+      assert.equal(delivery.getDeliveryDistanceUnit(database), database.includes("USA") ? "mile" : "km");
+    }
+  }
+  for (const [mode, hour, expected] of [
+    ["SAME_DAY", 12, 19.21], ["NEXT_DAY", 12, 7.73],
+    ["SCHEDULED", 18, 11.16], ["SCHEDULED", 12, 9.16], ["SCHEDULED", 8, 9.66],
+  ]) {
+    const runContext = { ...context, mode, hour, database: "E_ShopUSA", config: {} };
+    vm.runInNewContext(
+      `${code}\nresult = estimateDeliveryFee(mode, 10, new Date(2099, 0, 1, hour), config, database);`,
+      runContext
+    );
+    assert.equal(runContext.result, expected);
+  }
+});
 
 test("checkout requires a server road distance and never silently substitutes a straight-line distance", async () => {
   assert.equal(

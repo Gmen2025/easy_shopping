@@ -11,7 +11,7 @@ import FormContainer from "../../Shared/Form/FormContainer";
 import EasyButton from "../../Shared/StyledComponenets/EasyButton";
 import { getCurrencyConfigForDatabase } from "../../assets/common/currency";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
-import { cacheDeliverySettings, getDeliverySettings } from "../../assets/common/delivery";
+import { cacheDeliverySettings, getDeliverySettings, getDeliveryDistanceUnit } from "../../assets/common/delivery";
 
 const DELIVERY_FIELDS = [
   ["sameDayBase", "Same-day base fee"],
@@ -43,6 +43,7 @@ const DeliverySettings = () => {
   const [saving, setSaving] = useState(false);
   const [currencyCode, setCurrencyCode] = useState("ETB");
   const [databaseName, setDatabaseName] = useState("E_Shopping");
+  const distanceUnit = getDeliveryDistanceUnit(databaseName);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -138,12 +139,12 @@ const DeliverySettings = () => {
             These {currencyCode} rates apply only to the selected {databaseName} database.
           </Text>
           <Text style={styles.rateHint}>
-            Same-day fee = base fee + premium + (distance x fee per km). Store coordinates are required for distance charges.
+            Same-day fee = base fee + premium + (distance x fee per {distanceUnit}). Store coordinates are required for distance charges.
           </Text>
         </View>
         {DELIVERY_FIELDS.map(([field, label]) => (
           <View key={field} style={styles.field}>
-            <Text style={styles.label}>{label} ({currencyCode})</Text>
+            <Text style={styles.label}>{label.replace("per km", `per ${distanceUnit}`)} ({currencyCode})</Text>
             <Input
               placeholder="0"
               name={field}
