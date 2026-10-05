@@ -63,3 +63,13 @@ test("an out-of-radius partner alone does not produce a false assignment", async
   const { findNearestStore } = loadStores([{ _id: "partner", location: { coordinates: [1, 0] } }]);
   assert.equal(await findNearestStore({ latitude: 0, longitude: 0 }), null);
 });
+
+test("multiple company stores still have an available default when coordinates cannot be ranked", async () => {
+  const { findNearestStore } = loadStores([
+    { _id: "b", isCompanyOwned: true },
+    { _id: "a", isCompanyOwned: true },
+    { _id: "pending", isCompanyOwned: true, approvalStatus: "pending" },
+  ]);
+  assert.equal((await findNearestStore({ latitude: 0, longitude: 0 }))._id, "a");
+  assert.equal((await findNearestStore(null))._id, "a");
+});

@@ -38,13 +38,21 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   fulfilled orders list to view its products, quantities, current catalog prices,
   order/delivery status, schedule, and totals. Assigned orders include all items;
   mixed-store fulfillments include only store-associated products. Details use
-  the latest loaded dashboard snapshot (up to 20 recent orders); return and
+  the latest loaded dashboard snapshot (all active orders plus up to 20 recent
+  orders, without duplicates); return and
   refresh for updates.
+- **AdminStore Product Visibility**: Active assigned orders retain every ordered
+  product even if its catalog owner is another store. Unanswered products from
+  those orders appear in the fulfillment queue regardless of catalog-store distance.
+  Marked-ready/rejected products leave the action queue, not the order details.
 - **Company Order Fallback**: With no eligible partner store within 10 km or driver
   within 5 km, the backend routes to the nearest available company account without
   a radius limit. AdminStore receives assigned orders in its overview; AdminDriver
   receives an unassigned offer to claim or reject. Claimed deliveries enter the
   active queue; rejecting passes the offer to the next eligible driver.
+  When company stores cannot be ranked by proximity, an eligible preferred
+  company store or a stable available default is used instead of leaving pickup
+  unassigned. Closed or unapproved stores are not eligible.
 - **Low Stock Monitor**: Dedicated low-stock screen with configurable minimum threshold
 - **Low Stock Badge**: Admin tab badge shows current low-stock count
 - **Auto Cleanup**: Automatic deletion of old delivered orders (2+ months)

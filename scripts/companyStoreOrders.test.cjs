@@ -68,12 +68,29 @@ test("tapping a dashboard order navigates to its products with the exact scoped 
     dashboard: { store: { name: "Company store" }, recentOrders: [order] },
     navigation: { navigate: (screen, params) => { destination = { screen, params }; } },
   });
+
   const list = nodes(component({})).find((node) => node.type === "FlatList" && node.props.ListHeaderComponent);
   const button = nodes(list.props.ListHeaderComponent).find((node) => node.props?.accessibilityRole === "button");
   button.props.onPress();
   assert.equal(destination.screen, "CompanyStoreOrderDetails");
   assert.equal(destination.params.order, order);
   assert.equal(destination.params.storeName, "Company store");
+});
+
+test("older active orders remain visible beyond recent history and are not duplicated", () => {
+  const active = Array.from({ length: 25 }, (_, index) => ({
+    _id: `active-${index}`, orderItems: [{ quantity: 1, product: { name: "Coffee" } }],
+  }));
+  const component = loadComponent("Screens\\Store\\CompanyStoreDashboard.js", {
+    dashboard: {
+      store: { name: "Company store" }, activeOrders: active,
+      recentOrders: [active[0], { _id: "completed", orderItems: [] }],
+    },
+  });
+  const list = nodes(component({})).find((node) => node.type === "FlatList" && node.props.ListHeaderComponent);
+  const buttons = nodes(list.props.ListHeaderComponent).filter((node) => node.props?.accessibilityRole === "button");
+  assert.equal(buttons.length, 26);
+  assert.ok(buttons.some((button) => button.props.accessibilityLabel === "View products for order active-24"));
 });
 
 test("order details display scoped products, quantities, status, schedule and clearly labeled totals", () => {

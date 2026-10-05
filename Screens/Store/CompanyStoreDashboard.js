@@ -150,6 +150,12 @@ const CompanyStoreDashboard = ({ navigation }) => {
     dashboard?.recentSales,
     dashboard?.orders,
   ].find(Array.isArray) || [];
+  const activeOrders = Array.isArray(dashboard?.activeOrders) ? dashboard.activeOrders : [];
+  const visibleOrders = [
+    ...activeOrders,
+    ...recentOrders.filter((order) =>
+      !activeOrders.some((active) => String(active._id) === String(order._id))),
+  ];
 
   const renderMetric = (icon, label, value, tone = "#1f2937") => (
     <View style={styles.metricCard}>
@@ -286,10 +292,10 @@ const CompanyStoreDashboard = ({ navigation }) => {
 
           {dashboard && (
             <>
-              <Text style={styles.sectionTitle}>Assigned & fulfilled orders</Text>
-              {recentOrders.length > 0 ? (
+              <Text style={styles.sectionTitle}>Active & recent orders</Text>
+              {visibleOrders.length > 0 ? (
                 <View style={styles.recentCard}>
-                  {recentOrders.map((order, index) => (
+                  {visibleOrders.map((order, index) => (
                     <TouchableOpacity
                       key={order._id || order.orderId || index}
                       style={styles.recentRow}

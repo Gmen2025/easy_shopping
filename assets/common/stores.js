@@ -44,7 +44,8 @@ export const normalizeStore = (payload) => {
     phone: payload.phone || payload.contactPhone || "",
     latitude: Number.isFinite(latitude) ? latitude : null,
     longitude: Number.isFinite(longitude) ? longitude : null,
-    isActive: payload.isActive !== false && payload.isOpen !== false,
+    isActive: payload.isActive !== false && payload.isOpen !== false &&
+      (!payload.approvalStatus || payload.approvalStatus === "approved"),
     isCompanyOwned: payload.isCompanyOwned === true || payload.raw?.isCompanyOwned === true,
     createdAt: payload.createdAt || new Date().toISOString(),
     raw: payload,
@@ -116,9 +117,8 @@ export const findNearestStore = async (customerLocation, token = null) => {
   const partner = nearby.find((store) => !store.isCompanyOwned && store.distanceKm <= 10);
   if (partner) return partner;
   const companies = nearby.filter((store) => store.isCompanyOwned);
-  return companies.length === 1
-    ? companies[0]
-    : companies.find((store) => Number.isFinite(store.distanceKm)) || null;
+  return companies.find((store) => Number.isFinite(store.distanceKm)) ||
+    [...companies].sort((left, right) => String(left._id).localeCompare(String(right._id)))[0] || null;
 };
 
 export const buildStoreAssignmentPayload = async (customerLocation, token = null) => {
