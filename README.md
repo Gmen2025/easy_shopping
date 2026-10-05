@@ -238,6 +238,11 @@ that sign-in is required rather than sending an unauthenticated request.
 Checkout distance requires the backend's `GOOGLE_MAPS_API_KEY` authorized for
 Distance Matrix API; the mobile Directions key does not configure this endpoint.
 Backend error messages are preserved when a driving distance is unavailable.
+The backend uses checkout's verified shipping coordinates as the driving destination,
+avoiding a second lookup of address text (including Ethiopian addresses). Older clients
+without coordinates still use the address. A `ZERO_RESULTS` response means Google
+found no driving route: verify both map pins and road access; routing coverage may
+be unavailable in the area. It is not an API-key or billing error.
 An OTA update or Metro reload cannot add native manifest metadata: rebuild and
 reinstall the Android app after configuring the key.
 For EAS development builds, set `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` in the
