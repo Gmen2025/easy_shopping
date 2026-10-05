@@ -45,6 +45,7 @@ const DeliveryRouteScreen = () => {
   const [deliveryRouteStarted, setDeliveryRouteStarted] = useState(false);
   const [locationStatus, setLocationStatus] = useState("Waiting for live GPS");
   const [statusError, setStatusError] = useState("");
+  const [mapReady, setMapReady] = useState(false);
 
   const request = route?.params?.request || {};
   const orderStatus = route?.params?.orderStatus || "Driver Assigned";
@@ -57,12 +58,11 @@ const DeliveryRouteScreen = () => {
     request.dropoffAddress?.phone ||
     "";
   const currentStage = orderStatus === "Picked Up" ? "delivery" : "pickup";
-  const liveOrderStatus = request?.rawPayload?.status || orderStatus;
-  const isCompleted = liveOrderStatus === "Delivered" || liveOrderStatus === "completed" || orderStatus === "Delivered";
-  const driverCoordinates = useMemo(
-    () => toLatLng(request.driverCoordinates) || toLatLng(request.rawPayload?.driverCoordinates),
-    [request.driverCoordinates, request.rawPayload]
-  );
+  const liveOrderStatus = route?.params?.orderStatus ||
+    request.deliveryStatus || request.rawPayload?.deliveryStatus || orderStatus;
+  const isCompleted = liveOrderStatus === "Delivered" ||
+    request.rawPayload?.status === "3" ||
+    request.rawPayload?.status === "completed";
   const storeCoordinates = useMemo(
     () =>
       toLatLng(request.storeLocation) ||
@@ -135,36 +135,40 @@ const DeliveryRouteScreen = () => {
   }, [customerCoordinates, orderStatus, storeCoordinates]);
 
   const origin = useMemo(() => {
-    if (driverLocation) {
-      return driverLocation;
-    }
-    return orderStatus === "Picked Up" ? storeCoordinates : driverCoordinates;
-  }, [driverCoordinates, driverLocation, orderStatus, storeCoordinates]);
+    return driverLocation || storeCoordinates;
+  }, [driverLocation, storeCoordinates]);
+  const isStoreOrigin = !driverLocation && !!storeCoordinates;
 
   const orderId = request.id || request.orderId || request._id || request.rawPayload?.orderId || request.rawPayload?._id;
-  const latestGps = useRef(null);
-  latestGps.current = driverLocation;
+  const latestOrigin = useRef(null);
+  latestOrigin.current = origin;
+  const routeRequestTiming = useRef({ orderId: null, nextAllowedAt: 0 });
+  if (routeRequestTiming.current.orderId !== orderId) {
+    routeRequestTiming.current = { orderId, nextAllowedAt: 0 };
+  }
 
   useEffect(() => {
     const controller = new AbortController();
     let pending = false;
-    let lastRequest = 0;
+    let terminalError = false;
     setRouteCoordinates([]);
     setRouteStats({ distance: 0, duration: 0 });
     setRouteError("");
     const loadRoute = async () => {
-      if (pending || !latestGps.current || Date.now() - lastRequest < 60000 || isCompleted) return;
+      if (pending || terminalError || !latestOrigin.current ||
+        Date.now() < routeRequestTiming.current.nextAllowedAt || isCompleted) return;
       if (!orderId) {
         setRouteError("Driving directions unavailable: missing delivery order ID.");
         return;
       }
       pending = true;
-      lastRequest = Date.now();
+      routeRequestTiming.current.nextAllowedAt = Date.now() + 60000;
       try {
         const token = await AsyncStorage.getItem("token");
         const database = await getDatabaseNameFromStorage();
+        if (controller.signal.aborted) return;
         const response = await axios.post(`${baseUrl}drivers/me/orders/${orderId}/route`, {
-          origin: latestGps.current,
+          origin: latestOrigin.current,
         }, {
           headers: { Authorization: `Bearer ${token}`, "x-database-name": database },
           signal: controller.signal, timeout: 20000,
@@ -183,7 +187,19 @@ const DeliveryRouteScreen = () => {
         setRouteError("");
       } catch (error) {
         if (controller.signal.aborted) return;
-        const message = formatDirectionsError(error.response?.data?.message || error);
+        const status = error.response?.status;
+        if (status === 429) {
+          const seconds = Number(error.response?.headers?.["retry-after"]);
+          routeRequestTiming.current.nextAllowedAt =
+            Date.now() + (Number.isFinite(seconds) && seconds > 0 ? seconds : 10) * 1000;
+          setRouteError((previous) => previous ||
+            "The route service is busy. Waiting before retrying driving directions.");
+          return;
+        }
+        terminalError = [401, 403, 404].includes(status);
+        const message = status === 404
+          ? "This delivery is no longer active or assigned to you. Return to your delivery queue and reopen an active, claimed order."
+          : formatDirectionsError(error.response?.data?.message || error);
         console.warn("[Route]", message);
         setRouteError(message);
         setRouteCoordinates([]);
@@ -195,7 +211,8 @@ const DeliveryRouteScreen = () => {
     loadRoute();
     const timer = setInterval(loadRoute, 2000);
     return () => { clearInterval(timer); controller.abort(); };
-  }, [orderId, orderStatus, isCompleted]);
+  }, [orderId, orderStatus, isCompleted, isStoreOrigin,
+    storeCoordinates?.latitude, storeCoordinates?.longitude]);
 
   useEffect(() => {
     let active = true;
@@ -258,8 +275,9 @@ const DeliveryRouteScreen = () => {
   }, []);
 
   useEffect(() => {
-    if (mapRef.current && origin && destination) {
-      mapRef.current.fitToCoordinates([origin, destination], {
+    if (mapReady && mapRef.current && origin && destination) {
+      mapRef.current.fitToCoordinates(
+        routeCoordinates.length > 1 ? routeCoordinates : [origin, destination], {
         edgePadding: {
           top: 100,
           right: 60,
@@ -269,7 +287,7 @@ const DeliveryRouteScreen = () => {
         animated: true,
       });
     }
-  }, [destination, origin]);
+  }, [mapReady, destination, origin, routeCoordinates]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -277,6 +295,8 @@ const DeliveryRouteScreen = () => {
         {canRenderNativeMap && origin && destination ? <MapView
           ref={mapRef}
           style={styles.map}
+          googleRenderer="LATEST"
+          onMapReady={() => setMapReady(true)}
           initialRegion={{
             latitude: origin.latitude,
             longitude: origin.longitude,
@@ -293,16 +313,16 @@ const DeliveryRouteScreen = () => {
               </View>
             </Marker>
           ) : null}
-          <Marker coordinate={storeCoordinates}>
+          {storeCoordinates ? <Marker coordinate={storeCoordinates}>
             <View style={styles.storeMarker}>
               <Text style={styles.markerText}>🏪</Text>
             </View>
-          </Marker>
-          <Marker coordinate={customerCoordinates}>
+          </Marker> : null}
+          {customerCoordinates ? <Marker coordinate={customerCoordinates}>
             <View style={styles.customerMarker}>
               <Text style={styles.markerText}>🏠</Text>
             </View>
-          </Marker>
+          </Marker> : null}
           {routeCoordinates.length > 1 ? (
             <Polyline
               coordinates={routeCoordinates}
@@ -331,7 +351,7 @@ const DeliveryRouteScreen = () => {
               Scheduled delivery: {formatScheduledDeliveryDate(request) || "Date unavailable"}
             </Text>
           ) : null}
-          <TouchableOpacity onPress={() => openDirections(storeCoordinates, driverLocation || driverCoordinates)}>
+          <TouchableOpacity onPress={() => openDirections(storeCoordinates, origin)}>
             <Text style={styles.addressLink} numberOfLines={1}>📍 Pickup: {pickupAddressLabel}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => openDirections(customerCoordinates, storeCoordinates)}>
@@ -360,12 +380,21 @@ const DeliveryRouteScreen = () => {
                   : "Stage 2: Drive to customer and confirm drop-off"}
           </Text>
           <Text style={styles.locationStatus}>{locationStatus}</Text>
+          {isStoreOrigin ? (
+            <Text style={styles.routeWarning}>
+              Live driver GPS is unavailable. Using the registered pickup store as
+              an estimated origin, not the driver's actual location. Distance and
+              ETA are measured from the store.
+            </Text>
+          ) : null}
           {(routeError || statusError) ? (
             <Text style={styles.routeWarning}>{routeError || statusError}</Text>
           ) : null}
           <View style={styles.metricsRow}>
             <View style={styles.metricBox}>
-              <Text style={styles.metricLabel}>Driving ETA</Text>
+              <Text style={styles.metricLabel}>
+                {isStoreOrigin ? "Driving ETA from store" : "Driving ETA"}
+              </Text>
               <Text style={styles.metricValue}>
                 {routeStats.duration > 0
                   ? `${Math.max(1, Math.round(routeStats.duration))} min`
@@ -373,7 +402,9 @@ const DeliveryRouteScreen = () => {
               </Text>
             </View>
             <View style={styles.metricBox}>
-              <Text style={styles.metricLabel}>Driving distance</Text>
+              <Text style={styles.metricLabel}>
+                {isStoreOrigin ? "Driving distance from store" : "Driving distance"}
+              </Text>
               <Text style={styles.metricValue}>
                 {routeStats.distance > 0
                   ? formatDistance(routeStats.distance, deliveryCountry)

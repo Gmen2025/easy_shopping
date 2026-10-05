@@ -268,6 +268,7 @@ test("tracking renders known coordinates without drawing a straight-line route a
   assert.equal(find(map, "Polyline"), undefined, "Do not display a straight line as a driving route");
   assert.equal(map.props.initialRegion.latitude, pickup.latitude);
   assert.equal(map.props.initialRegion.longitude, pickup.longitude);
+  assert.equal(map.props.googleRenderer, "LATEST");
   effects.at(-1)();
   assert.equal(cameraCalls.length, 0, "Do not fit before native map readiness");
   mapIsReady = true;
@@ -286,6 +287,117 @@ test("driver tracking has no fabricated coordinates or straight-line distance/ET
   assert.match(routeScreen, /Driving ETA/);
   assert.match(routeScreen, /Driving distance/);
 });
+
+for (const liveDriver of [driver, null]) {
+test(`driver routing uses ${liveDriver ? "live GPS" : "the registered store without GPS"} and stops retrying rejected assignments`, async () => {
+  const filename = path.join(__dirname, "..", "Screens", "Driver", "DeliveryRouteScreen.js");
+  const { code } = babel.transformSync(fs.readFileSync(filename, "utf8"), {
+    filename, configFile: false, babelrc: false,
+    plugins: ["@babel/plugin-transform-modules-commonjs", "@babel/plugin-transform-react-jsx"],
+  });
+  const effects = [];
+  const cameraCalls = [];
+  const errors = [];
+  let mapIsReady = false;
+  let stateIndex = 0;
+  let calls = 0;
+  let timer;
+  let now = 100000;
+  let currentDriver = liveDriver;
+  const refs = [];
+  let refIndex = 0;
+  const react = {
+    createElement: (type, props, ...children) => ({ type, props, children }),
+    useMemo: (fn) => fn(),
+    useEffect: (fn) => effects.push(fn),
+    useRef: (initial) => {
+      const index = refIndex++;
+      if (!refs[index]) refs[index] = {
+        current: index === 0 ? { fitToCoordinates: (...args) => cameraCalls.push(args) } : initial,
+      };
+      return refs[index];
+    },
+    useState: (initial) => {
+      const index = stateIndex++;
+      const value = index === 0 ? currentDriver : index === 8 ? mapIsReady : initial;
+      return [value, (next) => { if (index === 3) errors.push(next); }];
+    },
+  };
+  const dependencies = {
+    react,
+    "react-native": {
+      Linking: {}, StyleSheet: { create: (value) => value },
+      Text: "Text", TouchableOpacity: "TouchableOpacity", View: "View",
+    },
+    "react-native-safe-area-context": { SafeAreaView: "SafeAreaView" },
+    "@react-navigation/native": {
+      useNavigation: () => ({}),
+      useRoute: () => ({ params: { orderStatus: "Driver Assigned", request: {
+        id: "order", storeLocation: pickup, customerLocation: dropoff,
+      } } }),
+    },
+    "react-native-maps": { __esModule: true, default: "MapView", Marker: "Marker", Polyline: "Polyline" },
+    "@react-native-async-storage/async-storage": { getItem: async () => "test-token" },
+    axios: { post: async (url, body) => {
+      calls++;
+      assert.deepEqual(plain(body.origin), currentDriver || pickup);
+      const error = new Error("Not found");
+      error.response = { status: 404, data: { message: "Active delivery assigned to you was not found." } };
+      throw error;
+    } },
+    "react-native-vector-icons/FontAwesome": "Icon",
+    "expo-location": {},
+    "../../assets/common/baseUrl": "https://example.invalid/",
+    "../../assets/common/databaseConfig": { getDatabaseNameFromStorage: async () => "E_ShopUSA" },
+    "../../assets/common/mapsConfiguration": { canRenderNativeMap: true, formatDirectionsError: String },
+    "../../assets/common/delivery": {},
+    "../../assets/common/orderTracking": exportsObject,
+  };
+  const screenExports = {};
+  vm.runInNewContext(code, {
+    exports: screenExports, AbortController, Date: { now: () => now },
+    setInterval: (fn) => { timer = fn; return 1; }, clearInterval: () => {},
+    console: { warn: () => {} },
+    require: (name) => {
+      assert.ok(name in dependencies, `Unexpected dependency ${name}`);
+      return dependencies[name];
+    },
+  });
+  screenExports.default();
+  effects.at(-1)();
+  assert.equal(cameraCalls.length, 0);
+  const cleanup = effects[0]();
+  await new Promise(setImmediate);
+  assert.equal(calls, 1);
+  assert.match(errors.at(-1), /no longer active or assigned/);
+  now += 60001;
+  await timer();
+  assert.equal(calls, 1, "Do not poll an unassigned order again");
+  cleanup();
+  stateIndex = 0;
+  refIndex = 0;
+  mapIsReady = true;
+  screenExports.default();
+  effects.at(-1)();
+  assert.equal(cameraCalls.length, 1);
+  assert.deepEqual(plain(cameraCalls[0][0]), [liveDriver || pickup, pickup]);
+  if (!liveDriver) {
+    currentDriver = driver;
+    stateIndex = 0;
+    refIndex = 0;
+    effects.length = 0;
+    now = 101000;
+    screenExports.default();
+    const liveCleanup = effects[0]();
+    await new Promise(setImmediate);
+    assert.equal(calls, 1, "Changing origin must not bypass the request cooldown");
+    now = 160001;
+    await timer();
+    assert.equal(calls, 2, "Use live GPS on the next permitted request");
+    liveCleanup();
+  }
+});
+}
 
 function loadDelivery(distanceResponse, { storedToken = "stored-test-token", post } = {}) {
   const filename = path.join(__dirname, "..", "assets", "common", "delivery.js");

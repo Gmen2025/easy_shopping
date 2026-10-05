@@ -157,9 +157,30 @@ If the map is blank with only the Google logo, JavaScript key presence and live
 GPS do not confirm SDK authorization. Check billing, Maps SDK for Android, and
 the installed APK's package/signing SHA-1 restriction. Driving directions are a
 separate web-service request: this library uses the Directions API endpoint.
+Both maps request the latest Google renderer and fit driving-route geometry after
+native map readiness. Customer camera bounds exclude unrelated nearby drivers and
+the driver's current position after delivery. Driver maps omit unavailable markers.
+Use `adb logcat -s "Google Maps Android API"` to diagnose SDK authorization; redact
+API key values before sharing logs. Authorize the installed certificate fingerprint,
+which may change when rebuilding a deleted Android project with a new debug keystore.
+On an emulator, set a realistic driver GPS location using Extended Controls > Location;
+the default Mountain View location produces a real California-to-Chicago driving route.
+When live driver GPS is unavailable, the driver screen uses the registered pickup
+store coordinates as an explicitly labeled estimated origin. It does not invent a
+nearby driver position or use stale request coordinates. Road distance and ETA are
+measured from the store; before pickup this is a store-to-itself route, not a claim
+that the driver has arrived. Missing store coordinates leave routing unavailable.
+When live GPS arrives, the screen requests a new route from the real driver origin.
 The driver's active-route screen now requests driving routes from the authenticated
 backend and draws a polyline. It refreshes at most once per minute using live GPS;
 the server selects the pickup/customer destination from the assigned order.
+Requests rejected as unauthorized, forbidden or unassigned stop automatic retries;
+return to the queue and reopen an active claimed delivery. Completed deliveries
+do not request an active driver route.
+Route requests share their cooldown across GPS/store-origin transitions to avoid
+duplicate calls. HTTP 429 responses honor Retry-After without replacing the underlying
+route failure. Google Routes rejection messages are redacted and surfaced by the backend;
+server configuration changes must be applied to the deployed service, not the mobile environment.
 Live GPS is used regardless of distance to the destination; there is no artificial
 300-km service-area cutoff. Google determines whether a driving route exists.
 GPS permission/fetch failures are shown explicitly, and distance estimates do not

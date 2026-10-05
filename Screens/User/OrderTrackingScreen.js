@@ -70,6 +70,7 @@ const OrderTrackingScreen = (props) => {
   const [routeStats, setRouteStats] = useState(null);
   const [routeError, setRouteError] = useState("");
   const [mapReady, setMapReady] = useState(false);
+  const [routeCoordinates, setRouteCoordinates] = useState([]);
   const [resolvedDropoff, setResolvedDropoff] = useState(null);
   const [dropoffError, setDropoffError] = useState("");
   const [dropoffRetry, setDropoffRetry] = useState(0);
@@ -199,6 +200,7 @@ const OrderTrackingScreen = (props) => {
   useEffect(() => {
     setRouteStats(null);
     setRouteError("");
+    setRouteCoordinates([]);
   }, [routeOrigin?.latitude, routeOrigin?.longitude,
     routeDestination?.latitude, routeDestination?.longitude]);
 
@@ -246,10 +248,9 @@ const OrderTrackingScreen = (props) => {
 
   const mapPoints = useMemo(
     () =>
-      [driverPoint, pickup, dropoff, ...nearbyDriverPoints.map((d) => d.point)].filter(
-        Boolean
-      ),
-    [driverPoint, pickup, dropoff, nearbyDriverPoints]
+      [...routeCoordinates, pickup, dropoff, ...(!isDelivered && driverPoint ? [driverPoint] : [])]
+        .filter(Boolean),
+    [routeCoordinates, driverPoint, pickup, dropoff, isDelivered]
   );
 
   useEffect(() => {
@@ -384,6 +385,7 @@ const OrderTrackingScreen = (props) => {
             <MapView
               ref={mapRef}
               style={styles.map}
+              googleRenderer="LATEST"
               initialRegion={{ ...DEFAULT_REGION, ...(pickup || dropoff || driverPoint) }}
               onMapReady={() => setMapReady(true)}
             >
@@ -397,6 +399,7 @@ const OrderTrackingScreen = (props) => {
                   mode="DRIVING"
                   onReady={(result) => {
                     setRouteError("");
+                    setRouteCoordinates(result.coordinates || []);
                     setRouteStats({
                       distance: result.distance,
                       duration: result.duration,
@@ -404,6 +407,7 @@ const OrderTrackingScreen = (props) => {
                   }}
                   onError={(message) => {
                     setRouteStats(null);
+                    setRouteCoordinates([]);
                     setRouteError(formatDirectionsError(message));
                   }}
                 />
