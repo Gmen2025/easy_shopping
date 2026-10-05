@@ -14,16 +14,16 @@ import Input from "../../../Shared/Form/Input";
 import { AuthContext } from "../../../Context/store/Auth";
 import Toast from "react-native-toast-message";
 import EasyButton from "../../../Shared/StyledComponenets/EasyButton";
+import CheckoutLocationPreview from "../../../Shared/CheckoutLocationPreview";
 
 const countries = require("../../../assets/data/countries.json");
 import { useSelector } from "react-redux";
 import axios from "axios";
 import baseUrl from "../../../assets/common/baseUrl";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { resolveDeliveryLocation } from "../../../assets/common/deliveryLocation";
 import { getShippingAddressText } from "../../../assets/common/orderTracking";
 import { validateOrderStock } from "../../../assets/common/inventory";
-import { buildStoreAssignmentPayload } from "../../../assets/common/stores";
+import { resolveCheckoutLocationPreview } from "../../../assets/common/checkoutLocationPreview";
 import {
   getDeliverySettings,
   estimateDeliveryDistanceKm,
@@ -140,6 +140,46 @@ function Checkout(props) {
   const [scheduledDate, setScheduledDate] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deliveryConfig, setDeliveryConfig] = useState({});
+  const [locationPreview, setLocationPreview] = useState(null);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [locationError, setLocationError] = useState("");
+  const [checkoutError, setCheckoutError] = useState("");
+  const shippingAddressText = getShippingAddressText({
+    address1: address, address2, city, zip, country,
+  });
+  const currentPreview = locationPreview?.addressText === shippingAddressText &&
+    locationPreview?.country === country ? locationPreview : null;
+
+  useEffect(() => {
+    setLocationError("");
+    setCheckoutError("");
+  }, [shippingAddressText, country]);
+
+  const loadLocationPreview = async () => {
+    const preview = await resolveCheckoutLocationPreview({
+      addressText: shippingAddressText, country, token,
+      previousPreview: currentPreview,
+    });
+    setLocationPreview(preview);
+    return preview;
+  };
+
+  const handlePreviewLocations = async () => {
+    if (isPreviewing || isSubmitting) return;
+    setLocationError("");
+    setIsPreviewing(true);
+    try {
+      if (!address.trim() || !city.trim() || !country.trim()) {
+        throw new Error("Enter your shipping address, city and country to preview delivery locations.");
+      }
+      await loadLocationPreview();
+    } catch (error) {
+      console.warn("Checkout location preview failed:", error);
+      setLocationError(error?.message || "Unable to preview delivery locations.");
+    } finally {
+      setIsPreviewing(false);
+    }
+  };
 
   useEffect(() => {
     let isCurrent = true;
@@ -242,7 +282,7 @@ function Checkout(props) {
     calculateItemsSubtotal(items) + getEstimatedDeliveryFee();
 
   const handleSubmit = async () => {
-    if (isSubmitting) return;
+    if (isSubmitting || isPreviewing) return;
 
     if (!address || !city || !zip || !country || !phone) {
       Toast.show({
@@ -287,6 +327,8 @@ function Checkout(props) {
       return;
     }
 
+    setCheckoutError("");
+    setLocationError("");
     setIsSubmitting(true);
     try {
       const stockValidation = await validateOrderStock({
@@ -295,6 +337,7 @@ function Checkout(props) {
       });
 
       if (!stockValidation.ok) {
+        setCheckoutError(stockValidation.message || "Could not verify current inventory.");
         Toast.show({
           topOffset: 60,
           type: "error",
@@ -336,11 +379,7 @@ function Checkout(props) {
       const latestDeliveryConfig = latestDeliverySettings.deliveryConfig;
       setDeliveryConfig(latestDeliveryConfig);
 
-      const shippingAddressText = getShippingAddressText({
-        address1: address, address2, city, zip, country,
-      });
-      const customerLocation = await resolveDeliveryLocation(shippingAddressText, country);
-      const storeAssignment = await buildStoreAssignmentPayload(customerLocation, token);
+      const { customerLocation, storeAssignment } = await loadLocationPreview();
 
       const googleDistanceKm = await estimateDeliveryDistanceKm({
         destinationAddress: shippingAddressText,
@@ -401,6 +440,7 @@ function Checkout(props) {
       props.navigation.navigate("Payment", { order });
     } catch (error) {
       console.warn("Checkout confirm failed:", error);
+      setCheckoutError(error?.message || "Please check your connection and try again");
       Toast.show({
         topOffset: 60,
         type: "error",
@@ -470,6 +510,19 @@ function Checkout(props) {
               ))}
             </Picker>
           </View>
+          <TouchableOpacity
+            style={styles.previewButton}
+            accessibilityRole="button"
+            disabled={isPreviewing || isSubmitting}
+            onPress={handlePreviewLocations}
+          >
+            {isPreviewing ? <ActivityIndicator color="#2563eb" size="small" /> : null}
+            <Text style={styles.previewButtonText}>
+              {isPreviewing ? "Locating addresses..." : "Preview delivery locations"}
+            </Text>
+          </TouchableOpacity>
+          {locationError ? <Text accessibilityRole="alert" style={styles.errorText}>{locationError}</Text> : null}
+          {currentPreview ? <CheckoutLocationPreview preview={currentPreview} onError={setLocationError} /> : null}
         </View>
 
         {/* Delivery Options Section */}
@@ -587,11 +640,14 @@ function Checkout(props) {
         </View>
 
         {/* Submit Button */}
+        {checkoutError ? (
+          <Text accessibilityRole="alert" style={styles.errorText}>{checkoutError}</Text>
+        ) : null}
         <EasyButton
-          style={[styles.submitButton, isSubmitting && { opacity: 0.7 }]}
+          style={[styles.submitButton, (isSubmitting || isPreviewing) && { opacity: 0.7 }]}
           primary
           large
-          disabled={isSubmitting}
+          disabled={isSubmitting || isPreviewing}
           onPress={handleSubmit}
         >
           {isSubmitting ? (
@@ -610,6 +666,18 @@ function Checkout(props) {
 }
 
 const styles = StyleSheet.create({
+  previewButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#2563eb",
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 10,
+  },
+  previewButtonText: { color: "#2563eb", fontWeight: "600", marginLeft: 8 },
+  errorText: { color: "#b91c1c", fontSize: 13, marginVertical: 10 },
   scrollContainer: {
     paddingVertical: 20,
     backgroundColor: "#f9fafb",

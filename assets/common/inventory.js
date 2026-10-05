@@ -1,5 +1,7 @@
 import axios from "axios";
 import baseUrl from "./baseUrl";
+import { getWithRetry } from "./requestRetry";
+import { getDatabaseNameFromStorage, sanitizeDatabaseName } from "./databaseConfig";
 
 const normalizeProduct = (data) => {
   if (!data) return null;
@@ -38,7 +40,10 @@ const buildProductUpdatePayload = (product, nextStock) => {
 };
 
 const getOrderItemProductId = (item) => {
-  return item?._id || item?.id || item?.product || "";
+  const product = item?.product;
+  const id = product?._id || product?.id ||
+    (typeof product === "string" ? product : null) || item?._id || item?.id;
+  return typeof id === "string" ? id.trim() : "";
 };
 
 const getOrderItemName = (item, product) => {
@@ -46,36 +51,45 @@ const getOrderItemName = (item, product) => {
 };
 
 export const validateOrderStock = async ({ orderItems = [], token }) => {
-  const headers = {};
+  const databaseName = await getDatabaseNameFromStorage();
+  const headers = { "x-database-name": databaseName };
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
 
   const checks = orderItems.map(async (item) => {
     const productId = getOrderItemProductId(item);
-    const requested = Number(item?.quantity || 1);
+    const requested = Number(item?.quantity ?? 1);
+    const name = getOrderItemName(item, item?.product);
+    const unverified = (reason) => {
+      const message = `Unable to verify stock for ${name}. ${reason}`;
+      console.warn("Stock verification failed:", { productId, databaseName, reason });
+      return { type: "unverified", productId, name, message, reason };
+    };
 
-    if (!productId || requested <= 0) {
-      return null;
+    if (!productId || !Number.isSafeInteger(requested) || requested <= 0) {
+      return unverified("The cart item has an invalid product ID or quantity. Remove it and add it again.");
+    }
+    const itemDatabase = item?.databaseName || item?.dbName;
+    if (itemDatabase && sanitizeDatabaseName(itemDatabase) !== databaseName) {
+      return unverified("This item belongs to a different shopping region. Remove it and add it again from the selected region.");
     }
 
     try {
-      const productResponse = await axios.get(`${baseUrl}products/${productId}`, {
+      const productResponse = await getWithRetry(`${baseUrl}products/${encodeURIComponent(productId)}`, {
         headers,
+        params: { db: databaseName },
         timeout: 15000,
       });
       const product = normalizeProduct(productResponse?.data);
 
-      if (!product) {
-        return {
-          type: "unverified",
-          productId,
-          name: getOrderItemName(item),
-          message: "Unable to verify stock for one or more items.",
-        };
+      const stock = product?.countInStock;
+      const available = typeof stock === "number" ||
+        (typeof stock === "string" && stock.trim()) ? Number(stock) : NaN;
+      if (!Number.isSafeInteger(available) || available < 0) {
+        return unverified("The server returned missing or invalid inventory. Please retry or contact the store.");
       }
 
-      const available = Number(product.countInStock || 0);
       if (requested > available) {
         return {
           type: "over_limit",
@@ -89,13 +103,17 @@ export const validateOrderStock = async ({ orderItems = [], token }) => {
 
       return null;
     } catch (error) {
-      return {
-        type: "unverified",
-        productId,
-        name: getOrderItemName(item),
-        message: "Unable to verify stock for one or more items.",
-        reason: error?.response?.data?.message || error?.message || "stock_check_failed",
-      };
+      const status = Number(error?.response?.status);
+      const reason = [401, 403].includes(status)
+        ? "The server rejected access to this product. Please sign in again."
+        : status === 404
+          ? "This product is no longer available in the selected region. Remove it and add it again."
+          : status >= 500
+            ? `The inventory service is temporarily unavailable (HTTP ${status}). Please retry.`
+            : !error?.response
+              ? "The inventory service could not be reached. Check your connection and retry."
+              : `The inventory request failed (HTTP ${status}). Please retry or contact the store.`;
+      return unverified(reason);
     }
   });
 

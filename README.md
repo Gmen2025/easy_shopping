@@ -243,6 +243,16 @@ avoiding a second lookup of address text (including Ethiopian addresses). Older 
 without coordinates still use the address. A `ZERO_RESULTS` response means Google
 found no driving route: verify both map pins and road access; routing coverage may
 be unavailable in the area. It is not an API-key or billing error.
+Checkout's **Preview delivery locations** button shows the geocoded shipping pin
+and selected pickup-store pin before payment or distance calculation. Both pins
+include coordinates and links to Google Maps, even when native maps are unavailable.
+Previewing requires a shipping address, city and country, not a completed order.
+An unchanged address reuses the previewed delivery coordinates at confirmation;
+editing the address or country hides the old preview and triggers a fresh lookup.
+Pickup selection is refreshed at confirmation and remains subject to server eligibility.
+Refine the shipping address if its pin is wrong, or have the store administrator
+correct the pickup pin. Routing errors remain visible on checkout, with the preview,
+and no fallback distance or fee is substituted when Google cannot find a driving route.
 An OTA update or Metro reload cannot add native manifest metadata: rebuild and
 reinstall the Android app after configuring the key.
 For EAS development builds, set `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` in the
@@ -255,6 +265,16 @@ Validate key wiring and the missing-key guard with
 `node --test scripts/mapsConfiguration.test.cjs`.
 Validate post-purchase coordinates and route selection with
 `node --test scripts/orderTracking.test.cjs`.
+Validate checkout location previews with
+`node --test scripts/checkoutLocationPreview.test.cjs`.
+Checkout and payment stock checks query live product inventory in the selected
+database and use the existing bounded retry helper for transient network/server
+failures. Verification failures identify the item and distinguish connectivity,
+service errors, rejected access and unavailable products from insufficient stock.
+Items from another shopping region must be removed and re-added in the selected
+region. Missing or malformed stock never permits checkout, and cached cart stock
+is not substituted for live inventory.
+Validate inventory verification with `node --test scripts/inventory.test.cjs`.
 
 The checked-in `android/` project is the source of truth for Android builds, including EAS Build.
 Changes to native settings in `app.json` or `app.config.js` (such as icons, permissions,

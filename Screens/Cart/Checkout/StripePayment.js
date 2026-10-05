@@ -300,7 +300,7 @@ const StripePaymentSupported = (props) => {
 
       if (!stockValidation.ok) {
         Alert.alert(
-          "Reduce item quantity",
+          stockValidation.unverified?.length ? "Could not verify stock" : "Reduce item quantity",
           stockValidation.message || "Some items exceed available stock."
         );
         return;

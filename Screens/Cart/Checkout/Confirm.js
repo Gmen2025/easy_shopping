@@ -80,7 +80,7 @@ const Confirm = (props) => {
           Toast.show({
             topOffset: 60,
             type: "error",
-            text1: "Reduce item quantity",
+            text1: stockValidation.unverified?.length ? "Could not verify stock" : "Reduce item quantity",
             text2: stockValidation.message || "Some items exceed available stock.",
           });
           return;
