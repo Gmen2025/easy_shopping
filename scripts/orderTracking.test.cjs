@@ -289,13 +289,15 @@ test("driver tracking has no fabricated coordinates or straight-line distance/ET
 });
 
 for (const liveDriver of [driver, null]) {
-test(`driver routing uses ${liveDriver ? "live GPS" : "the registered store without GPS"} and stops retrying rejected assignments`, async () => {
+for (const succeeds of [false, true]) {
+test(`driver routing uses ${liveDriver ? "live GPS" : "the registered store without GPS"} with ${succeeds ? "visible route metrics" : "rejected-assignment handling"}`, async () => {
   const filename = path.join(__dirname, "..", "Screens", "Driver", "DeliveryRouteScreen.js");
   const { code } = babel.transformSync(fs.readFileSync(filename, "utf8"), {
     filename, configFile: false, babelrc: false,
     plugins: ["@babel/plugin-transform-modules-commonjs", "@babel/plugin-transform-react-jsx"],
   });
   const effects = [];
+  const effectDependencies = [];
   const cameraCalls = [];
   const errors = [];
   let mapIsReady = false;
@@ -304,12 +306,17 @@ test(`driver routing uses ${liveDriver ? "live GPS" : "the registered store with
   let timer;
   let now = 100000;
   let currentDriver = liveDriver;
+  let orderStatus = "Driver Assigned";
+  const state = new Map();
   const refs = [];
   let refIndex = 0;
   const react = {
     createElement: (type, props, ...children) => ({ type, props, children }),
     useMemo: (fn) => fn(),
-    useEffect: (fn) => effects.push(fn),
+    useEffect: (fn, deps) => {
+      effects.push(fn);
+      effectDependencies.push(deps);
+    },
     useRef: (initial) => {
       const index = refIndex++;
       if (!refs[index]) refs[index] = {
@@ -319,8 +326,12 @@ test(`driver routing uses ${liveDriver ? "live GPS" : "the registered store with
     },
     useState: (initial) => {
       const index = stateIndex++;
-      const value = index === 0 ? currentDriver : index === 8 ? mapIsReady : initial;
-      return [value, (next) => { if (index === 3) errors.push(next); }];
+      const value = index === 0 ? currentDriver : index === 8 ? mapIsReady :
+        state.has(index) ? state.get(index) : initial;
+      return [value, (next) => {
+        state.set(index, typeof next === "function" ? next(state.get(index)) : next);
+        if (index === 3) errors.push(state.get(index));
+      }];
     },
   };
   const dependencies = {
@@ -332,7 +343,7 @@ test(`driver routing uses ${liveDriver ? "live GPS" : "the registered store with
     "react-native-safe-area-context": { SafeAreaView: "SafeAreaView" },
     "@react-navigation/native": {
       useNavigation: () => ({}),
-      useRoute: () => ({ params: { orderStatus: "Driver Assigned", request: {
+      useRoute: () => ({ params: { orderStatus, request: {
         id: "order", storeLocation: pickup, customerLocation: dropoff,
       } } }),
     },
@@ -341,6 +352,10 @@ test(`driver routing uses ${liveDriver ? "live GPS" : "the registered store with
     axios: { post: async (url, body) => {
       calls++;
       assert.deepEqual(plain(body.origin), currentDriver || pickup);
+      if (succeeds) return { data: {
+        coordinates: [currentDriver || pickup, orderStatus === "Picked Up" ? dropoff : pickup],
+        distance: 0, duration: 0,
+      } };
       const error = new Error("Not found");
       error.response = { status: 404, data: { message: "Active delivery assigned to you was not found." } };
       throw error;
@@ -369,26 +384,41 @@ test(`driver routing uses ${liveDriver ? "live GPS" : "the registered store with
   const cleanup = effects[0]();
   await new Promise(setImmediate);
   assert.equal(calls, 1);
-  assert.match(errors.at(-1), /no longer active or assigned/);
+  if (!succeeds) assert.match(errors.at(-1), /no longer active or assigned/);
   now += 60001;
-  await timer();
-  assert.equal(calls, 1, "Do not poll an unassigned order again");
-  cleanup();
+  if (!succeeds) {
+    await timer();
+    assert.equal(calls, 1, "Do not poll an unassigned order again");
+  }
+  if (!succeeds) cleanup();
   stateIndex = 0;
   refIndex = 0;
   mapIsReady = true;
-  screenExports.default();
+  const tree = screenExports.default();
+  const text = JSON.stringify(tree);
+  if (succeeds) {
+    assert.match(text, /0 min/);
+    assert.match(text, /0\.0 km/);
+    if (!liveDriver) assert.match(text, /Driving ETA from store/);
+  }
   effects.at(-1)();
   assert.equal(cameraCalls.length, 1);
   assert.deepEqual(plain(cameraCalls[0][0]), [liveDriver || pickup, pickup]);
   if (!liveDriver) {
+    const previousRouteDependencies = effectDependencies[0];
     currentDriver = driver;
     stateIndex = 0;
     refIndex = 0;
     effects.length = 0;
+    effectDependencies.length = 0;
     now = 101000;
     screenExports.default();
-    const liveCleanup = effects[0]();
+    const liveCleanup = !succeeds ? effects[0]() : () => {};
+    if (succeeds) {
+      assert.deepEqual(plain(effectDependencies[0]), plain(previousRouteDependencies),
+        "Live GPS arrival must not recreate the route effect and clear its metrics");
+      assert.equal(state.get(1).fromStore, true);
+    }
     await new Promise(setImmediate);
     assert.equal(calls, 1, "Changing origin must not bypass the request cooldown");
     now = 160001;
@@ -396,7 +426,25 @@ test(`driver routing uses ${liveDriver ? "live GPS" : "the registered store with
     assert.equal(calls, 2, "Use live GPS on the next permitted request");
     liveCleanup();
   }
+  if (succeeds) {
+    cleanup();
+    orderStatus = "Picked Up";
+    now = refs[2].current.nextAllowedAt - 50000;
+    stateIndex = 0;
+    refIndex = 0;
+    effects.length = 0;
+    screenExports.default();
+    const deliveryCleanup = effects[0]();
+    await new Promise(setImmediate);
+    const before = calls;
+    now += 10001;
+    await timer();
+    assert.equal(calls, before + 1, "Delivery leg must not wait for the full pickup refresh interval");
+    assert.equal(state.get(1).duration, 0);
+    deliveryCleanup();
+  }
 });
+}
 }
 
 function loadDelivery(distanceResponse, { storedToken = "stored-test-token", post } = {}) {

@@ -38,7 +38,7 @@ const DeliveryRouteScreen = () => {
   const route = useRoute();
   const mapRef = useRef(null);
   const [driverLocation, setDriverLocation] = useState(null);
-  const [routeStats, setRouteStats] = useState({ distance: 0, duration: 0 });
+  const [routeStats, setRouteStats] = useState(null);
   const [routeCoordinates, setRouteCoordinates] = useState([]);
   const [routeError, setRouteError] = useState("");
   const [pickupRouteStarted, setPickupRouteStarted] = useState(false);
@@ -142,9 +142,13 @@ const DeliveryRouteScreen = () => {
   const orderId = request.id || request.orderId || request._id || request.rawPayload?.orderId || request.rawPayload?._id;
   const latestOrigin = useRef(null);
   latestOrigin.current = origin;
-  const routeRequestTiming = useRef({ orderId: null, nextAllowedAt: 0 });
+  const routeRequestTiming = useRef({ orderId: null, orderStatus: null, nextAllowedAt: 0 });
   if (routeRequestTiming.current.orderId !== orderId) {
-    routeRequestTiming.current = { orderId, nextAllowedAt: 0 };
+    routeRequestTiming.current = { orderId, orderStatus, nextAllowedAt: 0 };
+  } else if (routeRequestTiming.current.orderStatus !== orderStatus) {
+    routeRequestTiming.current.orderStatus = orderStatus;
+    routeRequestTiming.current.nextAllowedAt =
+      Math.min(routeRequestTiming.current.nextAllowedAt, Date.now() + 10000);
   }
 
   useEffect(() => {
@@ -152,7 +156,7 @@ const DeliveryRouteScreen = () => {
     let pending = false;
     let terminalError = false;
     setRouteCoordinates([]);
-    setRouteStats({ distance: 0, duration: 0 });
+    setRouteStats(null);
     setRouteError("");
     const loadRoute = async () => {
       if (pending || terminalError || !latestOrigin.current ||
@@ -163,12 +167,14 @@ const DeliveryRouteScreen = () => {
       }
       pending = true;
       routeRequestTiming.current.nextAllowedAt = Date.now() + 60000;
+      const requestedOrigin = latestOrigin.current;
+      const fromStore = requestedOrigin === storeCoordinates;
       try {
         const token = await AsyncStorage.getItem("token");
         const database = await getDatabaseNameFromStorage();
         if (controller.signal.aborted) return;
         const response = await axios.post(`${baseUrl}drivers/me/orders/${orderId}/route`, {
-          origin: latestOrigin.current,
+          origin: requestedOrigin,
         }, {
           headers: { Authorization: `Bearer ${token}`, "x-database-name": database },
           signal: controller.signal, timeout: 20000,
@@ -178,12 +184,13 @@ const DeliveryRouteScreen = () => {
           !result.coordinates.every((point) => Number.isFinite(point?.latitude) &&
             Number.isFinite(point?.longitude) && Math.abs(point.latitude) <= 90 &&
             Math.abs(point.longitude) <= 180) ||
-          !Number.isFinite(result.distance) || !Number.isFinite(result.duration)) {
+          !Number.isFinite(result.distance) || result.distance < 0 ||
+          !Number.isFinite(result.duration) || result.duration < 0) {
           throw new Error("The server returned incomplete driving-route data.");
         }
         if (controller.signal.aborted) return;
         setRouteCoordinates(result.coordinates);
-        setRouteStats({ distance: result.distance, duration: result.duration });
+        setRouteStats({ distance: result.distance, duration: result.duration, fromStore });
         setRouteError("");
       } catch (error) {
         if (controller.signal.aborted) return;
@@ -203,7 +210,7 @@ const DeliveryRouteScreen = () => {
         console.warn("[Route]", message);
         setRouteError(message);
         setRouteCoordinates([]);
-        setRouteStats({ distance: 0, duration: 0 });
+        setRouteStats(null);
       } finally {
         pending = false;
       }
@@ -211,7 +218,7 @@ const DeliveryRouteScreen = () => {
     loadRoute();
     const timer = setInterval(loadRoute, 2000);
     return () => { clearInterval(timer); controller.abort(); };
-  }, [orderId, orderStatus, isCompleted, isStoreOrigin,
+  }, [orderId, orderStatus, isCompleted,
     storeCoordinates?.latitude, storeCoordinates?.longitude]);
 
   useEffect(() => {
@@ -393,22 +400,22 @@ const DeliveryRouteScreen = () => {
           <View style={styles.metricsRow}>
             <View style={styles.metricBox}>
               <Text style={styles.metricLabel}>
-                {isStoreOrigin ? "Driving ETA from store" : "Driving ETA"}
+                {routeStats?.fromStore ? "Driving ETA from store" : "Driving ETA"}
               </Text>
               <Text style={styles.metricValue}>
-                {routeStats.duration > 0
-                  ? `${Math.max(1, Math.round(routeStats.duration))} min`
-                  : "—"}
+                {routeStats
+                  ? `${Math.round(routeStats.duration)} min`
+                  : routeError || isCompleted ? "Unavailable" : "Calculating..."}
               </Text>
             </View>
             <View style={styles.metricBox}>
               <Text style={styles.metricLabel}>
-                {isStoreOrigin ? "Driving distance from store" : "Driving distance"}
+                {routeStats?.fromStore ? "Driving distance from store" : "Driving distance"}
               </Text>
               <Text style={styles.metricValue}>
-                {routeStats.distance > 0
+                {routeStats
                   ? formatDistance(routeStats.distance, deliveryCountry)
-                  : "—"}
+                  : routeError || isCompleted ? "Unavailable" : "Calculating..."}
               </Text>
             </View>
           </View>

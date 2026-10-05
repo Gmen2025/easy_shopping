@@ -181,6 +181,11 @@ Route requests share their cooldown across GPS/store-origin transitions to avoid
 duplicate calls. HTTP 429 responses honor Retry-After without replacing the underlying
 route failure. Google Routes rejection messages are redacted and surfaced by the backend;
 server configuration changes must be applied to the deployed service, not the mobile environment.
+Live GPS arrival does not cancel or clear a successful store-origin route; its metrics
+remain labeled as from-store until the next live-origin route succeeds. Changing from
+pickup to delivery clears the previous leg and requests the new leg after at most the
+10-second transition cooldown (subject to server Retry-After). Missing metrics show
+Calculating or Unavailable, and valid zero-distance/zero-duration routes display zero.
 Live GPS is used regardless of distance to the destination; there is no artificial
 300-km service-area cutoff. Google determines whether a driving route exists.
 GPS permission/fetch failures are shown explicitly, and distance estimates do not
