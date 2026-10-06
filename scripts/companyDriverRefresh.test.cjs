@@ -17,6 +17,7 @@ function fixture() {
   let refIndex;
   let focused;
   const pending = [];
+  const actions = [];
   const alerts = [];
   const react = {
     createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
@@ -25,7 +26,7 @@ function fixture() {
     useState: (initial) => {
       const index = stateIndex++;
       if (!(index in states)) states[index] = initial;
-      return [states[index], (value) => { states[index] = value; }];
+      return [states[index], (value) => { states[index] = typeof value === "function" ? value(states[index]) : value; }];
     },
     useRef: (initial) => {
       const index = refIndex++;
@@ -42,7 +43,10 @@ function fixture() {
     "react-native-safe-area-context": { SafeAreaView: "SafeAreaView" },
     "@react-navigation/native": { useFocusEffect: (callback) => { focused = callback; } },
     "@react-native-async-storage/async-storage": { getItem: async () => "token" },
-    axios: { get: (url, config) => new Promise((resolve, reject) => pending.push({ url, config, resolve, reject })) },
+    axios: {
+      get: (url, config) => new Promise((resolve, reject) => pending.push({ url, config, resolve, reject })),
+      put: (url, data, config) => new Promise((resolve, reject) => actions.push({ url, config, resolve, reject })),
+    },
     "../../Context/store/Auth": { AuthContext: {} },
     "../../assets/common/baseUrl": "https://example.invalid/api/",
     "../../assets/common/currency": { useCurrency: () => ({ formatPrice: String }) },
@@ -69,7 +73,10 @@ function fixture() {
     node.type === "TouchableOpacity" && node.props.accessibilityRole === "button");
   const text = () => nodes(render()).flatMap((node) => node.props?.children || [])
     .filter((child) => typeof child === "string").join(" ");
-  return { pending, alerts, button, text, focus: () => focused() };
+  const claim = () => nodes(render()).find((node) =>
+    node.type === "TouchableOpacity" && nodes(node).some((child) =>
+      child.props?.children?.includes("Claim Delivery")));
+  return { pending, actions, alerts, button, text, claim, focus: () => focused() };
 }
 
 test("driver refresh is bounded, prevents overlap and becomes available after timeout", async () => {
@@ -97,6 +104,33 @@ test("driver refresh is bounded, prevents overlap and becomes available after ti
   for (const request of pending.slice(4)) request.resolve({ data: { orders: [], queue: [] } });
   await retry;
   assert.equal(button().props.disabled, false);
+});
+
+test("claim timeout clears the action spinner and reloads queue and offers without duplicate claims", async () => {
+  const f = fixture();
+  f.button();
+  f.focus();
+  await new Promise(setImmediate);
+  for (const request of f.pending) request.resolve({ data: {
+    orders: [{ _id: "order", items: [] }], queue: [],
+  } });
+  await new Promise(setImmediate);
+  const claimButton = f.claim();
+  assert.ok(claimButton, "Claim button should be rendered");
+  const claim = claimButton.props.onPress();
+  await new Promise(setImmediate);
+  assert.equal(f.actions.length, 1);
+  assert.equal(f.actions[0].config.timeout, 20000);
+  await claimButton.props.onPress();
+  assert.equal(f.actions.length, 1);
+  f.actions[0].reject(new Error("timeout"));
+  await claim;
+  await new Promise(setImmediate);
+  assert.equal(f.alerts.at(-1)[0], "Unable to confirm claim");
+  assert.match(f.alerts.at(-1)[1], /server may have saved/);
+  assert.equal(f.pending.length, 6);
+  for (const request of f.pending.slice(4)) request.resolve({ data: { orders: [], queue: [] } });
+  await new Promise(setImmediate);
 });
 
 test("driver dashboard shows dispatch eligibility and distinguishes failed requests from empty lists", async () => {

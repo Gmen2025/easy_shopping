@@ -289,6 +289,9 @@ Suspended company drivers also have an administrator-only **Reinstate driver**
 action with confirmation, using the existing backend reinstatement endpoint.
 The driver dashboard displays the saved suspension reason when present.
 Manual suspensions are never cleared automatically.
+Claim/reject requests have 20-second timeouts and an in-flight guard. If a claim
+cannot be confirmed, the dashboard reloads offers and routes because assignment
+may already have been saved; inspect Your Route before trying again.
 Country switching refreshes the authenticated profile in the selected database
 before remounting navigation, so AdminDriver and AdminStore tabs reflect that
 region's account permissions. A combined company driver/store-owner account can

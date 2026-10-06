@@ -86,6 +86,7 @@ const CompanyDriverDashboard = ({ navigation }) => {
   const requestsInFlight = useRef(new Set());
   const [refreshing, setRefreshing] = useState(false);
   const refreshInFlight = useRef(false);
+  const actionInFlight = useRef(false);
 
   const loadOrders = useCallback(async () => {
     if (requestsInFlight.current.has("orders")) return;
@@ -193,6 +194,8 @@ const CompanyDriverDashboard = ({ navigation }) => {
   useFocusEffect(useCallback(() => { refreshData(); }, [refreshData]));
 
   const claimOrder = async (order) => {
+    if (actionInFlight.current) return;
+    actionInFlight.current = true;
     setActingId(order._id);
     try {
       const token = await AsyncStorage.getItem("token");
@@ -200,19 +203,25 @@ const CompanyDriverDashboard = ({ navigation }) => {
       await axios.put(
         `${baseUrl}orders/${order._id}/company-claim`,
         {},
-        { headers: { Authorization: `Bearer ${token}`, "x-database-name": currentDb } }
+        { headers: { Authorization: `Bearer ${token}`, "x-database-name": currentDb }, timeout: 20000 }
       );
       Alert.alert("Delivery claimed", "This delivery is now assigned to you.");
       setOrders((current) => current.filter((item) => item._id !== order._id));
       loadQueue();
     } catch (error) {
-      Alert.alert("Unable to claim", error?.response?.data?.message || "Please try again.");
+      Alert.alert("Unable to confirm claim", error?.response?.data?.message ||
+        "The claim request did not complete. Check Your Route before trying again; the server may have saved the assignment.");
+      loadQueue();
+      loadOrders();
     } finally {
+      actionInFlight.current = false;
       setActingId("");
     }
   };
 
   const rejectOrder = async (order) => {
+    if (actionInFlight.current) return;
+    actionInFlight.current = true;
     setActingId(order._id);
     try {
       const token = await AsyncStorage.getItem("token");
@@ -220,12 +229,13 @@ const CompanyDriverDashboard = ({ navigation }) => {
       await axios.put(
         `${baseUrl}orders/${order._id}/company-reject`,
         {},
-        { headers: { Authorization: `Bearer ${token}`, "x-database-name": currentDb } }
+        { headers: { Authorization: `Bearer ${token}`, "x-database-name": currentDb }, timeout: 20000 }
       );
       setOrders((current) => current.filter((item) => item._id !== order._id));
     } catch (error) {
       Alert.alert("Unable to reject", error?.response?.data?.message || "Please try again.");
     } finally {
+      actionInFlight.current = false;
       setActingId("");
     }
   };
