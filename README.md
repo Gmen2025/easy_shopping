@@ -280,6 +280,11 @@ overlapping refreshes. Refresh Data remains disabled while loading and becomes
 available again after success or failure; failed delivery requests show an error
 instead of leaving the spinner running indefinitely.
 Validate refresh recovery with `node --test scripts/companyDriverRefresh.test.cjs`.
+The AdminDriver dashboard displays backend dispatch-eligibility guidance, and
+keeps offer/route request errors visible rather than presenting failures as empty
+queues. The AdminDrivers management page shows approval, availability and suspension;
+approved, non-suspended offline drivers have an **Enable availability** action.
+Availability does not override capacity or create an active route before claiming.
 Country switching refreshes the authenticated profile in the selected database
 before remounting navigation, so AdminDriver and AdminStore tabs reflect that
 region's account permissions. A combined company driver/store-owner account can

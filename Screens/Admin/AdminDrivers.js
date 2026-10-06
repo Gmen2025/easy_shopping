@@ -52,6 +52,27 @@ const AdminDrivers = () => {
   const [editLocation, setEditLocation] = useState(null);
   const [editLocating, setEditLocating] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [enablingDriverId, setEnablingDriverId] = useState("");
+
+  const enableDriverAvailability = async (driver) => {
+    if (enablingDriverId) return;
+    setEnablingDriverId(driver._id);
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const currentDb = await getDatabaseNameFromStorage();
+      await axios.put(`${baseUrl}drivers/admin/company-drivers/${driver._id}`, {
+        isAvailable: true,
+      }, {
+        headers: { Authorization: `Bearer ${token}`, "x-database-name": currentDb },
+        timeout: 20000,
+      });
+      await loadDrivers();
+    } catch (error) {
+      Alert.alert("Unable to enable availability", error?.response?.data?.message || error?.message);
+    } finally {
+      setEnablingDriverId("");
+    }
+  };
 
   const detectCurrentLocation = useCallback(async () => {
     setLocatingDevice(true);
@@ -295,6 +316,24 @@ const AdminDrivers = () => {
         <Text style={styles.detail}>{item.email}</Text>
         {item.phone ? <Text style={styles.detail}>{item.phone}</Text> : null}
         {item.vehicleType ? <Text style={styles.detail}>{item.vehicleType}</Text> : null}
+        <Text style={styles.detail}>
+          Approval: {item.approvalStatus || "unknown"} | {item.isAvailable || item.availabilityStatus ? "Available" : "Unavailable"}
+        </Text>
+        {item.isSuspended ? (
+          <Text style={styles.detail}>Suspended: {item.suspensionReason || "Contact the administrator"}</Text>
+        ) : null}
+        {!item.isAvailable && !item.availabilityStatus && !item.isSuspended && item.approvalStatus === "approved" ? (
+          <TouchableOpacity
+            style={styles.editButton}
+            accessibilityRole="button"
+            disabled={Boolean(enablingDriverId)}
+            onPress={() => enableDriverAvailability(item)}
+          >
+            <Text style={{ color: "#fff" }}>
+              {enablingDriverId === item._id ? "Enabling..." : "Enable availability"}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
         {Array.isArray(item.location?.coordinates) ? (
           <Text style={styles.detail}>
             Lat {item.location.coordinates[1]}, Lng {item.location.coordinates[0]}

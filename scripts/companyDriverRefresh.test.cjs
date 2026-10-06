@@ -67,7 +67,9 @@ function fixture() {
       : [value, ...nodes(value.props?.children)];
   const button = () => nodes(render()).find((node) =>
     node.type === "TouchableOpacity" && node.props.accessibilityRole === "button");
-  return { pending, alerts, button, focus: () => focused() };
+  const text = () => nodes(render()).flatMap((node) => node.props?.children || [])
+    .filter((child) => typeof child === "string").join(" ");
+  return { pending, alerts, button, text, focus: () => focused() };
 }
 
 test("driver refresh is bounded, prevents overlap and becomes available after timeout", async () => {
@@ -95,4 +97,22 @@ test("driver refresh is bounded, prevents overlap and becomes available after ti
   for (const request of pending.slice(4)) request.resolve({ data: { orders: [], queue: [] } });
   await retry;
   assert.equal(button().props.disabled, false);
+});
+
+test("driver dashboard shows dispatch eligibility and distinguishes failed requests from empty lists", async () => {
+  const f = fixture();
+  f.button();
+  f.focus();
+  await new Promise(setImmediate);
+  for (const request of f.pending) {
+    if (request.url.includes("my-deliveries")) request.resolve({ data: {
+      orders: [], driverEligibility: { message: "Your driver profile is offline/unavailable." },
+    } });
+    else if (request.url.includes("/queue")) request.reject(new Error("Queue request failed"));
+    else request.resolve({ data: { orders: [] } });
+  }
+  await new Promise(setImmediate);
+  assert.match(f.text(), /offline\/unavailable/);
+  assert.match(f.text(), /Active routes could not be verified/);
+  assert.match(f.text(), /Queue request failed/);
 });

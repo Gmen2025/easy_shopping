@@ -80,6 +80,9 @@ const CompanyDriverDashboard = ({ navigation }) => {
   const [loadingQueue, setLoadingQueue] = useState(true);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
   const [actingId, setActingId] = useState("");
+  const [dispatchMessage, setDispatchMessage] = useState("");
+  const [ordersError, setOrdersError] = useState("");
+  const [queueError, setQueueError] = useState("");
   const requestsInFlight = useRef(new Set());
   const [refreshing, setRefreshing] = useState(false);
   const refreshInFlight = useRef(false);
@@ -87,6 +90,7 @@ const CompanyDriverDashboard = ({ navigation }) => {
   const loadOrders = useCallback(async () => {
     if (requestsInFlight.current.has("orders")) return;
     requestsInFlight.current.add("orders");
+    setOrdersError("");
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem("token");
@@ -95,8 +99,13 @@ const CompanyDriverDashboard = ({ navigation }) => {
         timeout: 20000,
         headers: { Authorization: `Bearer ${token}`, "x-database-name": currentDb },
       });
+      if (!Array.isArray(response.data?.orders)) {
+        throw new Error("The server returned an invalid delivery-offer response.");
+      }
+      setDispatchMessage(response.data?.driverEligibility?.message || "");
       setOrders(Array.isArray(response.data?.orders) ? response.data.orders : []);
     } catch (error) {
+      setOrdersError(error?.response?.data?.message || error?.message || "Unable to load delivery offers.");
       Alert.alert("Unable to load deliveries", error?.response?.data?.message ||
         "The delivery request did not complete. Check your connection and tap Refresh Data to retry.");
     } finally {
@@ -108,6 +117,7 @@ const CompanyDriverDashboard = ({ navigation }) => {
   const loadQueue = useCallback(async () => {
     if (requestsInFlight.current.has("queue")) return;
     requestsInFlight.current.add("queue");
+    setQueueError("");
     setLoadingQueue(true);
     try {
       const token = await AsyncStorage.getItem("token");
@@ -116,8 +126,12 @@ const CompanyDriverDashboard = ({ navigation }) => {
         timeout: 20000,
         headers: { Authorization: `Bearer ${token}`, "x-database-name": currentDb },
       });
+      if (!Array.isArray(response.data?.queue)) {
+        throw new Error("The server returned an invalid active-route response.");
+      }
       setQueue(Array.isArray(response.data?.queue) ? response.data.queue : []);
     } catch (error) {
+      setQueueError(error?.response?.data?.message || error?.message || "Unable to load active routes.");
       Alert.alert("Unable to load active deliveries", error?.response?.data?.message || "Please try again.");
     } finally {
       requestsInFlight.current.delete("queue");
@@ -549,7 +563,8 @@ const CompanyDriverDashboard = ({ navigation }) => {
             {/* Active Queue Section */}
             <View style={styles.sectionContainer}>
               <Text style={styles.sectionHeaderTitle}>Your Route ({queue.length})</Text>
-              {queue.length === 0 ? (
+              {queueError ? <Text accessibilityRole="alert" style={styles.helperText}>Active routes could not be verified: {queueError}</Text> : null}
+              {queue.length === 0 && !queueError ? (
                 <View style={styles.emptyCard}>
                   <Text style={styles.helperText}>No active deliveries assigned to your queue.</Text>
                 </View>
@@ -561,7 +576,9 @@ const CompanyDriverDashboard = ({ navigation }) => {
             {/* Unassigned Deliveries Section */}
             <View style={styles.sectionContainer}>
               <Text style={styles.sectionHeaderTitle}>Unassigned Company Deliveries</Text>
-              {orders.length === 0 ? (
+              {ordersError ? <Text accessibilityRole="alert" style={styles.helperText}>Offers could not be verified: {ordersError}</Text> : null}
+              {dispatchMessage ? <Text style={styles.helperText}>{dispatchMessage}</Text> : null}
+              {orders.length === 0 && !ordersError ? (
                 <View style={styles.emptyCard}>
                   <Text style={styles.helperText}>No delivery offers right now. Offers go to the nearest available company driver when no partner driver can take the delivery.</Text>
                 </View>
