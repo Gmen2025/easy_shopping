@@ -93,7 +93,7 @@ const EditProfile = (props) => {
 
       // Refresh the in-memory user so screens show the updated values
       if (currentUserId) {
-        await context.fetchUser(currentUserId, token);
+        await context.refreshProfile();
       }
 
       Toast.show({

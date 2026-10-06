@@ -294,6 +294,29 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const refreshProfile = useCallback(async () => {
+    dispatch({ type: "FETCH_USER_START" });
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        dispatch({ type: "LOGOUT" });
+        return;
+      }
+      const response = await axios.get(`${baseUrl}users/profile`, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 15000,
+      });
+      const profile = extractUserProfile(response.data);
+      if (!profile?._id && !profile?.id) {
+        throw new Error("The server returned an incomplete user profile.");
+      }
+      dispatch({ type: "LOGIN_SUCCESS", payload: profile });
+    } catch (error) {
+      dispatch({ type: "LOGOUT" });
+      throw error;
+    }
+  }, []);
+
   const register = async (userData) => {
     dispatch({ type: "REGISTER_START" });
     try {
@@ -321,7 +344,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ ...state, login, register, logout, fetchUser, restoreSession, updateLastActivity }}>
+    <AuthContext.Provider value={{ ...state, login, register, logout, fetchUser, refreshProfile, restoreSession, updateLastActivity }}>
       {children}
     </AuthContext.Provider>
   );

@@ -280,6 +280,12 @@ overlapping refreshes. Refresh Data remains disabled while loading and becomes
 available again after success or failure; failed delivery requests show an error
 instead of leaving the spinner running indefinitely.
 Validate refresh recovery with `node --test scripts/companyDriverRefresh.test.cjs`.
+Country switching refreshes the authenticated profile in the selected database
+before remounting navigation, so AdminDriver and AdminStore tabs reflect that
+region's account permissions. A combined company driver/store-owner account can
+see both tabs. If profile refresh fails, stale permissions are cleared and the
+switch reports an error; sign in again for the selected region.
+Validate with `node --test scripts/regionProfile.test.cjs`.
 
 The checked-in `android/` project is the source of truth for Android builds, including EAS Build.
 Changes to native settings in `app.json` or `app.config.js` (such as icons, permissions,

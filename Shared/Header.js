@@ -97,6 +97,10 @@ const Header = ({
                 await setDatabaseNameInStorage(resolvedDbName);
                 setSelectedCountry(resolvedCountry);
 
+                if (token) {
+                    await context.refreshProfile();
+                }
+
                 if (typeof onDatabaseChanged === 'function') {
                     onDatabaseChanged();
                 }
@@ -106,6 +110,9 @@ const Header = ({
                     error?.message ||
                     "Could not switch database.";
 
+                if (typeof onDatabaseChanged === 'function') {
+                    onDatabaseChanged();
+                }
                 Alert.alert("Database Switch Failed", message);
             }
         }
