@@ -275,6 +275,11 @@ Items from another shopping region must be removed and re-added in the selected
 region. Missing or malformed stock never permits checkout, and cached cart stock
 is not substituted for live inventory.
 Validate inventory verification with `node --test scripts/inventory.test.cjs`.
+Company-driver dashboard refreshes use 20-second request timeouts and reject
+overlapping refreshes. Refresh Data remains disabled while loading and becomes
+available again after success or failure; failed delivery requests show an error
+instead of leaving the spinner running indefinitely.
+Validate refresh recovery with `node --test scripts/companyDriverRefresh.test.cjs`.
 
 The checked-in `android/` project is the source of truth for Android builds, including EAS Build.
 Changes to native settings in `app.json` or `app.config.js` (such as icons, permissions,

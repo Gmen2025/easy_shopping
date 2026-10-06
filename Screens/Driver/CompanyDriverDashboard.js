@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useState } from "react";
+import React, { useCallback, useContext, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -80,76 +80,103 @@ const CompanyDriverDashboard = ({ navigation }) => {
   const [loadingQueue, setLoadingQueue] = useState(true);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
   const [actingId, setActingId] = useState("");
+  const requestsInFlight = useRef(new Set());
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshInFlight = useRef(false);
 
   const loadOrders = useCallback(async () => {
+    if (requestsInFlight.current.has("orders")) return;
+    requestsInFlight.current.add("orders");
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem("token");
       const currentDb = await getDatabaseNameFromStorage();
       const response = await axios.get(`${baseUrl}orders/company/my-deliveries`, {
+        timeout: 20000,
         headers: { Authorization: `Bearer ${token}`, "x-database-name": currentDb },
       });
       setOrders(Array.isArray(response.data?.orders) ? response.data.orders : []);
     } catch (error) {
-      Alert.alert("Unable to load deliveries", error?.response?.data?.message || "Please try again.");
+      Alert.alert("Unable to load deliveries", error?.response?.data?.message ||
+        "The delivery request did not complete. Check your connection and tap Refresh Data to retry.");
     } finally {
+      requestsInFlight.current.delete("orders");
       setLoading(false);
     }
   }, []);
 
   const loadQueue = useCallback(async () => {
+    if (requestsInFlight.current.has("queue")) return;
+    requestsInFlight.current.add("queue");
     setLoadingQueue(true);
     try {
       const token = await AsyncStorage.getItem("token");
       const currentDb = await getDatabaseNameFromStorage();
       const response = await axios.get(`${baseUrl}drivers/me/queue`, {
+        timeout: 20000,
         headers: { Authorization: `Bearer ${token}`, "x-database-name": currentDb },
       });
       setQueue(Array.isArray(response.data?.queue) ? response.data.queue : []);
     } catch (error) {
       Alert.alert("Unable to load active deliveries", error?.response?.data?.message || "Please try again.");
     } finally {
+      requestsInFlight.current.delete("queue");
       setLoadingQueue(false);
     }
   }, []);
 
   const loadCompletedToday = useCallback(async () => {
+    if (requestsInFlight.current.has("completed")) return;
+    requestsInFlight.current.add("completed");
     try {
       const token = await AsyncStorage.getItem("token");
       const currentDb = await getDatabaseNameFromStorage();
       const response = await axios.get(`${baseUrl}drivers/me/completed-today`, {
+        timeout: 20000,
         headers: { Authorization: `Bearer ${token}`, "x-database-name": currentDb },
       });
       setCompletedToday(Array.isArray(response.data?.orders) ? response.data.orders : []);
     } catch (error) {
-      // Non-critical background fetch
+      console.warn("Unable to load completed deliveries:", error?.message);
+    } finally {
+      requestsInFlight.current.delete("completed");
     }
   }, []);
 
   const loadDashboard = useCallback(async () => {
+    if (requestsInFlight.current.has("dashboard")) return;
+    requestsInFlight.current.add("dashboard");
     setLoadingDashboard(true);
     try {
       const token = await AsyncStorage.getItem("token");
       const currentDb = await getDatabaseNameFromStorage();
       const response = await axios.get(`${baseUrl}drivers/me/dashboard`, {
+        timeout: 20000,
         headers: { Authorization: `Bearer ${token}`, "x-database-name": currentDb },
       });
       setDashboard(response.data || null);
     } catch (error) {
+      console.warn("Unable to load driver earnings:", error?.message);
       setDashboard(null);
     } finally {
+      requestsInFlight.current.delete("dashboard");
       setLoadingDashboard(false);
     }
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadOrders();
-      loadQueue();
-      loadCompletedToday();
-      loadDashboard();
-    }, [loadOrders, loadQueue, loadCompletedToday, loadDashboard])
-  );
+  const refreshData = useCallback(async () => {
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    setRefreshing(true);
+    try {
+      await Promise.all([loadOrders(), loadQueue(), loadCompletedToday(), loadDashboard()]);
+    } finally {
+      refreshInFlight.current = false;
+      setRefreshing(false);
+    }
+  }, [loadOrders, loadQueue, loadCompletedToday, loadDashboard]);
+
+  useFocusEffect(useCallback(() => { refreshData(); }, [refreshData]));
 
   const claimOrder = async (order) => {
     setActingId(order._id);
@@ -408,15 +435,12 @@ const CompanyDriverDashboard = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.refreshLink}
-            onPress={() => {
-              loadOrders();
-              loadQueue();
-              loadCompletedToday();
-              loadDashboard();
-            }}
+            accessibilityRole="button"
+            disabled={refreshing || loading || loadingQueue || loadingDashboard}
+            onPress={refreshData}
           >
             <Text style={styles.refreshLinkText}>
-              {loading || loadingQueue ? "Refreshing..." : "🔄 Refresh Data"}
+              {refreshing || loading || loadingQueue || loadingDashboard ? "Refreshing..." : "🔄 Refresh Data"}
             </Text>
           </TouchableOpacity>
         </View>
