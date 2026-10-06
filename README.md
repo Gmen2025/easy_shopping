@@ -285,6 +285,10 @@ keeps offer/route request errors visible rather than presenting failures as empt
 queues. The AdminDrivers management page shows approval, availability and suspension;
 approved, non-suspended offline drivers have an **Enable availability** action.
 Availability does not override capacity or create an active route before claiming.
+Suspended company drivers also have an administrator-only **Reinstate driver**
+action with confirmation, using the existing backend reinstatement endpoint.
+The driver dashboard displays the saved suspension reason when present.
+Manual suspensions are never cleared automatically.
 Country switching refreshes the authenticated profile in the selected database
 before remounting navigation, so AdminDriver and AdminStore tabs reflect that
 region's account permissions. A combined company driver/store-owner account can

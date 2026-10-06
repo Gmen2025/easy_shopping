@@ -53,6 +53,37 @@ const AdminDrivers = () => {
   const [editLocating, setEditLocating] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [enablingDriverId, setEnablingDriverId] = useState("");
+  const [reinstatingDriverId, setReinstatingDriverId] = useState("");
+
+  const reinstateDriver = async (driver) => {
+    if (reinstatingDriverId) return;
+    setReinstatingDriverId(driver._id);
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const currentDb = await getDatabaseNameFromStorage();
+      await axios.put(`${baseUrl}drivers/${driver._id}/reinstate`, {}, {
+        headers: { Authorization: `Bearer ${token}`, "x-database-name": currentDb },
+        timeout: 20000,
+      });
+      await loadDrivers();
+      Alert.alert("Driver reinstated", "The suspension has been removed. Refresh the driver's dashboard to load eligible delivery offers.");
+    } catch (error) {
+      Alert.alert("Unable to reinstate driver", error?.response?.data?.message || error?.message);
+    } finally {
+      setReinstatingDriverId("");
+    }
+  };
+
+  const confirmReinstatement = (driver) => {
+    Alert.alert(
+      "Reinstate company driver?",
+      `Remove the suspension for ${driver.name}? Reason: ${driver.suspensionReason || "No reason recorded"}. Delivery capacity and approval rules still apply.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Reinstate", onPress: () => reinstateDriver(driver) },
+      ]
+    );
+  };
 
   const enableDriverAvailability = async (driver) => {
     if (enablingDriverId) return;
@@ -321,6 +352,19 @@ const AdminDrivers = () => {
         </Text>
         {item.isSuspended ? (
           <Text style={styles.detail}>Suspended: {item.suspensionReason || "Contact the administrator"}</Text>
+        ) : null}
+        {item.isSuspended ? (
+          <TouchableOpacity
+            style={styles.editButton}
+            accessibilityRole="button"
+            accessibilityLabel={`Reinstate ${item.name}`}
+            disabled={Boolean(reinstatingDriverId)}
+            onPress={() => confirmReinstatement(item)}
+          >
+            <Text style={{ color: "#fff" }}>
+              {reinstatingDriverId === item._id ? "Reinstating..." : "Reinstate driver"}
+            </Text>
+          </TouchableOpacity>
         ) : null}
         {!item.isAvailable && !item.availabilityStatus && !item.isSuspended && item.approvalStatus === "approved" ? (
           <TouchableOpacity
