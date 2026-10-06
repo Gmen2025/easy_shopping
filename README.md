@@ -53,6 +53,13 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   When company stores cannot be ranked by proximity, an eligible preferred
   company store or a stable available default is used instead of leaving pickup
   unassigned. Closed or unapproved stores are not eligible.
+- **Delivery Claim Deadline**: Claim/reject actions stop spinning after a
+  20-second end-to-end deadline, including storage reads and request interceptors,
+  in both Ethiopia and USA. A timed-out claim refreshes offers and Your Route;
+  check Your Route before retrying because the server may have saved the assignment.
+  Claim failures show the server or connection error instead of hiding it behind
+  a generic message. The backend must release assignment locks before waiting on
+  partner-driver decisions and must not wait for push notifications to finish a claim.
 - **Low Stock Monitor**: Dedicated low-stock screen with configurable minimum threshold
 - **Low Stock Badge**: Admin tab badge shows current low-stock count
 - **Auto Cleanup**: Automatic deletion of old delivered orders (2+ months)
@@ -127,6 +134,12 @@ Store pickup-selection regression tests:
 
 ```bash
 node --test scripts/storeRouting.test.cjs
+```
+
+Company-driver refresh and claim-deadline regression tests:
+
+```bash
+node --test scripts/companyDriverRefresh.test.cjs
 ```
 
 AdminStore order navigation and product-detail regression tests:

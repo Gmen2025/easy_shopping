@@ -26,6 +26,42 @@ const INCOME_PERIODS = [
   { key: "yearly", label: "365 Days" },
 ];
 
+const submitDeliveryAction = async (orderId, action) => {
+  const controller = new AbortController();
+  let deadlineTimer;
+  const deadline = new Promise((_, reject) => {
+    deadlineTimer = setTimeout(() => {
+      reject(new Error("The delivery action did not complete within 20 seconds."));
+      controller.abort();
+    }, 20000);
+  });
+
+  try {
+    // Axios's transport timeout does not cover storage or async interceptors.
+    return await Promise.race([
+      deadline,
+      (async () => {
+        const token = await AsyncStorage.getItem("token");
+        const currentDb = await getDatabaseNameFromStorage();
+        if (controller.signal.aborted) {
+          throw new Error("The delivery action timed out before it could be sent.");
+        }
+        return axios.put(
+          `${baseUrl}orders/${orderId}/company-${action}`,
+          {},
+          {
+            headers: { Authorization: `Bearer ${token}`, "x-database-name": currentDb },
+            timeout: 20000,
+            signal: controller.signal,
+          }
+        );
+      })(),
+    ]);
+  } finally {
+    clearTimeout(deadlineTimer);
+  }
+};
+
 // Converts a driver-queue entry from GET /drivers/me/queue into expected navigation shape
 const normalizeQueueEntry = (entry = {}) => {
   const dropZone = entry.dropZone || {};
@@ -198,19 +234,15 @@ const CompanyDriverDashboard = ({ navigation }) => {
     actionInFlight.current = true;
     setActingId(order._id);
     try {
-      const token = await AsyncStorage.getItem("token");
-      const currentDb = await getDatabaseNameFromStorage();
-      await axios.put(
-        `${baseUrl}orders/${order._id}/company-claim`,
-        {},
-        { headers: { Authorization: `Bearer ${token}`, "x-database-name": currentDb }, timeout: 20000 }
-      );
+      await submitDeliveryAction(order._id, "claim");
       Alert.alert("Delivery claimed", "This delivery is now assigned to you.");
       setOrders((current) => current.filter((item) => item._id !== order._id));
       loadQueue();
     } catch (error) {
-      Alert.alert("Unable to confirm claim", error?.response?.data?.message ||
-        "The claim request did not complete. Check Your Route before trying again; the server may have saved the assignment.");
+      const reason = error?.response?.data?.message || error?.message ||
+        "The claim request did not complete.";
+      Alert.alert("Unable to confirm claim",
+        `${reason}\n\nCheck Your Route before trying again; the server may have saved the assignment.`);
       loadQueue();
       loadOrders();
     } finally {
@@ -224,13 +256,7 @@ const CompanyDriverDashboard = ({ navigation }) => {
     actionInFlight.current = true;
     setActingId(order._id);
     try {
-      const token = await AsyncStorage.getItem("token");
-      const currentDb = await getDatabaseNameFromStorage();
-      await axios.put(
-        `${baseUrl}orders/${order._id}/company-reject`,
-        {},
-        { headers: { Authorization: `Bearer ${token}`, "x-database-name": currentDb }, timeout: 20000 }
-      );
+      await submitDeliveryAction(order._id, "reject");
       setOrders((current) => current.filter((item) => item._id !== order._id));
     } catch (error) {
       Alert.alert("Unable to reject", error?.response?.data?.message || "Please try again.");
