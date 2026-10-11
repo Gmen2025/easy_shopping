@@ -165,6 +165,37 @@ Android key to package `com.addugenet.eshop` and the signing certificate SHA-1
 for that build. Directions requests additionally need the appropriate API enabled.
 Do not put key values in tracked source files.
 
+For Google Play installs, add the **app signing key certificate SHA-1** from
+Play Console > App integrity to the key's Android application restrictions,
+paired with `com.addugenet.eshop`. The upload certificate and local debug
+certificate do not authorize a Play-signed APK. Keep separate entries for the
+development and Play certificates. Check every EAS environment used for store
+builds: `production` uses the production environment, while `internal-testing`
+uses preview.
+
+When a Play build shows only the Google logo, connect the phone with USB
+debugging authorized and inspect the installed APK rather than assuming that
+local configuration matches it:
+
+```powershell
+adb devices -l
+adb shell dumpsys package com.addugenet.eshop |
+  Select-String 'versionCode=|versionName=|installerPackageName='
+adb shell pm path com.addugenet.eshop
+# Pull the base.apk path returned above, then use your SDK build-tools version.
+adb pull "<installed-base.apk-path>" "$env:TEMP\easy-shopping-play.apk"
+& "$env:LOCALAPPDATA\Android\Sdk\build-tools\36.0.0\apksigner.bat" verify --print-certs "$env:TEMP\easy-shopping-play.apk"
+```
+
+Use **Signer #1 certificate SHA-1**, not the Source Stamp Signer fingerprint.
+Confirm Maps SDK for Android is enabled and billing is active in the key's
+Google Cloud project. After saving a missing certificate restriction, allow
+several minutes for propagation and fully close/reopen the Play-installed app.
+This console-only correction does not require a new build if the installed
+APK already embeds the correct key. Changing the embedded key or native code
+does require rebuilding and installing a new release. Verify streets/tiles
+first, then customer Directions and backend driver Routes separately.
+
 The checked-in Gradle project resolves the Expo configuration and supplies the
 `com.google.android.geo.API_KEY` manifest metadata through a placeholder. Native
 code exposes only whether the installed manifest contains a key. If the key or

@@ -341,13 +341,13 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 22,
-    color: '#ffffff',
+    color: '#030501',
     fontWeight: '700',
     marginBottom: 4,
   },
   headerSubtitle: {
     fontSize: 13,
-    color: '#ffffff',
+    color: '#141519',
     lineHeight: 18,
   },
   scrollContent: {

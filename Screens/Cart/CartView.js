@@ -152,7 +152,7 @@ return (
               onPress={() => props.navigation.navigate("Checkout")}
               style={{ margin: 10 }}
             >
-              <Text style={{ color: 'white' }}>Proceed to Checkout</Text>
+              <Text style={{ color: '#030501' }}>Proceed to Checkout</Text>
             </EasyButton>
           ) : (
             <EasyButton
@@ -161,7 +161,7 @@ return (
               onPress={() => props.navigation.navigate("User", { screen: "Login" })}
               style={{ margin: 10 }}
             >
-              <Text style={{ color: 'white' }}>Proceed to Login</Text>
+              <Text style={{ color: '#030501' }}>Proceed to Login</Text>
             </EasyButton>
           )}
         </View>

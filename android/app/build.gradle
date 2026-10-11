@@ -169,6 +169,8 @@ android {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
+    // Same artifact react-native-maps uses; needed to request the latest Maps renderer at startup.
+    implementation("com.google.android.gms:play-services-maps:${rootProject.ext.has('googlePlayServicesMapsVersion') ? rootProject.ext.googlePlayServicesMapsVersion : '19.1.0'}")
 
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";

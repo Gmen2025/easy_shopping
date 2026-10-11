@@ -672,7 +672,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   trackDeliveryText: {
-    color: "#fff",
+    color: "#030501",
     fontWeight: "600",
     marginLeft: 8,
   },

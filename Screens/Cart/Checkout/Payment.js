@@ -292,13 +292,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: "700",
-    color: "#ffffff",
+    color: "#030501",
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
     lineHeight: 20,
-    color: "#d0d8e8",
+    color: "#141519",
   },
   sectionCard: {
     backgroundColor: "#ffffff",

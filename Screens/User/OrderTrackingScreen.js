@@ -9,7 +9,7 @@ import {
   StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import MapView, { Marker } from "react-native-maps";
+import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import MapViewDirections from "react-native-maps-directions";
 import { canRenderNativeMap, formatDirectionsError, MAP_UNAVAILABLE_MESSAGE } from "../../assets/common/mapsConfiguration";
 import { formatDistance, getTrackingAddress, getShippingAddressText, getTrackingLocations, getTrackingRoute, toLatLng } from "../../assets/common/orderTracking";
@@ -385,6 +385,7 @@ const OrderTrackingScreen = (props) => {
             <MapView
               ref={mapRef}
               style={styles.map}
+              provider={PROVIDER_GOOGLE}
               googleRenderer="LATEST"
               initialRegion={{ ...DEFAULT_REGION, ...(pickup || dropoff || driverPoint) }}
               onMapReady={() => setMapReady(true)}

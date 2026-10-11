@@ -31,6 +31,14 @@ test("post-purchase tracking uses checkout coordinates before tracking is availa
   });
 });
 
+test("tracking reads pickup coordinates from a populated order store", () => {
+  const locations = getTrackingLocations(null, {
+    store: { location: { type: "Point", coordinates: [pickup.longitude, pickup.latitude] } },
+    customerLocation: dropoff,
+  });
+  assert.deepEqual(plain(locations), { pickup, dropoff });
+});
+
 test("tracking coordinates override checkout coordinates, while incomplete tracking retains them", () => {
   assert.deepEqual(plain(getTrackingLocations({ pickup: driver }, {
     storeLocation: pickup, customerLocation: dropoff,

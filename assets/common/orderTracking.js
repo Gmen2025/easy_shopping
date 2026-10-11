@@ -58,6 +58,7 @@ export const getShippingAddressText = (address) => address?.address1
 export const getTrackingLocations = (tracking, order, resolvedDropoff) => ({
   pickup: toLatLng(tracking?.pickup) ||
     toLatLng(tracking?.storeLocation) || toLatLng(order?.storeLocation) ||
+    toLatLng(order?.store) ||
     toLatLng(order?.pickupStore),
   dropoff: toLatLng(resolvedDropoff) ||
     (order?.customerLocationSource === "shipping-address"

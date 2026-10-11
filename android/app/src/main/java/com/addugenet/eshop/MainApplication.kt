@@ -2,6 +2,9 @@ package com.addugenet.eshop
 
 import android.app.Application
 import android.content.res.Configuration
+import android.util.Log
+
+import com.google.android.gms.maps.MapsInitializer
 
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
@@ -28,6 +31,10 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
+    // Google decommissioned the legacy renderer (blank maps); request LATEST before any MapView exists.
+    MapsInitializer.initialize(applicationContext, MapsInitializer.Renderer.LATEST) { renderer ->
+      Log.i("MapsRenderer", "Initialized Google Maps renderer: $renderer")
+    }
     DefaultNewArchitectureEntryPoint.releaseLevel = try {
       ReleaseLevel.valueOf(BuildConfig.REACT_NATIVE_RELEASE_LEVEL.uppercase())
     } catch (e: IllegalArgumentException) {

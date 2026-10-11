@@ -46,6 +46,7 @@ const DeliveryRouteScreen = () => {
   const [locationStatus, setLocationStatus] = useState("Waiting for live GPS");
   const [statusError, setStatusError] = useState("");
   const [mapReady, setMapReady] = useState(false);
+  const [panelCollapsedTo, setPanelCollapsedTo] = useState(null);
 
   const request = route?.params?.request || {};
   const orderStatus = route?.params?.orderStatus || "Driver Assigned";
@@ -347,9 +348,57 @@ const DeliveryRouteScreen = () => {
           </View>
         )}
 
+        {panelCollapsedTo === "side" ? (
+          <TouchableOpacity
+            style={styles.sideDock}
+            accessibilityRole="button"
+            accessibilityLabel="Expand active route"
+            onPress={() => setPanelCollapsedTo(null)}
+          >
+            <Icon name="map-marker" size={20} color="#8a6c09" />
+            <Icon name="angle-left" size={16} color="#6b7280" />
+          </TouchableOpacity>
+        ) : panelCollapsedTo === "bottom" ? (
+          <TouchableOpacity
+            style={styles.bottomDock}
+            accessibilityRole="button"
+            accessibilityLabel="Expand active route"
+            onPress={() => setPanelCollapsedTo(null)}
+          >
+            <View style={styles.bottomDockText}>
+              <Text style={styles.panelTitle}>Active route</Text>
+              <Text style={styles.panelSubtitle} numberOfLines={1}>
+                {request.pickupStoreName || "Delivery route"}
+              </Text>
+            </View>
+            <Icon name="angle-up" size={20} color="#6b7280" />
+          </TouchableOpacity>
+        ) : (
         <View style={styles.bottomPanel}>
-          <Text style={styles.panelTitle}>Active route</Text>
-          <Text style={styles.panelSubtitle}>{request.pickupStoreName || "Delivery route"}</Text>
+          <View style={styles.panelHeader}>
+            <View style={styles.panelHeading}>
+              <Text style={styles.panelTitle}>Active route</Text>
+              <Text style={styles.panelSubtitle}>{request.pickupStoreName || "Delivery route"}</Text>
+            </View>
+            <View style={styles.panelCollapseActions}>
+              <TouchableOpacity
+                style={styles.panelCollapseButton}
+                accessibilityRole="button"
+                accessibilityLabel="Collapse active route to bottom"
+                onPress={() => setPanelCollapsedTo("bottom")}
+              >
+                <Icon name="angle-down" size={18} color="#6b7280" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.panelCollapseButton}
+                accessibilityRole="button"
+                accessibilityLabel="Collapse active route to side"
+                onPress={() => setPanelCollapsedTo("side")}
+              >
+                <Icon name="angle-right" size={18} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
+          </View>
           {request.deliveryMode === "SCHEDULED" ||
           request.scheduledFor ||
           request.scheduledDeliveryDate ||
@@ -482,6 +531,7 @@ const DeliveryRouteScreen = () => {
             )}
           </View>
         </View>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -524,6 +574,67 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderRadius: 18,
     padding: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  panelHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  panelHeading: {
+    flex: 1,
+    marginRight: 12,
+  },
+  panelCollapseActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  panelCollapseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f3f4f6",
+  },
+  bottomDock: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    bottom: 18,
+    minHeight: 60,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  bottomDockText: {
+    flex: 1,
+    marginRight: 12,
+  },
+  sideDock: {
+    position: "absolute",
+    right: 8,
+    top: "42%",
+    width: 48,
+    height: 72,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#ffffff",
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
     shadowColor: "#000",
     shadowOpacity: 0.16,
     shadowRadius: 10,
@@ -615,7 +726,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   primaryActionText: {
-    color: "#ffffff",
+    color: "#030501",
     fontWeight: "700",
   },
   secondaryAction: {
