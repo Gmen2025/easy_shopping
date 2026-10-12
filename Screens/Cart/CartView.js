@@ -1,14 +1,17 @@
-import React, {useEffect, useState, useContext} from 'react';
-import { View, Text, FlatList, StyleSheet, Image  } from 'react-native';
+import React, {useContext, useState, useCallback} from 'react';
+import { View, Text, FlatList, StyleSheet, Alert } from 'react-native';
 import { Card, Button, Appbar, Avatar } from 'react-native-paper';
 import { useSelector, useDispatch } from 'react-redux';
 import { clearCart, deductQuantity} from '../../store/cartSlice'; // Adjust the import path as necessary
-import axios from 'axios';
-
-import baseUrl from '../../assets/common/baseUrl'; // Import the base URL for API requests
 import { AuthContext } from '../../Context/store/Auth';
 import EasyButton from '../../Shared/StyledComponenets/EasyButton';
 import { useCurrency } from '../../assets/common/currency';
+import { cartItemKey } from '../../assets/common/cartIdentity';
+import { storeRequest, getStorefrontScope } from '../../assets/common/storefront';
+import { getDatabaseNameFromStorage, sanitizeDatabaseName } from '../../assets/common/databaseConfig';
+import { useFocusEffect } from '@react-navigation/native';
+import { Picker } from '@react-native-picker/picker';
+import { exchangeRequest, rateIsActive, usdAmount, usdText, usdInactiveMessage, birrAmount, etbText, exportInactiveMessage } from '../../assets/common/exchangeRate';
 //import { CheckoutProvider } from '../../Context/store/CheckoutContext'; // Import the CheckoutProvider
 
 // products data
@@ -21,40 +24,38 @@ const CartView = (props) => {
   const context = useContext(AuthContext);
   console.log("context value", context)
 
-  // Fetch products from the API or use a static file
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  
-
 
   const cartItems = useSelector((state) => state.cart.cartItems);
   const dispatch = useDispatch();
   const { formatPrice, currencySymbol } = useCurrency();
-
-  useEffect(() => {
-    // Fetch products from the API
-    axios.get(`${baseUrl}products`)
-      .then((response) => {
-        const fetchedProducts = Array.isArray(response.data)
-          ? response.data
-          : response.data.products;
-        //console.log("Fetched products:", fetchedProducts);
-        setProducts(fetchedProducts || []);
-        setLoading(false); // Set loading to false after fetching products
-      })
-      .catch((error) => {
-        console.error("Error fetching products:", error);
-        setLoading(false); // Set loading to false even if there's an error
-      });
-
-  }, []);
+  const [checking, setChecking] = useState(false);
+  const [paymentCurrency, setPaymentCurrency] = useState("etb");
+  const [exchange, setExchange] = useState(null);
+  const [database, setDatabase] = useState("");
+  const [exchangeError, setExchangeError] = useState("");
+  useFocusEffect(useCallback(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const db = await getDatabaseNameFromStorage();
+        if (!mounted) return;
+        setDatabase(db);
+        setPaymentCurrency(/usa/i.test(db) ? "usd" : "etb");
+        setExchange(null); setExchangeError("");
+        if (context.isAuthenticated) {
+          const result = await exchangeRequest();
+          if (mounted) setExchange(result);
+        }
+      } catch (error) {
+        if (mounted) setExchangeError(error.response?.data?.message || "Could not load cross-currency checkout status. Native-currency checkout remains available.");
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, [context.isAuthenticated]));
 
   // Access the cart items from the Redux store
-  const productsData = products.length > 0
-    ? products.filter(product =>
-        cartItems.some(cartItem => cartItem.id === product._id)
-      )
-    : cartItems.map((cartItem) => ({
+  const productsData = cartItems.map((cartItem) => ({
         ...cartItem,
         _id: cartItem._id || cartItem.id,
       }));
@@ -71,8 +72,33 @@ const CartView = (props) => {
     dispatch(clearCart());
   };
 
-  const handleDeductQuantity = (itemId) => {
-    dispatch(deductQuantity({ _id: itemId })); // Adjust based on your cartSlice implementation
+  const handleDeductQuantity = (item) => {
+    dispatch(deductQuantity({ cartKey: cartItemKey(item) }));
+  };
+  const checkout = async () => {
+    if (checking) return;
+    setChecking(true);
+    try {
+      const database = await getDatabaseNameFromStorage();
+      if (cartItems.some((item) => sanitizeDatabaseName(item.databaseName || item.dbName) !== database)) {
+        throw new Error("Your cart contains products from another region. Switch back or clear the cart before checking out.");
+      }
+      const config = await storeRequest("delivery-config");
+      const exportPurchase = /usa/i.test(database) && paymentCurrency === "etb";
+      if (exportPurchase || (!/usa/i.test(database) && paymentCurrency === "usd")) {
+        const latest = await exchangeRequest();
+        setExchange(latest);
+        if (!rateIsActive(latest)) throw new Error(latest.message || (exportPurchase ? exportInactiveMessage : usdInactiveMessage));
+        if (!config.enabled) throw new Error("Admin must enable inventory and vehicle checkout before cross-currency product purchases.");
+        if (exportPurchase && !(await storeRequest("international-shipping-config")).enabled) throw new Error("US-to-Ethiopia international shipping is not enabled.");
+      }
+      if (config.enabled) props.navigation.push("MultiDeliveryCheckout", { paymentCurrency });
+      else {
+        getStorefrontScope(cartItems);
+        props.navigation.navigate("Checkout");
+      }
+    } catch (error) { Alert.alert("Checkout unavailable", error.response?.data?.message || error.message); }
+    finally { setChecking(false); }
   };
 
 return (
@@ -86,6 +112,7 @@ return (
         onPress={handleClearCart}
       />
     </Appbar.Header>
+    {context.isAuthenticated ? <Button onPress={() => props.navigation.navigate("DeliveryCheckouts")}>My multi-delivery checkouts</Button> : null}
     {productsData.length === 0 ? (
       <View style={styles.emptyCart}>
         <Text style={styles.emptyText}>Your cart is empty</Text>
@@ -94,10 +121,7 @@ return (
       <FlatList
         data={productsData}
         renderItem={({ item }) => {
-          const itemId = item._id || item.id;
-          const quantity =
-            cartItems.find((cartItem) => cartItem.id === itemId)?.quantity ||
-            1;
+          const quantity = item.quantity;
           return (
             <View style={styles.rowItem}>
               <Avatar.Image
@@ -111,13 +135,14 @@ return (
               />
               <View style={styles.itemInfo}>
                 <Text style={styles.itemName}>{item.name}</Text>
+                {item.storefrontId ? <Text>{item.storefrontName || `Store ${item.storefrontId}`}</Text> : <Text>Main catalog</Text>}
                 <Text style={styles.itemPrice}>{formatPrice(item.price)}</Text>
                 <Text>Qty: {quantity}</Text>
                 <Text>Subtotal: {formatPrice(item.price * quantity)}</Text>
               </View>
               <View style={styles.actions}>
                 <Button
-                  onPress={() => handleDeductQuantity(itemId)}
+                  onPress={() => handleDeductQuantity(item)}
                   mode="outlined"
                 >
                   -
@@ -126,21 +151,34 @@ return (
             </View>
           );
         }}
-        keyExtractor={(item) => String(item._id || item.id)}
+        keyExtractor={cartItemKey}
         contentContainerStyle={styles.listContent}
       />
     )}
     {productsData.length > 0 && (
       <View style={{ padding: 10 }}>
+        {database && context.isAuthenticated ? <>
+          <Text>{/usa/i.test(database) ? "Pay USD for US delivery, or birr to ship approved US products to Ethiopia. Products only; shipping is added." :
+            "Pay for Ethiopia deliveries in birr or US dollars. Rides are not included."}</Text>
+          <Picker selectedValue={paymentCurrency} enabled={!checking} onValueChange={setPaymentCurrency}>
+            <Picker.Item label={/usa/i.test(database) ? "Pay birr & ship to Ethiopia (ETB)" : "Pay in birr (ETB)"} value="etb" />
+            <Picker.Item label={/usa/i.test(database) ? "Pay USD & deliver in USA" : "Pay in US dollars (USD)"} value="usd" />
+          </Picker>
+          {exchangeError ? <Text style={{ color: "#b91c1c" }}>{exchangeError}</Text> : null}
+          {paymentCurrency === (/usa/i.test(database) ? "etb" : "usd") ? rateIsActive(exchange) ? <>
+            <Text>Products estimate: {/usa/i.test(database) ?
+              etbText(birrAmount(productsData.reduce((sum, item) => sum + item.price * item.quantity, 0), exchange.birrPerUsd)) :
+              usdText(usdAmount(productsData.reduce((sum, item) => sum + item.price * item.quantity, 0), exchange.birrPerUsd))}. Shipping / route fees are added at checkout.</Text>
+            <Text>1 USD = {exchange.birrPerUsd} ETB. Rate applied {new Date(exchange.appliedAt).toLocaleString()}.</Text>
+          </> : <Text style={{ color: "#b91c1c" }}>{exchange?.active ?
+            (/usa/i.test(database) ? exportInactiveMessage : usdInactiveMessage) : exchange?.message ||
+              (/usa/i.test(database) ? exportInactiveMessage : usdInactiveMessage)}</Text> : null}
+        </> : null}
         <Text style={{ fontSize: 18, fontWeight: "bold" }}>
           Grand Total: {currencySymbol} 
           {productsData
             .reduce((total, item) => {
-              const itemId = item._id || item.id;
-              const quantity =
-                cartItems.find((cartItem) => cartItem.id === itemId)
-                  ?.quantity || 1;
-              return total + item.price * quantity;
+              return total + item.price * item.quantity;
             }, 0)
             .toFixed(2)}
         </Text>
@@ -149,10 +187,11 @@ return (
             <EasyButton
               mode="contained"
               tertiary
-              onPress={() => props.navigation.navigate("Checkout")}
+              disabled={checking}
+              onPress={checkout}
               style={{ margin: 10 }}
             >
-              <Text style={{ color: '#030501' }}>Proceed to Checkout</Text>
+              <Text style={{ color: '#030501' }}>{checking ? "Checking availability..." : "Proceed to Checkout"}</Text>
             </EasyButton>
           ) : (
             <EasyButton

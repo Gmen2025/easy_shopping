@@ -192,6 +192,7 @@ const OrderTrackingScreen = (props) => {
     [liveDriverLocation, tracking?.driverLocation]
   );
   const isDelivered = deliveryStatus === "Delivered";
+  const internationalShipping = tracking?.internationalShipping || order?.internationalShipping;
   const isDeliveryLeg = deliveryStatus === "Picked Up";
 
   const { origin: routeOrigin, destination: routeDestination } =
@@ -353,7 +354,7 @@ const OrderTrackingScreen = (props) => {
                       isActive && styles.timelineLabelActive,
                     ]}
                   >
-                    {step.label}
+                    {internationalShipping && step.key === "Delivered" ? "At US hub" : step.label}
                   </Text>
                 </View>
               );
@@ -363,9 +364,9 @@ const OrderTrackingScreen = (props) => {
           <View style={styles.bannerContainer}>
             <Text style={styles.legBanner}>
               {isDelivered
-                ? "Order Delivered"
+                ? internationalShipping ? "Delivered to US consolidation hub" : "Order Delivered"
                 : isDeliveryLeg
-                  ? "Driver is on the way to you"
+                  ? internationalShipping ? "Driver is on the way to the US hub" : "Driver is on the way to you"
                   : deliveryStatus === "Driver Assigned"
                     ? "Driver is heading to pickup"
                     : "Assigning nearest driver"}
@@ -374,6 +375,13 @@ const OrderTrackingScreen = (props) => {
         </View>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {internationalShipping ? <View style={styles.card}>
+          <Text style={styles.cardHeader}>International shipment: {internationalShipping.status}</Text>
+          <Text style={styles.mutedText}>This map tracks the US store-to-hub delivery only, not the international journey.</Text>
+          <Text style={styles.mutedText}>Ethiopian recipient: {internationalShipping.recipient?.address1}, {internationalShipping.recipient?.city}</Text>
+          <Text selectable style={styles.mutedText}>{internationalShipping.carrier || "Carrier pending"} {internationalShipping.trackingNumber || ""}</Text>
+          <Text style={styles.mutedText}>{internationalShipping.customsNotice}</Text>
+        </View> : null}
         {dropoffError ? <Text style={styles.errorText}>{dropoffError}</Text> : null}
         {shippingAddressText && !dropoff && !dropoffError ? (
           <Text style={styles.mutedText}>Locating the delivery address...</Text>
@@ -510,7 +518,7 @@ const OrderTrackingScreen = (props) => {
               <Icon name="home" size={13} color="#0f172a" />
             </View>
             <View style={styles.rowContent}>
-              <Text style={styles.cardLabel}>Delivery Address</Text>
+              <Text style={styles.cardLabel}>{internationalShipping ? "US Hub Address" : "Delivery Address"}</Text>
               <Text style={styles.cardValue} numberOfLines={2}>
                 {dropoffAddressText || "Destination address"}
               </Text>

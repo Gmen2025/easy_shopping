@@ -167,6 +167,14 @@ const CompanyStoreDashboard = ({ navigation }) => {
 
   const dashboardHeader = (
     <>
+      <View style={styles.salesRow}>
+        <TouchableOpacity style={styles.retryButton} onPress={() => navigation.navigate("StoreManagement")}>
+          <Text style={styles.retryText}>My store & inventory</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.retryButton} onPress={() => navigation.navigate("StoreAssignments")}>
+          <Text style={styles.retryText}>Store assignments</Text>
+        </TouchableOpacity>
+      </View>
       <View style={styles.analyticsCard}>
         <View style={styles.analyticsHeading}>
           <View>

@@ -287,13 +287,26 @@ const ProductContainer = (props) => {
         style={[styles.topGraphic, { width: screenWidth, height: topGraphicHeight }]}
         resizeMode="contain"
       />
+      <View style={styles.shoppingActions}>
+      <TouchableOpacity style={styles.serviceAction} accessibilityRole="button"
+        onPress={() => props.navigation.navigate("RideBooking")}>
+        <Text style={styles.serviceActionText}>Ride</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.serviceAction}
+        accessibilityRole="button"
+        onPress={() => props.navigation.navigate("Stores")}
+      >
+        <Text style={styles.serviceActionText}>Stores</Text>
+      </TouchableOpacity>
       <TouchableOpacity
         style={styles.serviceAction}
         activeOpacity={0.85}
         onPress={() => props.navigation.navigate("Service Request")}
       >
-        <Text style={styles.serviceActionText}>Request Machine Service</Text>
+        <Text style={styles.serviceActionText}>Service Request</Text>
       </TouchableOpacity>
+      </View>
       <Searchbar
         placeholder="Search products..."
         placeholderTextColor="#6B7280"
@@ -467,13 +480,14 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   serviceAction: {
-    marginHorizontal: 12,
+    flex: 1,
     marginTop: 12,
     backgroundColor: "#eac749ff",
-    borderRadius: 8,
+    borderRadius: 999,
     paddingVertical: 14,
     paddingHorizontal: 16,
     alignItems: "center",
+    justifyContent: "center",
     elevation: 2,
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 2 },
@@ -485,6 +499,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     letterSpacing: 0.3,
+  },
+  shoppingActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginHorizontal: 12,
   },
   advancedToggle: {
     marginHorizontal: 12,

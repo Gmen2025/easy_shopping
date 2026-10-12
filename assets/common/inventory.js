@@ -56,6 +56,19 @@ export const validateOrderStock = async ({ orderItems = [], token }) => {
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
+  const storefrontId = orderItems[0]?.storefrontId;
+  let storefrontProducts;
+  if (storefrontId) {
+    try {
+      const response = await getWithRetry(`${baseUrl}stores/directory/${encodeURIComponent(storefrontId)}/products`, { headers, timeout: 15000 });
+      storefrontProducts = response.data.products;
+      if (!Array.isArray(storefrontProducts)) throw new Error("Invalid storefront inventory response.");
+    } catch (error) {
+      console.warn("Storefront inventory verification failed:", error.message);
+      const message = error.response?.data?.message || "Unable to verify storefront stock. Please retry.";
+      return { ok: false, issues: [{ message }], overLimit: [], unverified: [{ message }], message };
+    }
+  }
 
   const checks = orderItems.map(async (item) => {
     const productId = getOrderItemProductId(item);
@@ -76,7 +89,9 @@ export const validateOrderStock = async ({ orderItems = [], token }) => {
     }
 
     try {
-      const productResponse = await getWithRetry(`${baseUrl}products/${encodeURIComponent(productId)}`, {
+      const productResponse = storefrontProducts
+        ? { data: storefrontProducts.find((product) => product._id === productId) }
+        : await getWithRetry(`${baseUrl}products/${encodeURIComponent(productId)}`, {
         headers,
         params: { db: databaseName },
         timeout: 15000,
@@ -137,7 +152,8 @@ export const validateOrderStock = async ({ orderItems = [], token }) => {
   };
 };
 
-export const deductInventoryFromOrder = async ({ orderItems = [], token }) => {
+export const deductInventoryFromOrder = async ({ orderItems = [], token, inventoryManaged = false }) => {
+  if (inventoryManaged) return { ok: true, failedCount: 0, results: [], serverManaged: true };
   const headers = {
     "Content-Type": "application/json",
   };

@@ -34,6 +34,7 @@ import {
   useCurrency,
 } from "../../../assets/common/currency";
 import { getDatabaseNameFromStorage } from "../../../assets/common/databaseConfig";
+import { getStorefrontScope, storeRequest } from "../../../assets/common/storefront";
 
 const DELIVERY_MODE_OPTIONS = [
   {
@@ -156,10 +157,30 @@ function Checkout(props) {
   }, [shippingAddressText, country]);
 
   const loadLocationPreview = async () => {
-    const preview = await resolveCheckoutLocationPreview({
+    let preview = await resolveCheckoutLocationPreview({
       addressText: shippingAddressText, country, token,
       previousPreview: currentPreview,
     });
+    const storefrontId = getStorefrontScope(orderItems);
+    const availability = await storeRequest("checkout-availability", {
+      method: "post", token,
+      data: { orderItems, storefrontId, customerLocation: preview.customerLocation },
+    });
+    if (availability.inventoryManaged) {
+      const store = availability.store;
+      const latitude = store.location?.coordinates?.[1];
+      const longitude = store.location?.coordinates?.[0];
+      const pickupStore = { ...store, latitude, longitude };
+      preview = {
+        ...preview, inventoryManaged: true,
+        storeAssignment: {
+          ...preview.storeAssignment, pickupStore, storeId: store._id, pickupStoreId: store._id,
+          assignedStoreId: store._id, pickupStoreName: store.name,
+          storeLocation: { latitude, longitude },
+          storeAssignment: { storeId: store._id, storeName: store.name, address: store.address, coordinates: { latitude, longitude } },
+        },
+      };
+    }
     setLocationPreview(preview);
     return preview;
   };
@@ -379,7 +400,7 @@ function Checkout(props) {
       const latestDeliveryConfig = latestDeliverySettings.deliveryConfig;
       setDeliveryConfig(latestDeliveryConfig);
 
-      const { customerLocation, storeAssignment } = await loadLocationPreview();
+      const { customerLocation, storeAssignment, inventoryManaged } = await loadLocationPreview();
 
       const googleDistanceKm = await estimateDeliveryDistanceKm({
         destinationAddress: shippingAddressText,
@@ -428,6 +449,8 @@ function Checkout(props) {
           deliveryMode === "SCHEDULED" ? scheduledForDate.toISOString() : null,
         totalPrice: calculateItemsSubtotal(orderItems) + deliveryFee,
         ...storeAssignment,
+        inventoryManaged: Boolean(inventoryManaged),
+        storefrontId: getStorefrontScope(orderItems),
         pickupStoreName: storeAssignment.pickupStoreName || "Nearby Store",
         customerLocation,
         customerLocationSource: "shipping-address",

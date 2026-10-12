@@ -16,6 +16,7 @@ import axios from 'axios';
 
 import { AuthContext } from '../../Context/store/Auth';
 import baseUrl from '../../assets/common/baseUrl';
+import { usdText } from '../../assets/common/exchangeRate';
 
 const STATUS_OPTIONS = [
   { label: 'New', value: 'new' },
@@ -126,6 +127,17 @@ const ServiceRequests = ({ navigation, route }) => {
             Quote: {item.currency || ''} {item.quotedPrice} {item.quoteAccepted ? '(Accepted)' : ''}
           </Text>
         ) : null}
+        {item.exchangeRate ? <Text style={styles.quoteText}>
+          USD payment: {usdText(item.paymentAmount)} - {item.paymentStatus}. Rate applied {new Date(item.exchangeRate.appliedAt).toLocaleString()}.
+        </Text> : null}
+        {item.checkoutGroup ? <TouchableOpacity style={styles.acceptButton} onPress={() =>
+          navigation.navigate("DeliveryCheckouts", { groupId: item.checkoutGroup, admin: isAdminMode })}>
+          <Text style={styles.acceptButtonText}>View / resume USD payment</Text>
+        </TouchableOpacity> : !isAdminMode && item.country === "Ethiopia" && item.currency === "ETB" &&
+          item.quotedPrice > 0 && ["quoted", "in_progress", "completed"].includes(item.status) ? <TouchableOpacity
+          style={styles.acceptButton} onPress={() => navigation.navigate("ServiceUsdCheckout", { serviceId: item._id, paymentCurrency: "usd" })}>
+          <Text style={styles.acceptButtonText}>Accept & pay quote in USD</Text>
+        </TouchableOpacity> : null}
 
         {isAdminMode ? (
           <View>
@@ -145,6 +157,7 @@ const ServiceRequests = ({ navigation, route }) => {
             <TextInput
               style={styles.managementInput}
               placeholder="Quote amount"
+              editable={!item.checkoutGroup}
               defaultValue={item.quotedPrice === null || item.quotedPrice === undefined ? '' : String(item.quotedPrice)}
               keyboardType="decimal-pad"
               onEndEditing={(event) => {

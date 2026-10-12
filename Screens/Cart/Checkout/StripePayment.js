@@ -176,6 +176,7 @@ const StripePaymentSupported = (props) => {
     try {
       const orderItem = {
         user: authContext.user?._id,
+        storefrontId: orderData.storefrontId || null,
         shippingAddress1: orderData.shippingAddress1,
         pickupStore: orderData.pickupStore || null,
         pickupStoreName: orderData.pickupStoreName || orderData.pickupStore?.name || null,
@@ -206,6 +207,7 @@ const StripePaymentSupported = (props) => {
         orderItems: orderData.orderItems.map((item) => ({
           product: item._id || item.id,
           quantity: item.quantity || 1,
+          price: item.price,
         })),
       };
 
@@ -221,6 +223,7 @@ const StripePaymentSupported = (props) => {
         const inventoryResult = await deductInventoryFromOrder({
           orderItems: orderData.orderItems,
           token,
+          inventoryManaged: response.data?.order?.inventoryManaged === true,
         });
 
         if (!inventoryResult.ok) {
@@ -261,7 +264,7 @@ const StripePaymentSupported = (props) => {
         topOffset: 60,
         type: "error",
         text1: "Order Failed",
-        text2: "Please try again",
+        text2: error.response?.data?.message || "Unable to save your paid order. Contact support before paying again.",
       });
     } finally {
       setOrderProcessing(false);

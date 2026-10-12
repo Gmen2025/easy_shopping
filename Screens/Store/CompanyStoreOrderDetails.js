@@ -1,5 +1,5 @@
 import React from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
+import { FlatList, Image, StyleSheet, Text, View } from "react-native";
 import { useCurrency } from "../../assets/common/currency";
 import { formatScheduledDeliveryDate } from "../../assets/common/delivery";
 
@@ -33,8 +33,20 @@ const CompanyStoreOrderDetails = ({ route }) => {
           <Text style={styles.title}>Order #{String(order._id || order.orderId).slice(-6).toUpperCase()}</Text>
           <Text selectable style={styles.detail}>Order ID: {order._id || order.orderId}</Text>
           {storeName ? <Text style={styles.detail}>Store: {storeName}</Text> : null}
+          {order.assignedStore ? <>
+            {order.requiredVehicle ? <Text style={styles.detail}>Delivery vehicle: {order.requiredVehicle}</Text> : null}
+            {order.checkoutGroup ? <Text selectable style={styles.detail}>Combined checkout: {order.checkoutGroup}</Text> : null}
+            {order.assignedStore.logo ? <Image source={{ uri: order.assignedStore.logo }} style={{ width: 64, height: 64 }} /> : null}
+            <Text style={styles.detail}>Assigned store: {order.assignedStore.name}</Text>
+            <Text selectable style={styles.detail}>Store ID: {order.assignedStore.storeId}</Text>
+            <Text style={styles.detail}>{order.assignedStore.address}</Text>
+          </> : null}
           <Text style={styles.detail}>Order status: {ORDER_STATUSES[order.status] || order.status || "Unavailable"}</Text>
           <Text style={styles.detail}>Delivery status: {order.deliveryStatus || "Unavailable"}</Text>
+          {order.internationalShipping ? <Text style={styles.note}>
+            International export: this store's delivery is to the US consolidation hub ({order.internationalShipping.hub?.address1}, {order.internationalShipping.hub?.city}).
+            Admin manages onward shipment to Ethiopia. US delivery completion does not mean delivery to the final recipient.
+          </Text> : null}
           <Text style={styles.detail}>Ordered: {date && !Number.isNaN(date.getTime()) ? date.toLocaleString() : "Unavailable"}</Text>
           {scheduledDate ? <Text style={styles.detail}>Scheduled delivery: {scheduledDate}</Text> : null}
           <Text style={styles.sectionTitle}>Products for your store</Text>
@@ -59,8 +71,9 @@ const CompanyStoreOrderDetails = ({ route }) => {
           <Text style={styles.detail}>Store units: {order.units ?? "Unavailable"}</Text>
           <Text style={styles.amount}>Store product total: {money(order.sales)}</Text>
           <Text style={styles.detail}>Whole-order delivery fee: {money(order.deliveryFee)}</Text>
+          {order.internationalShipping ? <Text style={styles.detail}>Allocated international shipping (not store product sales): {money(order.internationalShippingFee)}</Text> : null}
           <Text style={styles.detail}>Whole-order total: {money(order.totalPrice)}</Text>
-          <Text style={styles.note}>Details reflect the dashboard when this order was opened. Return and refresh to see updates. Product prices are current catalog prices, not historical purchase prices.</Text>
+          <Text style={styles.note}>Details reflect the dashboard when this order was opened. Refresh to see updates. New inventory-managed orders retain purchase prices; older orders may use current catalog prices.</Text>
         </View>
       }
     />

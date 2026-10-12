@@ -27,7 +27,178 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
 - **Profile Management**: Edit profile and manage addresses
 - **Password Recovery**: Forgot password functionality
 
+### US Products to Ethiopia, Paid in Birr
+- Select the **USA catalog**, then **Pay birr & ship to Ethiopia (ETB)** in the
+  cart. This is **products only**: USA rides and other services do not accept
+  birr through this feature. Domestic US USD purchases are unchanged.
+- Enter Ethiopian recipient addresses and allocate product quantities. US
+  stores deliver to the Admin's US consolidation hub; Admin manages onward
+  shipping and final delivery to each Ethiopian address. The driver map tracks
+  only the US pickup-to-hub leg. **At US hub is not final recipient delivery.**
+- Checkout displays USD product costs, US hub-delivery fees and international
+  shipping, followed by the converted ETB payment. Shipping is charged once per
+  recipient, based on the greater of actual or volumetric packaged weight.
+  Vehicle upgrades affect only domestic hub-delivery fees. **Import/customs
+  duties and clearance charges are excluded and paid separately by the recipient.**
+- In the **USA region**, **Admin > FX Rate** independently controls this
+  feature and its daily birr-per-USD rate, manual Apply and automatic provider
+  refresh. Every successful Apply/Fetch records a timestamp/revision even if
+  the numeric rate is unchanged. At exactly 24 hours without a successful
+  update, new birr export checkout is inactive with an explanation. Saved
+  payments still recover at their locked rate.
+- **Admin > US Shipping** configures the US hub, USD shipping tariff/minimum,
+  volumetric divisor, weight/dimension limits and explicit export approval of
+  products. Products default to domestic-only. Package sizes, US inventory
+  migration and enabled hub vehicle pricing are required.
+- Only **ETB-tagged bank transfers configured in the USA region** are allowed.
+  Submit the transfer reference before the stock hold expires. During
+  **bank_review**, stock stays reserved but stores cannot fulfill until Admin
+  confirms received birr funds in combined payments. Do not send another payment.
+  Admin may reject a reference only after verifying no funds were received.
+- Admin advances recipient shipment tracking through **at hub, shipped,
+  arrived Ethiopia and delivered**, supplying carrier/tracking details and
+  final delivery proof. Customer checkouts, order receipts and tracking show
+  these separately from domestic driver status. Carrier booking and actual
+  international/final-mile operations are manual, not automatic API integration.
+- Initially disabled. Configure and test both repositories, actual payments,
+  MongoDB transaction concurrency and international shipping operations in
+  staging before enabling. No deployment, migration or live activation is
+  performed by adding this code.
+
+### Ethiopia USD Purchasing
+- Customers select the **Ethiopia region**, then choose **ETB or USD** in the cart.
+  Goods and non-ride quoted services are delivered/performed in Ethiopia for
+  their recipients, not shipped internationally. Prices and store/driver
+  accounting remain birr; checkout displays a separate converted USD charge.
+  USD is not available for passenger rides.
+- **Admin > FX Rate** in Ethiopia enables/disables this service, separately toggles automatic
+  fetching, selects a server-configured provider, or manually applies a
+  **birr-per-1-USD** rate. Apply/Fetch visibly record time, revision and history,
+  even when the rate has not numerically changed. Saving toggles does not renew
+  a rate. After exactly 24 hours without a successful apply, new USD checkout
+  is unavailable with an explanation; ETB checkout continues.
+- USD products require backend per-store inventory migration, vehicle delivery
+  settings and packaged product sizes. USD checkout offers only card / explicitly
+  USD-tagged bank accounts, never cash. **Admin > Bank Account Settings** chooses
+  ETB/USD for each account; old Ethiopia accounts remain ETB.
+- USD cards require a native development/production build, a USD-capable
+  merchant, and dedicated matching backend
+  `STRIPE_SECRET_KEY_ETHIOPIA_USD` / `STRIPE_PUBLISHABLE_KEY_ETHIOPIA_USD`.
+  The prepared checkout supplies its public key; native confirmation selects it
+  and restores the normal app key afterward. No borrowing USA merchant keys.
+- Orders, combined payments and refunds show the saved USD charge and exchange
+  snapshot, separately from ETB prices. Interrupted reservations recover at
+  that saved amount even if the rate later expires or USD is switched off.
+  Check payment status before retrying; do not start a second payment.
+- **My Service Requests > Accept & pay quote in USD** uses the Admin's stored ETB
+  quote. Service payment does not alter the product cart. Admin receives bank
+  confirmation in combined payments. Prepared service prices are locked;
+  cancel an unpaid checkout before editing. Submitted/paid service payments
+  require support review/manual refund before cancellation and cannot be deleted.
+- Initially disabled. Deploy/configure the matching backend (including the
+  provider registry described in its README) and verify actual MongoDB
+  transactions, exchange-provider integration and native payments on staging
+  before enabling. No deployment, live rate fetch or migration is automatic.
+
+### Ride Service
+- The **Ride** badge beside **Stores** and **Service Request** opens address
+  entry, saved/current-address selection and road-fare estimates. Regular is the
+  default: arrange 2-12 ordered pickups/dropoffs and pay one fare for the whole
+  booking. Boarding/leaving counts must balance. Shared bookings have one own
+  pickup/dropoff and passenger-party count; the backend matches unrelated
+  customers only when road-route, wait, detour and seat limits fit.
+- **My rides & post-ride payments** shows only the customer's own booking,
+  driver/contact/GPS, status and fare. GPS stops being shared after their ride
+  completes; driver contact remains for payment. Quotes are estimates: regular final fares
+  use planned road distance and actual elapsed ride time; shared fares use the
+  customer's solo route/time refreshed at pickup, excluding others' detours,
+  with the configured shared discount. No payment is requested before the ride
+  finishes. Card is USA-only in a configured native build (not Expo Go); bank
+  transfer uses existing active accounts and waits for Admin receipt verification;
+  cash outside USA is confirmed by the assigned driver/Admin.
+- Company drivers open the separate **Ride service** section on their delivery
+  dashboard for ride offers, route and independent delivery/regular/shared
+  toggles. Old drivers default to delivery-only. Offers have a three-minute
+  claim/reject window (shorter if the configured pickup deadline ends); expired
+  actions disappear and the backend reroutes. Claiming and product delivery
+  dispatch cannot occupy the same vehicle. Keep the app in the foreground for
+  GPS/polling. Background-location tracking is not implemented.
+- The active ride lists ordered pickups/dropoffs, passenger counts and contacts.
+  Open external Google navigation to the next stop; return to confirm boarding
+  or dropoff. The backend requires fresh GPS within 300m of that stop. **Stop
+  shared intake** warns before immediately rerouting accepted riders not yet
+  onboard; only existing passengers' dropoffs remain. Reopen explicitly to
+  resume matching. Disabling shared mode also reroutes waiting riders.
+- **Admin > Rides** configures the region's fares, shared discount, maximum
+  pickup wait / extra travel, search radius, verified company car/van passenger
+  seats (excluding the driver), and bank/cash receipt verification. The driver
+  chooses their service modes. Rides are initially disabled independently of
+  per-store inventory; no automatic pricing or live activation occurs.
+- Deploy the matching backend on MongoDB replica-set/Atlas infrastructure
+  (transactional delivery/ride dispatch), enable Google Geocoding and Distance
+  Matrix driving/traffic access, and test real GPS, pooled-route concurrency and
+  native payments on staging before activating rides. Interrupted payments must
+  resume the same booking; do not create another charge. Ride payments remain
+  separate from product orders and delivery-income analytics.
+- Tests: `node --test scripts/rides.test.cjs scripts/companyDriverRefresh.test.cjs scripts/multiDeliveryCheckout.test.cjs`.
+
 ### Admin Features
+- **Storefronts and per-store inventory**: Customers open the Stores badge beside
+  Service Request to browse a store's catalog. AdminStore users open **My store &
+  inventory** to edit their store name, address, coordinates, optional HTTPS logo
+  URL, branches, prices, physical quantities and low-stock thresholds. Stores
+  choose existing catalog products and categories; removing a store listing
+  never deletes the shared product. Only Admin manages categories.
+- **Inventory rollout**: Deploy the matching backend from `D:\MERN_COURSE\backend`
+  before using these screens. In Admin > AdminStores, select the region's default
+  store and run **Migrate existing inventory** once, after completing/cancelling
+  active orders. Stock moves to each product's linked approved store; unlinked
+  products move to the selected default. Stock is never copied to every store.
+  Store editing is blocked until migration succeeds. Before migration, existing
+  checkout and fulfillment behavior remains unchanged.
+- **Inventory-based fulfillment**: Main-catalog stock is the sum of unreserved
+  inventory across approved, open stores. Legacy checkout requires one store to
+  fulfill the entire cart at its quoted prices. With multi-delivery enabled,
+  products and quantities can be sourced from multiple price-matching stores,
+  nearest to each destination, with the default store as last fallback.
+  Storefront items stay within their selected store's branch family.
+- **Multiple destinations and vehicle checkout**: Enable this per region under
+  **Admin > Vehicles**, after migrating per-store inventory. Set usable vehicle
+  payload, cargo volume/dimensions, base fees and distance rates, and configure
+  each product's packaged weight/dimensions. Product editing links to these size
+  controls. Checkout then supports mixed storefront/main-catalog carts, saved
+  and editable addresses, and splitting units of one product across addresses.
+  Missing package sizes block quoting with an explicit configuration message.
+  Each pickup/destination pair has its own order, recommended suitable vehicle
+  and upgrade choices. Road fees use miles in USA and kilometers in Ethiopia.
+  Recommendations check total weight/volume and individual parcel dimensions;
+  they are load estimates, not a three-dimensional packing guarantee.
+- **Combined payments and recovery**: All delivery stock is reserved in one
+  transaction before card payment. Quotes last ten minutes and unpaid holds
+  fifteen minutes. Card payment is USA-only and requires a native build, matching
+  Stripe keys and the existing backend live-key configuration. Bank transfer
+  provides account details after reservation and accepts a reference before the
+  hold expires; Admin verifies the combined funds under **Admin > Payments**.
+  Cash remains available outside USA and is collected per delivery. Open
+  **Cart > My multi-delivery checkouts** to recover interrupted payment, inspect
+  or track individual deliveries, and cancel before a driver is assigned.
+  Never create a second payment after an uncertain result. If a bank hold
+  expires after sending money, contact support with the transfer reference.
+- **Partial refunds**: Cancelling one delivery leaves siblings active. Paid card
+  cancellations are reconciled by the backend scan with idempotent refunds;
+  Admin can retry failed refunds under **Payments**. Bank refunds require Admin
+  to return funds manually and record the refund reference. Grouped orders cannot
+  be deleted or have payment amounts changed through the legacy order editor.
+  Delivery fees stay fixed if a store rejects/times out, while actual route
+  distance is refreshed for the replacement pickup.
+- **Store assignments**: Open **Store assignments** to accept and prepare or reject
+  an order. Each assignment has a five-minute acceptance deadline. The backend's
+  30-second scan reroutes unanswered requests; rejection reroutes immediately.
+  No driver is dispatched until acceptance. If no matching store remains, the
+  order explicitly waits unassigned rather than overselling or changing prices.
+  Reservations move with the order, release on cancellation and consume physical
+  stock once on delivery. Order details retain the assigned store's ID, name,
+  address, logo and new orders' purchase prices.
 - **Product Management**: Add, edit, delete products
 - **Category Management**: Manage product categories
 - **Order Management**: View all orders, update status, delete orders

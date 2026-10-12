@@ -410,6 +410,9 @@ const DeliveryRouteScreen = () => {
           <TouchableOpacity onPress={() => openDirections(storeCoordinates, origin)}>
             <Text style={styles.addressLink} numberOfLines={1}>📍 Pickup: {pickupAddressLabel}</Text>
           </TouchableOpacity>
+          {(request.requiredVehicle || request.rawPayload?.requiredVehicle) ? <Text style={styles.addressLink}>
+            Vehicle: {request.requiredVehicle || request.rawPayload?.requiredVehicle}
+          </Text> : null}
           <TouchableOpacity onPress={() => openDirections(customerCoordinates, storeCoordinates)}>
             <Text style={styles.addressLink} numberOfLines={1}>🏁 Drop-off: {dropoffAddressLabel}</Text>
           </TouchableOpacity>

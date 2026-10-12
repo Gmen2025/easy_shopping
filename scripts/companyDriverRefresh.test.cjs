@@ -55,6 +55,8 @@ function fixture({ database = "E_Shopping" } = {}) {
     "../../assets/common/currency": { useCurrency: () => ({ formatPrice: String }) },
     "../../assets/common/databaseConfig": { getDatabaseNameFromStorage: async () => database },
     "../../assets/common/delivery": { formatScheduledDeliveryDate: () => "" },
+    "../../assets/common/rides": { rideRequest: async () => ({ driver: { serviceModes: { delivery: true } }, trip: null, offer: null }) },
+    "expo-location": {},
   };
   const exports = {};
   vm.runInNewContext(code, {
@@ -65,6 +67,8 @@ function fixture({ database = "E_Shopping" } = {}) {
       return id;
     },
     clearTimeout: (id) => timers.delete(id),
+    setInterval: () => 0,
+    clearInterval: () => {},
     require: (name) => {
       assert.ok(name in dependencies, `Unexpected dependency ${name}`);
       return dependencies[name];
@@ -79,7 +83,7 @@ function fixture({ database = "E_Shopping" } = {}) {
     : Array.isArray(value) ? value.flatMap(nodes)
       : [value, ...nodes(value.props?.children)];
   const button = () => nodes(render()).find((node) =>
-    node.type === "TouchableOpacity" && node.props.accessibilityRole === "button");
+    node.type === "TouchableOpacity" && node.props.accessibilityLabel === "Refresh delivery data");
   const text = () => nodes(render()).flatMap((node) => node.props?.children || [])
     .filter((child) => typeof child === "string").join(" ");
   const claim = () => nodes(render()).find((node) =>

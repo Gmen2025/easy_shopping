@@ -18,6 +18,8 @@ import { AuthContext } from "../../Context/store/Auth";
 import Input from "../../Shared/Form/Input";
 import FormContainer from "../../Shared/Form/FormContainer";
 import EasyButton from "../../Shared/StyledComponenets/EasyButton";
+import { Picker } from "@react-native-picker/picker";
+import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 
 const BankAccountSettings = (props) => {
   const context = useContext(AuthContext);
@@ -26,12 +28,14 @@ const BankAccountSettings = (props) => {
   const [fetching, setFetching] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingBank, setEditingBank] = useState(null);
+  const [nativeCurrency, setNativeCurrency] = useState("ETB");
   const [formData, setFormData] = useState({
     bankName: "",
     accountNumber: "",
     accountHolderName: "",
     bankCode: "",
     additionalInfo: "",
+    currency: "ETB",
   });
 
   useFocusEffect(
@@ -43,7 +47,9 @@ const BankAccountSettings = (props) => {
   const fetchBankAccounts = async () => {
     setFetching(true);
     try {
-      const response = await axios.get(`${baseUrl}settings/bank-account`);
+      const db = await getDatabaseNameFromStorage();
+      setNativeCurrency(/usa/i.test(db) ? "USD" : "ETB");
+      const response = await axios.get(`${baseUrl}settings/bank-account?currency=all`);
       console.log("Bank accounts response:", response.data);
       if (response.data.success) {
         setBankAccounts(response.data.bankAccounts || []);
@@ -70,6 +76,7 @@ const BankAccountSettings = (props) => {
       accountHolderName: "",
       bankCode: "",
       additionalInfo: "",
+      currency: nativeCurrency,
     });
     setModalVisible(true);
   };
@@ -82,6 +89,7 @@ const BankAccountSettings = (props) => {
       accountHolderName: bank.accountHolderName || "",
       bankCode: bank.bankCode || "",
       additionalInfo: bank.additionalInfo || "",
+      currency: bank.currency || nativeCurrency,
     });
     setModalVisible(true);
   };
@@ -127,6 +135,7 @@ const BankAccountSettings = (props) => {
           accountHolderName: formData.accountHolderName.trim(),
           bankCode: formData.bankCode.trim(),
           additionalInfo: formData.additionalInfo.trim(),
+          currency: formData.currency,
         },
       };
 
@@ -247,6 +256,7 @@ const BankAccountSettings = (props) => {
       </View>
 
       <View style={styles.bankCardDetails}>
+        <Text>Payment currency: {item.currency || nativeCurrency}</Text>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Account Number:</Text>
           <Text style={styles.detailValue}>{item.accountNumber}</Text>
@@ -336,6 +346,11 @@ const BankAccountSettings = (props) => {
               </View>
 
               <ScrollView contentContainerStyle={styles.formContainer}>
+                <Text style={styles.fieldLabel}>Payment currency</Text>
+                <Picker selectedValue={formData.currency} onValueChange={(currency) => setFormData((previous) => ({ ...previous, currency }))}>
+                  <Picker.Item label="Birr (ETB)" value="ETB" />
+                  <Picker.Item label="US dollars (USD)" value="USD" />
+                </Picker>
                 <Text style={styles.fieldLabel}>Bank Name *</Text>
                 <Input
                   id="bankName"

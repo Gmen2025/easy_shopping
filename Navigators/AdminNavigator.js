@@ -11,6 +11,8 @@ import LowStock from "../Screens/Admin/LowStock";
 import MaintenanceSettings from "../Screens/Admin/MaintenanceSettings";
 import BankAccountSettings from "../Screens/Admin/BankAccountSettings";
 import DeliverySettings from "../Screens/Admin/DeliverySettings";
+import VehicleDeliverySettings from "../Screens/Admin/VehicleDeliverySettings";
+import DeliveryCheckouts from "../Screens/Cart/Checkout/DeliveryCheckouts";
 import SingleProduct from "../Screens/Products/SingleProduct";
 import ServiceRequests from "../Screens/Service/ServiceRequests";
 import Drivers from "../Screens/Admin/Drivers";
@@ -19,12 +21,20 @@ import Payouts from "../Screens/Admin/Payouts";
 import AssignRoles from "../Screens/Admin/AssignRoles";
 import AdminStores from "../Screens/Admin/AdminStores";
 import AdminDrivers from "../Screens/Admin/AdminDrivers";
+import RideSettings from "../Screens/Admin/RideSettings";
+import ExchangeRateSettings from "../Screens/Admin/ExchangeRateSettings";
+import InternationalShippingSettings from "../Screens/Admin/InternationalShippingSettings";
 
 const Stack = createStackNavigator();
 
 function MyStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator initialRouteName="AdminDashboard">
+      <Stack.Screen name="RideSettings" component={RideSettings} options={{ title: "Ride fares, drivers & payments" }} />
+      <Stack.Screen name="ExchangeRateSettings" component={ExchangeRateSettings} options={{ title: "Cross-currency daily rate" }} />
+      <Stack.Screen name="InternationalShippingSettings" component={InternationalShippingSettings} options={{ title: "USA to Ethiopia shipping" }} />
+      <Stack.Screen name="VehicleDeliverySettings" component={VehicleDeliverySettings} options={{ title: "Vehicles & packaged sizes" }} />
+      <Stack.Screen name="DeliveryCheckouts" component={DeliveryCheckouts} initialParams={{ admin: true }} options={{ title: "Combined payments & refunds" }} />
       <Stack.Screen
         name="AdminDashboard"
         component={AdminDashboard}

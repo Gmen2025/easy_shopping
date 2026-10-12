@@ -9,16 +9,15 @@ import {
 } from "react-native";
 import EasyButton from "../../Shared/StyledComponenets/EasyButton";
 import Toast from "react-native-toast-message";
-import { useDispatch } from "react-redux";
-import { addToCart } from "../../store/cartSlice"; // Adjust the import path as necessary
 import getImageUrl from "../../assets/common/getImageUrl";
 import { useCurrency } from "../../assets/common/currency";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
+import { useStoreCart } from "../../assets/common/storefront";
 
 const ProductCard = (props) => {
   const { name, price, image, countInStock } = props;
   const imageUrl = getImageUrl(props);
-  const dispatch = useDispatch();
+  const addStoreProduct = useStoreCart();
   const { formatPrice } = useCurrency();
   const stockCount = Number(countInStock || 0);
   const { width, height } = useWindowDimensions();
@@ -35,9 +34,11 @@ const ProductCard = (props) => {
       image: image,
       countInStock: countInStock,
       databaseName,
+      storefrontId: props.storefrontId || null,
+      inventoryManaged: props.inventoryManaged || false,
     };
 
-    dispatch(addToCart(product));
+    if (!addStoreProduct(product)) return;
 
     Toast.show({
       type: "success",

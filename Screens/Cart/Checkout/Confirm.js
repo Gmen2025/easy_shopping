@@ -104,6 +104,7 @@ const Confirm = (props) => {
           orderItems: order.orderItems.map((item) => ({
             product: item._id || item.id,
             quantity: item.quantity || 1,
+            price: item.price,
           })),
           paymentMethod: order.paymentMethod,
           methodName: order.methodName,
@@ -123,6 +124,7 @@ const Confirm = (props) => {
           const inventoryResult = await deductInventoryFromOrder({
             orderItems: order.orderItems,
             token,
+            inventoryManaged: res.data?.order?.inventoryManaged === true,
           });
 
           if (!inventoryResult.ok) {

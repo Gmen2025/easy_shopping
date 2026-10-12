@@ -86,6 +86,7 @@ const TelebirrPayment = (props) => {
         orderItems: orderData.orderItems.map((item) => ({
           product: item._id,
           quantity: item.quantity || 1,
+          price: item.price,
         })),
       };
 
@@ -101,6 +102,7 @@ const TelebirrPayment = (props) => {
         const inventoryResult = await deductInventoryFromOrder({
           orderItems: orderData.orderItems,
           token,
+          inventoryManaged: response.data?.order?.inventoryManaged === true,
         });
 
         if (!inventoryResult.ok) {
@@ -141,7 +143,7 @@ const TelebirrPayment = (props) => {
         topOffset: 60,
         type: "error",
         text1: "Order Failed",
-        text2: "Please try again",
+        text2: error.response?.data?.message || "Unable to save your paid order. Contact support before paying again.",
       });
     } finally {
       setOrderProcessing(false);

@@ -18,6 +18,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import baseUrl from "../../assets/common/baseUrl";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
+import { storeRequest } from "../../assets/common/storefront";
 
 const emptyForm = {
   name: "",
@@ -50,6 +51,8 @@ const AdminStores = () => {
   const [editLocation, setEditLocation] = useState(null);
   const [editLocating, setEditLocating] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [defaultStoreId, setDefaultStoreId] = useState("");
+  const [migratingInventory, setMigratingInventory] = useState(false);
 
   const detectCurrentLocation = useCallback(async () => {
     setLocatingDevice(true);
@@ -339,6 +342,25 @@ const AdminStores = () => {
         ListHeaderComponent={
           <View style={styles.formCard}>
             <Text style={styles.formTitle}>Create Company Store</Text>
+            <Text style={styles.fieldLabel}>Enable store-level inventory (one-time migration)</Text>
+            <Text style={styles.detail}>Existing stock moves to its linked store. Unlinked products move to the default store below. Complete or cancel active orders first.</Text>
+            <Picker selectedValue={defaultStoreId} onValueChange={setDefaultStoreId}>
+              <Picker.Item label="Select default store" value="" />
+              {stores.map((store) => <Picker.Item key={store._id} label={store.name} value={store._id} />)}
+            </Picker>
+            <TouchableOpacity style={styles.createButton} disabled={!defaultStoreId || migratingInventory} onPress={() => Alert.alert(
+              "Migrate stock to stores?", "Run this once for the selected region. Existing quantities will not be copied to every store.",
+              [{ text: "Cancel", style: "cancel" }, { text: "Migrate", onPress: async () => {
+                setMigratingInventory(true);
+                try {
+                  const result = await storeRequest("admin/inventory/migrate", { method: "post", data: { defaultStoreId } });
+                  Alert.alert("Inventory enabled", `${result.products} catalog products migrated. Stores can now manage their inventories.`);
+                } catch (failure) { Alert.alert("Migration failed", failure.response?.data?.message || failure.message); }
+                finally { setMigratingInventory(false); }
+              } }]
+            )}>
+              <Text style={styles.createButtonText}>{migratingInventory ? "Migrating..." : "Migrate existing inventory"}</Text>
+            </TouchableOpacity>
             <TextInput style={styles.input} placeholder="Store name" value={form.name} onChangeText={(text) => setForm({ ...form, name: text })} />
             <TextInput style={styles.input} placeholder="Email" autoCapitalize="none" keyboardType="email-address" value={form.email} onChangeText={(text) => setForm({ ...form, email: text.toLowerCase() })} />
             <TextInput style={styles.input} placeholder="Phone" keyboardType="phone-pad" value={form.phone} onChangeText={(text) => setForm({ ...form, phone: text })} />

@@ -1,5 +1,6 @@
 import {createSlice } from '@reduxjs/toolkit';
 import { DEFAULT_DB_NAME, sanitizeDatabaseName } from '../assets/common/databaseConfig';
+import { cartItemKey } from '../assets/common/cartIdentity';
 
 // This code defines a Redux slice for managing cart items in a shopping application.
 
@@ -8,6 +9,8 @@ const cartSlice = createSlice({
   initialState:{
     _id: null, // This can be used to store a unique identifier for the cart
     cartItems: [], // This will hold the items added to the cart
+    completedCheckouts: [],
+    pendingCheckouts: [],
   },
   reducers: {
     addToCart: (state, action) => {
@@ -20,9 +23,7 @@ const cartSlice = createSlice({
       // Check if the item already exists in the cart
       const existingItem = state.cartItems.find(
         (item) =>
-          item.id === productId &&
-          sanitizeDatabaseName(item.databaseName || item.dbName || DEFAULT_DB_NAME) ===
-            itemDatabaseName
+          cartItemKey(item) === cartItemKey(action.payload)
       );
       // If it exists, update the quantity
       if (existingItem) {
@@ -48,29 +49,38 @@ const cartSlice = createSlice({
         : null;
       const existingItem = state.cartItems.find(
         (item) =>
+          (action.payload.cartKey ? cartItemKey(item) === action.payload.cartKey :
           item.id === productId &&
           (!itemDatabaseName ||
             sanitizeDatabaseName(item.databaseName || item.dbName || DEFAULT_DB_NAME) ===
-              itemDatabaseName)
+              itemDatabaseName))
       );
       if (existingItem && existingItem.quantity > 1) {
         existingItem.quantity -= 1; // Decrease quantity by 1
       } else if (existingItem && existingItem.quantity === 1) {
         // If quantity is 1, remove the item from the cart
-        state.cartItems = state.cartItems.filter(
-          (item) =>
-            !(item.id === productId &&
-              (!itemDatabaseName ||
-                sanitizeDatabaseName(item.databaseName || item.dbName || DEFAULT_DB_NAME) ===
-                  itemDatabaseName))
-        );
+        state.cartItems = state.cartItems.filter((item) => cartItemKey(item) !== cartItemKey(existingItem));
       }
     },
     clearCart: (state) => {
       state.cartItems = []
+      state.pendingCheckouts = [];
+    },
+    beginCheckout: (state, action) => {
+      if (!state.pendingCheckouts.includes(action.payload.id)) state.pendingCheckouts.push(action.payload.id);
+    },
+    completeCheckout: (state, action) => {
+      if (state.completedCheckouts.includes(action.payload.id) || !state.pendingCheckouts.includes(action.payload.id)) return;
+      for (const purchased of action.payload.items) {
+        const item = state.cartItems.find((entry) => cartItemKey(entry) === purchased.key);
+        if (item) item.quantity = Math.max(0, item.quantity - purchased.quantity);
+      }
+      state.cartItems = state.cartItems.filter((item) => item.quantity > 0);
+      state.completedCheckouts.push(action.payload.id);
+      state.pendingCheckouts = state.pendingCheckouts.filter((id) => id !== action.payload.id);
     },
   },
 });
 
-export const { addToCart, clearCart, deductQuantity } = cartSlice.actions;
+export const { addToCart, clearCart, deductQuantity, beginCheckout, completeCheckout } = cartSlice.actions;
 export default cartSlice.reducer;

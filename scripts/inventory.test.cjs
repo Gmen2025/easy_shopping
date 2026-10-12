@@ -38,6 +38,23 @@ function fixture(get) {
 
 const cartItem = { _id: "product-id", name: "Selected item", quantity: 2, databaseName: "E_Shopping" };
 
+test("storefront stock is checked against its own products instead of the main catalog", async () => {
+  const helper = fixture(async (url) => {
+    assert.equal(url, "https://example.invalid/api/stores/directory/store-one/products");
+    return { data: { products: [{ _id: "product-id", countInStock: 1 }] } };
+  });
+  const result = await helper.validateOrderStock({ orderItems: [{ ...cartItem, storefrontId: "store-one" }] });
+  assert.equal(result.ok, false);
+  assert.equal(result.overLimit[0].available, 1);
+});
+
+test("server-managed orders never perform a second client-side stock deduction", async () => {
+  const helper = fixture(async () => { assert.fail("Server-managed inventory must not call the product API."); });
+  const result = await helper.deductInventoryFromOrder({ orderItems: [cartItem], inventoryManaged: true });
+  assert.equal(result.ok, true);
+  assert.equal(result.serverManaged, true);
+});
+
 test("stock check verifies live inventory with authentication and selected database", async () => {
   const helper = fixture(async (url, config) => {
     assert.equal(url, "https://example.invalid/api/products/product-id");

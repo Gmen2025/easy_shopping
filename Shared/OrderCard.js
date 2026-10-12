@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext } from "react";
-import { View, Text, StyleSheet, Alert } from "react-native";
+import { View, Text, StyleSheet, Alert, Image } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import Icon from "react-native-vector-icons/FontAwesome";
 import TrafficLight from "./StyledComponenets/TrafficLight";
@@ -16,6 +16,7 @@ import { AuthContext } from "../Context/store/Auth";
 import UserOrderItems from "./UserOrderItems";
 import { useCurrency } from "../assets/common/currency";
 import { formatScheduledDeliveryDate } from "../assets/common/delivery";
+import { ExchangeReceipt, InternationalReceipt } from "./DeliveryCheckout";
 
 const OrderCard = (props) => {
   const context = useContext(AuthContext);
@@ -141,7 +142,7 @@ const OrderCard = (props) => {
     };
 
     axios
-      .put(`${baseUrl}orders/${props._id}`, order, config)
+      .put(`${baseUrl}orders/${props._id}`, props.checkoutGroup ? { status: statusChange } : order, config)
       .then((res) => {
         if (res.status == 200 || res.status == 201) {
           Toast.show({
@@ -525,6 +526,22 @@ const OrderCard = (props) => {
         <Text style={styles.label}>
           Date Ordered: {formatOrderDateTime(props.dateOrdered)}
         </Text>
+        {props.assignedStoreSnapshot ? <View>
+          {props.assignedStoreSnapshot.logo ? <Image source={{ uri: props.assignedStoreSnapshot.logo }} style={{ width: 48, height: 48 }} /> : null}
+          <Text style={styles.label}>Store: {props.assignedStoreSnapshot.name}</Text>
+          <Text selectable style={styles.label}>Store ID: {props.assignedStoreSnapshot.storeId}</Text>
+          <Text style={styles.label}>{props.assignedStoreSnapshot.address}</Text>
+          <Text style={styles.label}>Store fulfillment: {props.fulfillmentStatus}</Text>
+        </View> : null}
+        {props.requiredVehicle ? <Text style={styles.label}>Vehicle: {props.requiredVehicle}</Text> : null}
+        {props.checkoutGroup ? <View>
+          <Text selectable style={styles.label}>Combined checkout: {props.checkoutGroup}</Text>
+          <EasyButton tertiary onPress={() => context.user?.isAdmin
+            ? navigation.navigate("DeliveryCheckouts", { groupId: props.checkoutGroup, admin: true })
+            : navigation.navigate("Cart", { screen: "DeliveryCheckouts", params: { groupId: props.checkoutGroup } })}>
+            <Text>Deliveries, cancellations & payment</Text>
+          </EasyButton>
+        </View> : null}
         {props.deliveryMode ? (
           <Text style={styles.label}>
             Delivery option: {props.deliveryMode.replace(/_/g, " ")}
@@ -571,6 +588,8 @@ const OrderCard = (props) => {
           <Text>Total Price: </Text>
           <Text style={styles.price}>{formatPrice(props.totalPrice)}</Text>
         </View>
+        <ExchangeReceipt value={props.order || props} />
+        <InternationalReceipt value={props.order || props} />
         {!props.editMode && props._id ? (
           <EasyButton
             tertiary
@@ -625,7 +644,7 @@ const OrderCard = (props) => {
                 </View>
               </View>
 
-              <View style={styles.deleteButtonWrap}>
+              {!props.checkoutGroup ? <View style={styles.deleteButtonWrap}>
                 <EasyButton
                   danger
                   large
@@ -633,7 +652,7 @@ const OrderCard = (props) => {
                 >
                   <Text style={styles.actionButtonText}>Delete Order</Text>
                 </EasyButton>
-              </View>
+              </View> : null}
             </View>
           </View>
         ) : null}

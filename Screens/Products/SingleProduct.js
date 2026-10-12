@@ -12,13 +12,12 @@ import {
 import EasyButton from "../../Shared/StyledComponenets/EasyButton";
 import TrafficLight from "../../Shared/StyledComponenets/TrafficLight";
 import Toast from "react-native-toast-message";
-import { useDispatch } from "react-redux";
-import { addToCart } from "../../store/cartSlice"; // Adjust the import path as necessary
 import getImageUrl from "../../assets/common/getImageUrl";
 import { useCurrency } from "../../assets/common/currency";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import baseUrl from "../../assets/common/baseUrl";
 import axios from "axios";
+import { useStoreCart, storeRequest } from "../../assets/common/storefront";
 
 const { width } = Dimensions.get("window");
 
@@ -89,7 +88,9 @@ const SingleProduct = (props) => {
       }
 
       try {
-        const response = await axios.get(`${baseUrl}products`);
+        const response = item.storefrontId
+          ? { data: (await storeRequest(`directory/${item.storefrontId}/products`)).products }
+          : await axios.get(`${baseUrl}products`);
         const fetchedProducts = Array.isArray(response.data)
           ? response.data
           : response.data.products;
@@ -141,7 +142,7 @@ const SingleProduct = (props) => {
   // The cart state can be accessed in other components using the useSelector hook
   // The useDispatch hook is used to dispatch the addToCart action
 
-  const dispatch = useDispatch();
+  const addStoreProduct = useStoreCart();
   const stockCount = Number(item?.countInStock || 0);
   const handleAddToCart = async () => {
     if (item && stockCount > 0) {
@@ -153,8 +154,10 @@ const SingleProduct = (props) => {
         image: galleryImages[0] || item.image,
         countInStock: item.countInStock,
         databaseName,
+        storefrontId: item.storefrontId || null,
+        inventoryManaged: item.inventoryManaged || false,
       };
-      dispatch(addToCart(product));
+      if (!addStoreProduct(product)) return;
       Toast.show({
         type: "success",
         text1: `${item.name} added to cart`,

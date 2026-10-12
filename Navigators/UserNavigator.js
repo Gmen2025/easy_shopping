@@ -15,6 +15,8 @@ import DeliveryProgressScreen from "../Screens/Driver/DeliveryProgressScreen";
 import OrderTrackingScreen from "../Screens/User/OrderTrackingScreen";
 import RoleSetupScreen from "../Screens/User/RoleSetupScreen";
 import ServiceRequests from "../Screens/Service/ServiceRequests";
+import MultiDeliveryCheckout from "../Screens/Cart/Checkout/MultiDeliveryCheckout";
+import DeliveryCheckouts from "../Screens/Cart/Checkout/DeliveryCheckouts";
 
 const Stack = createStackNavigator();
 
@@ -33,6 +35,9 @@ const MyStack = () => {
           <Stack.Screen name="User Profile" component={UserProfile} />
           <Stack.Screen name="EditProfile" component={EditProfile} />
           <Stack.Screen name="ServiceRequests" component={ServiceRequests} />
+          <Stack.Screen name="ServiceUsdCheckout" component={MultiDeliveryCheckout} />
+          <Stack.Screen name="MultiDeliveryCheckout" component={MultiDeliveryCheckout} />
+          <Stack.Screen name="DeliveryCheckouts" component={DeliveryCheckouts} />
           <Stack.Screen name="OrderTracking" component={OrderTrackingScreen} />
           <Stack.Screen name="RoleSetup" component={RoleSetupScreen} />
           {isDriverUser(context.user) ? (

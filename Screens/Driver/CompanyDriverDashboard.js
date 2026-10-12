@@ -17,6 +17,8 @@ import baseUrl from "../../assets/common/baseUrl";
 import { useCurrency } from "../../assets/common/currency";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import { formatScheduledDeliveryDate } from "../../assets/common/delivery";
+import { rideRequest } from "../../assets/common/rides";
+import * as Location from "expo-location";
 
 const INCOME_PERIODS = [
   { key: "daily", label: "24 Hours" },
@@ -119,6 +121,8 @@ const CompanyDriverDashboard = ({ navigation }) => {
   const [dispatchMessage, setDispatchMessage] = useState("");
   const [ordersError, setOrdersError] = useState("");
   const [queueError, setQueueError] = useState("");
+  const [rideOverview, setRideOverview] = useState(null);
+  const [rideError, setRideError] = useState("");
   const requestsInFlight = useRef(new Set());
   const [refreshing, setRefreshing] = useState(false);
   const refreshInFlight = useRef(false);
@@ -215,19 +219,42 @@ const CompanyDriverDashboard = ({ navigation }) => {
     }
   }, []);
 
+  const loadRides = useCallback(async () => {
+    if (requestsInFlight.current.has("rides")) return;
+    requestsInFlight.current.add("rides");
+    try {
+      const overview = await rideRequest("me/driver");
+      setRideOverview(overview);
+      if (overview.driver.serviceModes?.regular || overview.driver.serviceModes?.shared) {
+        const permission = await Location.getForegroundPermissionsAsync();
+        if (permission.status !== "granted") throw new Error("Open ride assignments to enable GPS for nearby ride offers.");
+        const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        await rideRequest("me/location", { method: "post", data: {
+          latitude: position.coords.latitude, longitude: position.coords.longitude,
+        } });
+      }
+      setRideError("");
+    }
+    catch (error) { setRideError(error.response?.data?.message || error.message); setRideOverview(null); }
+    finally { requestsInFlight.current.delete("rides"); }
+  }, []);
   const refreshData = useCallback(async () => {
     if (refreshInFlight.current) return;
     refreshInFlight.current = true;
     setRefreshing(true);
     try {
-      await Promise.all([loadOrders(), loadQueue(), loadCompletedToday(), loadDashboard()]);
+      await Promise.all([loadOrders(), loadQueue(), loadCompletedToday(), loadDashboard(), loadRides()]);
     } finally {
       refreshInFlight.current = false;
       setRefreshing(false);
     }
-  }, [loadOrders, loadQueue, loadCompletedToday, loadDashboard]);
+  }, [loadOrders, loadQueue, loadCompletedToday, loadDashboard, loadRides]);
 
-  useFocusEffect(useCallback(() => { refreshData(); }, [refreshData]));
+  useFocusEffect(useCallback(() => {
+    refreshData();
+    const timer = setInterval(loadRides, 15000);
+    return () => clearInterval(timer);
+  }, [refreshData, loadRides]));
 
   const claimOrder = async (order) => {
     if (actionInFlight.current) return;
@@ -464,6 +491,19 @@ const CompanyDriverDashboard = ({ navigation }) => {
       >
         {/* Header Block */}
         <View style={styles.headerCard}>
+          <Text style={styles.headerTitle}>Ride service</Text>
+          <Text>Separate ride offers, passenger route and service preferences</Text>
+          {rideError ? <Text>Ride service: {rideError}</Text> : <Text>
+            {rideOverview?.trip ? "Active passenger route. " : ""}
+            {rideOverview?.offer ? `Ride offer expires ${new Date(rideOverview.offer.offerDeadline).toLocaleTimeString()}. Open to claim/reject.` : "No current ride offer."}
+          </Text>}
+          <TouchableOpacity style={styles.refreshLink} accessibilityRole="button"
+            accessibilityLabel="Ride assignments"
+            onPress={() => navigation.navigate("DriverRides")}>
+            <Text style={styles.refreshLinkText}>Open ride assignments & route</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.headerCard}>
           <View style={styles.headerRow}>
             <View>
               <Text style={styles.headerTitle}>Delivery Dispatch</Text>
@@ -486,6 +526,7 @@ const CompanyDriverDashboard = ({ navigation }) => {
           <TouchableOpacity
             style={styles.refreshLink}
             accessibilityRole="button"
+            accessibilityLabel="Refresh delivery data"
             disabled={refreshing || loading || loadingQueue || loadingDashboard}
             onPress={refreshData}
           >
