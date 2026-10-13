@@ -1,4 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
+import { useIsFocused } from "@react-navigation/native";
+import { AuthContext } from "../../Context/store/Auth";
 import { Alert, ScrollView, Text, View, ActivityIndicator } from "react-native";
 import { Button, TextInput, Switch } from "react-native-paper";
 import { Picker } from "@react-native-picker/picker";
@@ -11,6 +13,9 @@ const fields = [["label", "Stop label"], ["address1", "Street address"], ["addre
   ["city", "City"], ["zip", "Postal code"], ["country", "Country"], ["phone", "Contact phone"]];
 
 export default function RideBooking({ navigation }) {
+  const { isAuthenticated, loading, logout } = useContext(AuthContext);
+  const focused = useIsFocused();
+  const [needsSignIn, setNeedsSignIn] = useState(false);
   const [mode, setMode] = useState("regular");
   const [stops, setStops] = useState([newRideStop("pickup"), newRideStop("dropoff")]);
   const [saved, setSaved] = useState([]);
@@ -25,6 +30,11 @@ export default function RideBooking({ navigation }) {
     running.current = true; setBusy(true); setError("");
     try { await action(); }
     catch (failure) {
+      if (failure.response?.status === 401) {
+        setNeedsSignIn(true); setConfig(null); setQuote(null);
+        setError("Your session has expired or is no longer valid. Sign in again to use rides.");
+        return;
+      }
       const message = failure.response?.data?.message || failure.message;
       setError(message); Alert.alert("Ride needs attention", message);
     } finally { running.current = false; setBusy(false); }
@@ -40,7 +50,12 @@ export default function RideBooking({ navigation }) {
       newRideStop("dropoff", /usa/i.test(db) ? "USA" : "Ethiopia")]);
     setQuote(null);
   });
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (focused && isAuthenticated && !loading) {
+      setNeedsSignIn(false);
+      load();
+    }
+  }, [focused, isAuthenticated, loading]);
   const update = (index, patch) => {
     setQuote(null);
     setStops((previous) => previous.map((stop, at) => at === index ? { ...stop, ...patch } : stop));
@@ -48,6 +63,15 @@ export default function RideBooking({ navigation }) {
   const ensureRegion = async () => {
     if (await getDatabaseNameFromStorage() !== database) throw new Error("The region changed. Reload the ride form before requesting.");
   };
+  if (loading) return <ActivityIndicator />;
+  if (!isAuthenticated || needsSignIn) return <View style={styles.content}>
+    <Text style={styles.title}>Sign in to use rides</Text>
+    <Text>{needsSignIn ? error : "Ride bookings and saved addresses require a signed-in account."}</Text>
+    <Button disabled={busy} mode="contained" onPress={() => run(async () => {
+      if (needsSignIn) await logout();
+      navigation.navigate("User", { screen: "Login" });
+    })}>Sign in</Button>
+  </View>;
   return <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
     <Text style={styles.title}>Request a ride</Text>
     <Button disabled={busy} onPress={() => navigation.navigate("MyRides", { database })}>My rides & post-ride payments</Button>

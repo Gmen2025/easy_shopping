@@ -19,7 +19,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import getImageUrl from "../../assets/common/getImageUrl";
 import { getWithRetry, isServiceUnavailableError } from "../../assets/common/requestRetry";
 
-var { height, width } = Dimensions.get("window");
+var { width } = Dimensions.get("window");
 
 const ListHeader = () => (
   <View style={styles.listHeader}>
@@ -116,6 +116,12 @@ const Products = (props) => {
 
   return (
     <View style={styles.mainContainer}>
+      <FlatList
+        style={styles.productList}
+        data={loading ? [] : productFilter}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator
+        ListHeaderComponent={<>
       {/* Navy header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Product Management</Text>
@@ -215,7 +221,7 @@ const Products = (props) => {
             setSearch(text);
             if (text) {
               setProductFilter(
-                productList.filter((item) =>
+                (productList || []).filter((item) =>
                   (item.name || "").toUpperCase().includes(text.toUpperCase())
                 )
               );
@@ -228,20 +234,15 @@ const Products = (props) => {
           inputStyle={{ fontSize: 14 }}
         />
       </View>
-
-      {/* List */}
-      {loading ? (
+      <ListHeader />
+      </>}
+      ListEmptyComponent={loading ? (
         <View style={styles.spinner}>
           <ActivityIndicator size="large" color="#8a6c09" />
           <Text style={styles.loadingText}>Loading products…</Text>
         </View>
-      ) : (
-        <FlatList
-          data={productFilter}
-          ListHeaderComponent={ListHeader}
-          stickyHeaderIndices={[0]}
-          ListFooterComponent={<View style={{ marginBottom: 120 }} />}
-          showsVerticalScrollIndicator={false}
+      ) : null}
+          ListFooterComponent={<View style={{ height: 24 }} />}
           renderItem={({ item, index }) => (
             <ListItem
               item={item}
@@ -252,7 +253,6 @@ const Products = (props) => {
           )}
           keyExtractor={(item) => item._id}
         />
-      )}
     </View>
   );
 };
@@ -261,6 +261,9 @@ const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
     backgroundColor: "#f5f6fa",
+  },
+  productList: {
+    flex: 1,
   },
   header: {
     backgroundColor: "#8a6c09",
@@ -326,10 +329,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
   },
   spinner: {
-    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: height / 4,
+    paddingVertical: 40,
   },
   loadingText: {
     marginTop: 10,

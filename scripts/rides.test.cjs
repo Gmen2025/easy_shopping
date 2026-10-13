@@ -30,10 +30,11 @@ function text(value) {
   if (Array.isArray(value)) return value.map(text).join("");
   return text(value?.props?.children || []);
 }
-function harness(file, request, params = {}) {
+function harness(file, request, params = {}, auth = { isAuthenticated: true, loading: false }) {
   const states = [], effects = [], timers = [], calls = [], dialogs = [], navigations = [];
   let cursor = 0;
   const react = {
+    useContext: () => auth,
     createElement: (type, props, ...children) => {
       const passed = { ...props, children };
       return typeof type === "function" ? type(passed) : { type, props: passed };
@@ -67,6 +68,7 @@ function harness(file, request, params = {}) {
     "../../assets/common/databaseConfig": { getDatabaseNameFromStorage: async () => "E_ShopUSA" },
     "../../Shared/CheckoutCardPayment": { __esModule: true, default: "CardPayment", canPayByCard: false },
     "../../Shared/DeliveryCheckout": { styles: {} },
+    "../../Context/store/Auth": { AuthContext: {} },
   }, { setInterval: (callback) => { timers.push(callback); return timers.length; }, clearInterval: () => {} });
   const render = () => {
     cursor = 0; effects.length = 0;
@@ -89,6 +91,47 @@ test("ride API uses the shared authenticated regional request helper; fare and c
   assert.equal(helpers.offerSeconds(new Date(180000), 179999), 1);
   assert.equal(helpers.offerSeconds(new Date(180000), 180000), 0);
   assert.equal(helpers.offerSeconds(new Date(180000), 180001), 0);
+});
+for (const screen of ["RideBooking", "MyRides"]) {
+  test(`${screen} asks guests to sign in without making protected requests`, async () => {
+    const ui = harness(`Screens\\Ride\\${screen}.js`, async () => {
+      throw new Error("Guests must not request ride data");
+    }, {}, { isAuthenticated: false, loading: false });
+    await ui.start();
+    assert.equal(ui.calls.length, 0);
+    await ui.button("Sign in").props.onPress();
+    assert.equal(ui.navigations[0][0], "User");
+    assert.equal(ui.navigations[0][1].screen, "Login");
+    assert.equal(ui.dialogs.length, 0);
+  });
+  test(`${screen} explains expired authorization and offers reauthentication`, async () => {
+    let loggedOut = false;
+    const ui = harness(`Screens\\Ride\\${screen}.js`, async () => {
+      throw { response: { status: 401, data: { message: "The user is not authorized" } } };
+    }, {}, { isAuthenticated: true, loading: false, logout: async () => { loggedOut = true; } });
+    await ui.start();
+    assert.match(text(ui.render()), /session has expired/);
+    assert.equal(ui.dialogs.length, 0);
+    await ui.button("Sign in").props.onPress();
+    assert.equal(loggedOut, true);
+    assert.equal(ui.navigations[0][0], "User");
+  });
+}
+test("booking reloads after sign-in and still reports non-authentication errors", async () => {
+  const auth = { isAuthenticated: false, loading: false };
+  const ui = harness("Screens\\Ride\\RideBooking.js", async () => policy, {}, auth);
+  await ui.start();
+  assert.equal(ui.calls.length, 0);
+  auth.isAuthenticated = true;
+  await ui.start();
+  assert.equal(ui.calls[0].route, "config");
+  assert.ok(ui.button("Calculate road route & fare"));
+  const failing = harness("Screens\\Ride\\RideBooking.js", async () => {
+    throw new Error("Network unavailable");
+  });
+  await failing.start();
+  assert.equal(failing.dialogs[0][1], "Network unavailable");
+  assert.equal(failing.button("Sign in"), undefined);
 });
 test("customer UI defaults to regular, submits ordered multi-stops and one fare, then navigates without pre-charging", async () => {
   const ui = harness("Screens\\Ride\\RideBooking.js", async (route, options) => {

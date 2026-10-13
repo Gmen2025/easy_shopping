@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, Text, View } from "react-native";
 import { Button, TextInput } from "react-native-paper";
 import { Picker } from "@react-native-picker/picker";
@@ -8,8 +8,11 @@ import { storeRequest } from "../../assets/common/storefront";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import CardPayment, { canPayByCard } from "../../Shared/CheckoutCardPayment";
 import { styles } from "../../Shared/DeliveryCheckout";
+import { AuthContext } from "../../Context/store/Auth";
 
-export default function MyRides({ route }) {
+export default function MyRides({ route, navigation }) {
+  const { isAuthenticated, loading, logout } = useContext(AuthContext);
+  const [needsSignIn, setNeedsSignIn] = useState(false);
   const focused = useIsFocused();
   const [rides, setRides] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -28,10 +31,15 @@ export default function MyRides({ route }) {
     running.current = true; setBusy(true); setError("");
     try {
       const db = await getDatabaseNameFromStorage();
-      if (region.current && region.current !== db) throw new Error("The region changed. Return to the ride booking page before continuing.");
+      if (isAuthenticated && !needsSignIn && region.current && region.current !== db) throw new Error("The region changed. Return to the ride booking page before continuing.");
       region.current = db; setDatabase(db);
       await action();
     } catch (failure) {
+      if (failure.response?.status === 401) {
+        setNeedsSignIn(true); setRides([]); setSelected(null); setBanks([]);
+        setError("Your session has expired or is no longer valid. Sign in again to view rides.");
+        return;
+      }
       const message = failure.response?.data?.message || failure.message;
       setError(message); if (notify) Alert.alert("Ride needs attention", message);
     } finally { running.current = false; setBusy(false); }
@@ -45,12 +53,17 @@ export default function MyRides({ route }) {
     setRides(list); setBanks(accounts); setBankId(accounts[0]?._id || "");
     if (route.params?.rideId) await selectRide(route.params.rideId);
   });
-  useEffect(() => { if (focused) load(); }, [focused, route.params?.rideId]);
   useEffect(() => {
-    if (!focused || !selected || ["completed", "cancelled", "quote"].includes(selected.status)) return;
+    if (focused && isAuthenticated && !loading) {
+      setNeedsSignIn(false);
+      load();
+    }
+  }, [focused, isAuthenticated, loading, route.params?.rideId]);
+  useEffect(() => {
+    if (!focused || !isAuthenticated || needsSignIn || loading || !selected || ["completed", "cancelled", "quote"].includes(selected.status)) return;
     const timer = setInterval(() => run(async () => setSelected(await rideRequest(selected._id)), false), 10000);
     return () => clearInterval(timer);
-  }, [focused, selected?._id, selected?.status]);
+  }, [focused, isAuthenticated, needsSignIn, loading, selected?._id, selected?.status]);
   const update = async (path, data) => setSelected(await rideRequest(`${selected._id}/${path}`, { method: "post", data, timeout: 120000 }));
   const pay = (confirmPayment) => run(async () => {
     const payment = await rideRequest(`${selected._id}/payment`, { method: "post", timeout: 60000 });
@@ -60,6 +73,15 @@ export default function MyRides({ route }) {
     if (result.error) throw new Error(`${result.error.message} Resume this same ride payment; do not start another payment.`);
     await update("payment-confirm", {});
   });
+  if (loading) return <ActivityIndicator />;
+  if (!isAuthenticated || needsSignIn) return <View style={styles.content}>
+    <Text style={styles.title}>Sign in to view rides</Text>
+    <Text>{needsSignIn ? error : "Your ride history and payments require a signed-in account."}</Text>
+    <Button disabled={busy} mode="contained" onPress={() => run(async () => {
+      if (needsSignIn) await logout();
+      navigation.navigate("User", { screen: "Login" });
+    })}>Sign in</Button>
+  </View>;
   return <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
     <Text style={styles.title}>My rides</Text>
     <Button disabled={busy} onPress={load}>Refresh rides</Button>

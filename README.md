@@ -100,7 +100,14 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   transactions, exchange-provider integration and native payments on staging
   before enabling. No deployment, live rate fetch or migration is automatic.
 
+### Admin Products
+- The Products screen scrolls its management shortcuts, search field, column
+  headings and product rows together, including while products are loading.
+
 ### Ride Service
+- Ride booking and history require sign-in. Guests see a sign-in action instead
+  of an authorization popup; expired sessions offer sign-in again. Returning to
+  the Ride page after login reloads the configuration and saved addresses.
 - The **Ride** badge beside **Stores** and **Service Request** opens address
   entry, saved/current-address selection and road-fare estimates. Regular is the
   default: arrange 2-12 ordered pickups/dropoffs and pay one fare for the whole

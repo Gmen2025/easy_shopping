@@ -3,7 +3,10 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -547,8 +550,15 @@ const AdminDrivers = () => {
       />
 
       <Modal visible={!!editingDriver} animationType="slide" transparent onRequestClose={closeEditDriver}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <ScrollView
+            style={styles.modalScroll}
+            contentContainerStyle={styles.modalCard}
+            keyboardShouldPersistTaps="handled"
+          >
             <Text style={styles.formTitle}>Edit Company Driver</Text>
             <TextInput style={styles.input} placeholder="Driver name" value={editForm.name} onChangeText={(text) => setEditForm({ ...editForm, name: text })} />
             <TextInput style={styles.input} placeholder="Address" value={editForm.address} onChangeText={(text) => setEditForm({ ...editForm, address: text })} />
@@ -578,8 +588,8 @@ const AdminDrivers = () => {
                 <Text style={styles.createButtonText}>{savingEdit ? "Saving..." : "Save Changes"}</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -700,6 +710,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 20,
   },
+  modalScroll: { flexGrow: 0, maxHeight: "100%" },
   modalCard: {
     backgroundColor: "#fff",
     borderRadius: 12,
