@@ -4,14 +4,17 @@ import { AuthContext } from "../../Context/store/Auth";
 import { Alert, ScrollView, Text, View, ActivityIndicator } from "react-native";
 import { Button, TextInput, Switch } from "react-native-paper";
 import { Picker } from "@react-native-picker/picker";
-import { rideRequest, newRideStop, rideFare } from "../../assets/common/rides";
+import { rideRequest, newRideStop, rideFare, isEthiopia, addressText } from "../../assets/common/rides";
 import { storeRequest } from "../../assets/common/storefront";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import { styles } from "../../Shared/DeliveryCheckout";
 import RideRouteMap from "../../Shared/RideRouteMap";
+import AddressSearchInput from "../../Shared/AddressSearchInput";
 
-const fields = [["label", "Stop label"], ["address1", "Street address"], ["address2", "Apartment / unit (optional)"],
-  ["city", "City"], ["zip", "Postal code"], ["country", "Country"], ["phone", "Contact phone"]];
+const fields = [["label", "Stop label"], ["address1", "Street address / landmark"], ["address2", "Apartment / unit (optional)"],
+  ["city", "City"], ["zip", "ZIP code"], ["country", "Country"], ["phone", "Contact phone"]];
+// Editing any of these means the pin no longer matches the chosen suggestion.
+const locatedFields = ["address1", "city", "zip", "country"];
 
 export default function RideBooking({ navigation }) {
   const { isAuthenticated, loading, logout } = useContext(AuthContext);
@@ -110,8 +113,17 @@ export default function RideBooking({ navigation }) {
           <Picker.Item label="Use current or saved address..." value="" />
           {saved.map((address) => <Picker.Item key={address._id} label={address.label} value={address._id} />)}
         </Picker>
-        {fields.map(([key, label]) => <TextInput key={key} label={label} value={stop.address[key] || ""} disabled={busy}
-          onChangeText={(value) => update(index, { address: { ...stop.address, [key]: value } })} style={styles.input} />)}
+        <AddressSearchInput
+          label={stop.type === "pickup" ? "Search pickup location" : "Search drop-off location"}
+          disabled={busy}
+          selectedText={stop.address.placeId ? stop.address.formattedAddress || addressText(stop.address) : ""}
+          onSelect={(place) => update(index, { address: { ...stop.address, ...place,
+            label: stop.address.label, phone: stop.address.phone, address2: stop.address.address2 } })} />
+        {fields.filter(([key]) => !(key === "zip" && isEthiopia(stop.address.country))).map(([key, label]) =>
+          <TextInput key={key} label={label} value={stop.address[key] || ""} disabled={busy}
+            onChangeText={(value) => update(index, { address: { ...stop.address, [key]: value,
+              ...(locatedFields.includes(key) ? { placeId: undefined, formattedAddress: undefined, location: undefined } : {}) } })}
+            style={styles.input} />)}
         {mode === "regular" && stops.length > 2 ? <Button disabled={busy} onPress={() => {
           setQuote(null); setStops((previous) => previous.filter((_, at) => at !== index));
         }}>Remove stop</Button> : null}

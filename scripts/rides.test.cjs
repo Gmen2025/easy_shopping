@@ -70,6 +70,7 @@ function harness(file, request, params = {}, auth = { isAuthenticated: true, loa
     "../../Shared/DeliveryCheckout": { styles: {} },
     "../../Context/store/Auth": { AuthContext: {} },
     "../../Shared/RideRouteMap": { __esModule: true, default: "RideRouteMap" },
+    "../../Shared/AddressSearchInput": { __esModule: true, default: "AddressSearchInput" },
   }, { setInterval: (callback) => { timers.push(callback); return timers.length; }, clearInterval: () => {} });
   const render = () => {
     cursor = 0; effects.length = 0;
@@ -223,4 +224,79 @@ test("ride screens and badge are connected to customer, company-driver and Admin
     ["Navigators\\CompanyDriverNavigator.js", /name="DriverRides".*component=\{DriverRides\}/],
     ["Navigators\\AdminNavigator.js", /name="RideSettings".*component=\{RideSettings\}/],
   ]) assert.match(fs.readFileSync(path.join(root, file), "utf8"), pattern);
+});
+
+test("place search helpers call region-scoped ride endpoints and treat Ethiopia as ZIP-free", async () => {
+  const [, search] = await helpers.searchPlaces("Bole & 22", "s-1");
+  assert.equal(search, "places/autocomplete?input=Bole%20%26%2022&session=s-1");
+  const [, details] = await helpers.placeAddress("ChIJ/abc", "s-1");
+  assert.equal(details, "places/details/ChIJ%2Fabc?session=s-1");
+  assert.ok(["Ethiopia", "ethio", "ET"].every(helpers.isEthiopia));
+  assert.equal(helpers.isEthiopia("USA"), false);
+  assert.notEqual(helpers.newPlacesSession(), helpers.newPlacesSession());
+});
+test("ride form uses selected places, hides ZIP for Ethiopia and drops stale places after manual edits", async () => {
+  let sent;
+  const ui = harness("Screens\\Ride\\RideBooking.js", async (route, options) => {
+    if (route === "config") return policy;
+    if (route === "quote") { sent = options.data; return { _id: "ride", currency: "usd", estimate: 10, seats: 1, baseline: { minutes: 5 }, expiresAt: new Date(Date.now() + 600000) }; }
+    throw new Error(`Unexpected ride request ${route}`);
+  });
+  await ui.start();
+  const searches = () => nodes(ui.render()).filter((node) => node.type === "AddressSearchInput");
+  const inputs = () => nodes(ui.render()).filter((node) => node.type === "TextInput");
+  assert.equal(searches().length, 2);
+  assert.equal(searches()[0].props.label, "Search pickup location");
+  assert.ok(inputs().some((node) => node.props.label === "ZIP code"));
+  searches()[0].props.onSelect({ placeId: "ChIJpickup000001", address1: "1 Main St", city: "Town", zip: "12345",
+    country: "USA", formattedAddress: "1 Main St, Town, USA" });
+  searches()[1].props.onSelect({ placeId: "ChIJdropoff00001", address1: "9 Elm St", city: "Town", zip: "12345",
+    country: "USA", formattedAddress: "9 Elm St, Town, USA" });
+  assert.match(searches()[0].props.selectedText, /1 Main St/);
+  inputs().find((node) => node.props.label === "Street address / landmark" && node.props.value === "9 Elm St").props.onChangeText("10 Elm St");
+  assert.equal(searches()[1].props.selectedText, "");
+  await ui.button("Calculate road route & fare").props.onPress();
+  assert.equal(sent.stops[0].address.placeId, "ChIJpickup000001");
+  assert.equal(sent.stops[0].address.label, "Pickup", "selection keeps the stop label and contact");
+  assert.equal(sent.stops[1].address.placeId, undefined);
+  assert.equal(sent.stops[1].address.address1, "10 Elm St");
+  inputs().filter((node) => node.props.label === "Country")[0].props.onChangeText("Ethiopia");
+  assert.equal(inputs().filter((node) => node.props.label === "ZIP code").length, 1, "only the USA stop keeps ZIP");
+});
+test("address search debounces typing, ignores short input and fills the stop from the chosen place", async () => {
+  const states = [], effects = [], calls = [];
+  let cursor = 0;
+  const timers = [];
+  const react = {
+    useState: (initial) => { const at = cursor++; if (!(at in states)) states[at] = initial;
+      return [states[at], (value) => { states[at] = typeof value === "function" ? value(states[at]) : value; }]; },
+    useRef: (initial) => { const at = cursor++; if (!(at in states)) states[at] = { current: initial }; return states[at]; },
+    useEffect: (effect) => effects.push(effect),
+    createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
+  };
+  let selected;
+  const { default: Search } = load("Shared\\AddressSearchInput.js", {
+    react, "react-native": new Proxy({ StyleSheet: { create: (value) => value, hairlineWidth: 1 } }, { get: (target, key) => target[key] || key }),
+    "react-native-paper": { TextInput: "TextInput" },
+    "../assets/common/rides": {
+      newPlacesSession: () => `session-${calls.length}`,
+      searchPlaces: async (input, session) => { calls.push(["search", input, session]);
+        return [{ placeId: "ChIJplace000001", mainText: "Edna Mall", secondaryText: "Addis Ababa" }]; },
+      placeAddress: async (placeId, session) => { calls.push(["details", placeId, session]); return { placeId, address1: "Edna Mall" }; },
+    },
+  }, { setTimeout: (callback) => { timers.push(callback); return timers.length; }, clearTimeout: () => {} });
+  const render = () => { cursor = 0; effects.length = 0; return Search({ label: "Search pickup", onSelect: (value) => { selected = value; } }); };
+  const runEffects = () => effects.splice(0).forEach((effect) => effect());
+  const field = () => nodes(render()).find((node) => node.type === "TextInput");
+  field().props.onChangeText("Ed"); render(); runEffects();
+  assert.equal(timers.length, 0, "fewer than three characters never searches");
+  field().props.onChangeText("Edna"); render(); runEffects();
+  await timers.pop()();
+  assert.deepEqual(calls[0], ["search", "Edna", "session-0"]);
+  const row = nodes(render()).find((node) => node.type === "TouchableOpacity");
+  assert.match(text(row), /Edna Mall.*Addis Ababa/);
+  await row.props.onPress();
+  assert.deepEqual(calls[1], ["details", "ChIJplace000001", "session-0"], "details reuse the autocomplete session");
+  assert.deepEqual(selected, { placeId: "ChIJplace000001", address1: "Edna Mall" });
+  assert.equal(field().props.value, "");
 });

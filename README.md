@@ -120,6 +120,14 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   rides shows the same map with the assigned driver's live pin. The server builds
   the route with `GOOGLE_ROUTES_API_KEY` (`GET /rides/:id/route`, owner-only) and
   caches it on the booking; without that key, the pins still show with a message.
+- Each pickup/drop-off has a search-as-you-type box that suggests places in the
+  store's country (USA store → US, Ethio store → Ethiopia). Choosing a suggestion
+  fills the address and pins the exact map location; editing the address
+  afterwards clears that pin and the address is geocoded instead. The ZIP field is
+  hidden for Ethiopia (ZIP is optional for Ethiopian addresses everywhere).
+  Suggestions go through the server (`GET /rides/places/autocomplete` and
+  `/rides/places/details/:placeId`) using `GOOGLE_PLACES_API_KEY` (or
+  `GOOGLE_MAPS_API_KEY`); enable **Places API (New)** for that key.
 - **My rides & post-ride payments** shows only the customer's own booking,
   driver/contact/GPS, status and fare. GPS stops being shared after their ride
   completes; driver contact remains for payment. Quotes are estimates: regular final fares

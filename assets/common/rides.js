@@ -26,3 +26,10 @@ export const rideDirectionsUrl = (stops = []) => {
     `&destination=${encodeURIComponent(points.at(-1))}` +
     (waypoints.length ? `&waypoints=${encodeURIComponent(waypoints.join("|"))}` : "");
 };
+export const isEthiopia = (country) => /^(ethiopia|ethio|et)$/i.test(String(country || "").trim());
+export const newPlacesSession = () =>
+  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+export const searchPlaces = (input, session) =>
+  rideRequest(`places/autocomplete?input=${encodeURIComponent(input)}&session=${encodeURIComponent(session)}`);
+export const placeAddress = (placeId, session) =>
+  rideRequest(`places/details/${encodeURIComponent(placeId)}?session=${encodeURIComponent(session)}`);
