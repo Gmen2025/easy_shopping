@@ -9,3 +9,20 @@ export const newRideStop = (type, country = "") => ({
   type, passengers: "1", address: { label: type === "pickup" ? "Pickup" : "Drop-off", address1: "",
     address2: "", city: "", zip: "", country, phone: "" },
 });
+export const rideStopPoint = (stop) => {
+  const coordinates = stop?.address?.location?.coordinates;
+  if (!Array.isArray(coordinates) || coordinates.length !== 2) return null;
+  const [longitude, latitude] = coordinates.map(Number);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 ||
+    Math.abs(longitude) > 180 || (latitude === 0 && longitude === 0)) return null;
+  return { latitude, longitude };
+};
+// Google Maps driving directions through every located stop, in booking order.
+export const rideDirectionsUrl = (stops = []) => {
+  const points = stops.map(rideStopPoint).filter(Boolean).map(({ latitude, longitude }) => `${latitude},${longitude}`);
+  if (points.length < 2) return null;
+  const waypoints = points.slice(1, -1);
+  return `https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=${encodeURIComponent(points[0])}` +
+    `&destination=${encodeURIComponent(points.at(-1))}` +
+    (waypoints.length ? `&waypoints=${encodeURIComponent(waypoints.join("|"))}` : "");
+};

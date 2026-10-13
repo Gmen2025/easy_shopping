@@ -8,6 +8,7 @@ import { rideRequest, newRideStop, rideFare } from "../../assets/common/rides";
 import { storeRequest } from "../../assets/common/storefront";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import { styles } from "../../Shared/DeliveryCheckout";
+import RideRouteMap from "../../Shared/RideRouteMap";
 
 const fields = [["label", "Stop label"], ["address1", "Street address"], ["address2", "Apartment / unit (optional)"],
   ["city", "City"], ["zip", "Postal code"], ["country", "Country"], ["phone", "Contact phone"]];
@@ -126,6 +127,7 @@ export default function RideBooking({ navigation }) {
       })}>Calculate road route & fare</Button>
       {quote ? <View style={styles.card}>
         <Text style={styles.heading}>Estimated fare: {rideFare(quote, quote.estimate)}</Text>
+        <RideRouteMap ride={quote} distanceUnit={/usa/i.test(database) ? "mile" : "km"} />
         <Text>{quote.seats} passenger seats needed. Solo/planned travel {quote.baseline.minutes.toFixed(1)} minutes.
           Quote expires {new Date(quote.expiresAt).toLocaleTimeString()}.</Text>
         <Button mode="contained" disabled={busy} onPress={() => run(async () => {

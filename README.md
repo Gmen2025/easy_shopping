@@ -114,6 +114,12 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   booking. Boarding/leaving counts must balance. Shared bookings have one own
   pickup/dropoff and passenger-party count; the backend matches unrelated
   customers only when road-route, wait, detour and seat limits fit.
+- After **Calculate road route & fare**, the quote shows a Google map with the
+  numbered pickup (green) and drop-off (red) pins and the driving route through
+  every stop in order, plus a link that opens the same route in Google Maps. My
+  rides shows the same map with the assigned driver's live pin. The server builds
+  the route with `GOOGLE_ROUTES_API_KEY` (`GET /rides/:id/route`, owner-only) and
+  caches it on the booking; without that key, the pins still show with a message.
 - **My rides & post-ride payments** shows only the customer's own booking,
   driver/contact/GPS, status and fare. GPS stops being shared after their ride
   completes; driver contact remains for payment. Quotes are estimates: regular final fares

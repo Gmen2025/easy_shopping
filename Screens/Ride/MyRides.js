@@ -3,12 +3,13 @@ import { ActivityIndicator, Alert, ScrollView, Text, View } from "react-native";
 import { Button, TextInput } from "react-native-paper";
 import { Picker } from "@react-native-picker/picker";
 import { useIsFocused } from "@react-navigation/native";
-import { rideRequest, rideFare, addressText } from "../../assets/common/rides";
+import { rideRequest, rideFare, addressText, rideStopPoint } from "../../assets/common/rides";
 import { storeRequest } from "../../assets/common/storefront";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import CardPayment, { canPayByCard } from "../../Shared/CheckoutCardPayment";
 import { styles } from "../../Shared/DeliveryCheckout";
 import { AuthContext } from "../../Context/store/Auth";
+import RideRouteMap from "../../Shared/RideRouteMap";
 
 export default function MyRides({ route, navigation }) {
   const { isAuthenticated, loading, logout } = useContext(AuthContext);
@@ -90,6 +91,8 @@ export default function MyRides({ route, navigation }) {
     {selected ? <View style={styles.card}>
       <Text selectable style={styles.heading}>Ride #{String(selected._id).slice(-6)} - {selected.mode}</Text>
       <Text>Status: {selected.status}</Text><Text>{selected.dispatchMessage}</Text>
+      <RideRouteMap ride={selected} distanceUnit={selected.currency === "usd" ? "mile" : "km"}
+        driverLocation={selected.status !== "completed" ? rideStopPoint({ address: { location: selected.assignedDriver?.location } }) : null} />
       {selected.stops.map((stop) => <Text key={stop.key}>{stop.type}: {addressText(stop.address)} ({stop.passengers} passengers)</Text>)}
       <Text>Estimate: {rideFare(selected, selected.estimate)}</Text>
       {selected.assignedDriver ? <>

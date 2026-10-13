@@ -69,6 +69,7 @@ function harness(file, request, params = {}, auth = { isAuthenticated: true, loa
     "../../Shared/CheckoutCardPayment": { __esModule: true, default: "CardPayment", canPayByCard: false },
     "../../Shared/DeliveryCheckout": { styles: {} },
     "../../Context/store/Auth": { AuthContext: {} },
+    "../../Shared/RideRouteMap": { __esModule: true, default: "RideRouteMap" },
   }, { setInterval: (callback) => { timers.push(callback); return timers.length; }, clearInterval: () => {} });
   const render = () => {
     cursor = 0; effects.length = 0;
@@ -91,6 +92,16 @@ test("ride API uses the shared authenticated regional request helper; fare and c
   assert.equal(helpers.offerSeconds(new Date(180000), 179999), 1);
   assert.equal(helpers.offerSeconds(new Date(180000), 180000), 0);
   assert.equal(helpers.offerSeconds(new Date(180000), 180001), 0);
+});
+test("ride map helpers read GeoJSON stop pins and build ordered Google driving directions", () => {
+  const at = (longitude, latitude) => ({ address: { location: { type: "Point", coordinates: [longitude, latitude] } } });
+  assert.deepEqual({ ...helpers.rideStopPoint(at(38.75, 9.03)) }, { latitude: 9.03, longitude: 38.75 });
+  assert.equal(helpers.rideStopPoint(at(0, 0)), null);
+  assert.equal(helpers.rideStopPoint({ address: {} }), null);
+  assert.equal(helpers.rideDirectionsUrl([at(1, 2)]), null);
+  const url = helpers.rideDirectionsUrl([at(1, 2), at(3, 4), { address: {} }, at(5, 6)]);
+  assert.match(url, /travelmode=driving/);
+  assert.match(url, /origin=2%2C1&destination=6%2C5&waypoints=4%2C3$/);
 });
 for (const screen of ["RideBooking", "MyRides"]) {
   test(`${screen} asks guests to sign in without making protected requests`, async () => {
@@ -150,6 +161,9 @@ test("customer UI defaults to regular, submits ordered multi-stops and one fare,
   assert.match(text(ui.render()), /one fare for everyone/);
   ui.button("Add intermediate stop (choose pickup or drop-off)").props.onPress();
   await ui.button("Calculate road route & fare").props.onPress();
+  const routeMap = nodes(ui.render()).find((node) => node.type === "RideRouteMap");
+  assert.equal(routeMap.props.ride._id, "ride");
+  assert.equal(routeMap.props.distanceUnit, "mile");
   await ui.button("Request driver (pay after ride)").props.onPress();
   assert.equal(ui.navigations.at(-1)[0], "MyRides");
   assert.equal(ui.calls.some((call) => call.route.includes("payment")), false);
