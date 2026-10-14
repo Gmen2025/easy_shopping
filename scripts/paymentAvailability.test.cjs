@@ -31,7 +31,7 @@ test("Ethiopia cash checkout is unchanged for development and release", () => {
 });
 
 test("confirmation recognizes existing cash method representations but not other payments", () => {
-  for (const method of [1, "1", "Cash on delivery", " CASH ON DELIVERY "]) {
+  for (const method of [1, "1", "cash", " CASH ", "Cash on delivery", " CASH ON DELIVERY "]) {
     assert.equal(isCashOnDeliveryMethod(method), true);
   }
   for (const method of [2, 3, 4, "Card Payment", "Bank Transfer", undefined, null]) {

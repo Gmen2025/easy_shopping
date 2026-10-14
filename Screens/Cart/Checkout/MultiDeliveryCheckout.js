@@ -13,6 +13,7 @@ import { CargoSummary, DeliverySummary, PackageMeasurements, styles } from "../.
 import AddressSearchInput from "../../../Shared/AddressSearchInput";
 import { addressText, isEthiopia } from "../../../assets/common/rides";
 import { exchangeRequest, rateIsActive, usdAmount, usdText, usdInactiveMessage, birrAmount, etbText, exportInactiveMessage } from "../../../assets/common/exchangeRate";
+import { isCashOnDeliveryAvailable } from "../../../assets/common/paymentAvailability";
 
 const ADDRESS_FIELDS = [
   ["label", "Address label"], ["address1", "Street address"], ["address2", "Apartment / unit (optional)"],
@@ -49,6 +50,8 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
   const converted = service || (paymentCurrency === "usd" && database && !/usa/i.test(database));
   const international = Boolean(group?.international || quote?.international || (/usa/i.test(database) && paymentCurrency === "etb"));
   const availableCard = converted ? nativeCardAvailable && exchange?.cardAvailable : canPayByCard;
+  const cashAvailable = Boolean(database) && !service && !international && !converted &&
+    !quote?.exchangeRate && isCashOnDeliveryAvailable(database, __DEV__);
 
   const run = async (action) => {
     if (running.current) return;
@@ -151,16 +154,21 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
     setSelections(Object.fromEntries(result.deliveries.map((delivery) => [delivery.key, delivery.vehicle])));
   });
   const reserveCheckout = () => run(async () => {
+    if (method === "cash" && !cashAvailable) throw new Error("Cash on delivery is unavailable for this checkout. USA cash checkout requires a development/debug build.");
     if (quote.deliveries.some((delivery) => !selections[delivery.key])) throw new Error("Choose a vehicle for every delivery before continuing.");
     if (!service && (items.some((item) => !quote.cart.some((line) => line.key === cartItemKey(item) && line.quantity === item.quantity)) ||
         items.length !== quote.cart.length)) throw new Error("Your cart changed. Request a fresh quote.");
     const result = await storeRequest(`checkouts/${quote._id}/prepare`, { method: "post", timeout: 60000, data: {
       method, bankAccountId: bankId,
+      ...(method === "cash" && /usa/i.test(database) ? { developmentCashOnDelivery: __DEV__ === true } : {}),
       selections: quote.deliveries.map((delivery) => ({ key: delivery.key, vehicle: selections[delivery.key] })),
     } });
     await showGroup(result);
   });
   const finish = () => run(async () => {
+    if (group.paymentMethod === "cash" && !isCashOnDeliveryAvailable(database, __DEV__)) {
+      throw new Error("USA cash checkout can only be completed in a development/debug build.");
+    }
     await showGroup(await storeRequest(`checkouts/${group._id}/confirm`, {
       method: "post", data: { reference, sender }, timeout: 60000,
     }));
@@ -286,10 +294,15 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
           {delivery.requiresVehicleSelection || !delivery.vehicle ? <Text>Some packaged measurements are not available currently.
             Choose a vehicle manually. Full load capacity cannot be verified; available options account for known measurements.</Text> :
             <Text>Recommended: {delivery.vehicle}. Choose a suitable upgrade below.</Text>}
+          <Text style={styles.heading}>Delivery vehicle</Text>
+          {/usa/i.test(database) ? <Text>{delivery.vehicleOptions.some((option) => option.type === "car")
+            ? "Choose Car below for car delivery. The selected vehicle updates the delivery fee and driver requirement."
+            : "Car delivery is unavailable for this load or disabled in USA vehicle settings. Choose one of the suitable vehicles below."}</Text> : null}
           <Picker selectedValue={selections[delivery.key] || ""} enabled={!busy}
+            accessibilityLabel={`Delivery vehicle for ${delivery.store.name}`}
             onValueChange={(value) => setSelections((previous) => ({ ...previous, [delivery.key]: value }))}>
             {delivery.requiresVehicleSelection || !delivery.vehicle ? <Picker.Item label="Choose a vehicle..." value="" /> : null}
-            {delivery.vehicleOptions.map((option) => <Picker.Item key={option.type} label={`${option.type} - ${formatPrice(option.fee)}`} value={option.type} />)}
+            {delivery.vehicleOptions.map((option) => <Picker.Item key={option.type} label={`${option.type === "car" ? "Car" : option.type} - ${formatPrice(option.fee)}`} value={option.type} />)}
           </Picker>
         </View>)}
         <View style={styles.card}>
@@ -307,8 +320,10 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
             <Picker.Item label="Bank transfer" value="bank" />
             {quote.international ? null : /usa/i.test(database) || quote.exchangeRate
               ? availableCard ? <Picker.Item label="Card" value="card" /> : null
-              : <Picker.Item label="Cash on delivery" value="cash" />}
+              : null}
+            {cashAvailable ? <Picker.Item label={/usa/i.test(database) ? "Cash on delivery (development only)" : "Cash on delivery"} value="cash" /> : null}
           </Picker>
+          {cashAvailable && /usa/i.test(database) ? <Text>Development cash checkout creates real orders in the USA database. Use test products; cash is collected on each delivery.</Text> : null}
           {method === "bank" ? <Picker selectedValue={bankId} enabled={!busy} onValueChange={setBankId}>
             <Picker.Item label="Select bank account..." value="" />
             {banks.map((bank) => <Picker.Item key={bank._id} label={`${bank.bankName} - ${bank.accountHolderName}`} value={bank._id} />)}

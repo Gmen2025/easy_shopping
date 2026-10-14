@@ -18,6 +18,20 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   preview and production builds. Ethiopia cash checkout remains unchanged.
   This is a mobile build gate, not a backend authorization policy. Development
   cash checkout creates real orders in the selected database; use test products.
+  Both the legacy payment screen and vehicle/multi-delivery checkout expose it.
+  Domestic USA vehicle checkout sends `developmentCashOnDelivery: true` when
+  reserving cash orders, including from a debug app connected to Render.
+  Deploy the matching backend first. Release apps omit the option and block
+  forced cash reservations/unfinished cash confirmation. USA-to-Ethiopia birr
+  shipping and Ethiopia USD/service checkout still do not allow cash.
+- **USA Car Delivery**: In vehicle checkout, calculate routes and select
+  **Car** under **Delivery vehicle** for each pickup/destination. The previewed
+  fee updates and the saved order requires a car driver. Car is shown only when
+  enabled with valid pricing/capacity in **USA > Admin > Vehicle delivery
+  settings** and suitable for the known load. Enable vehicle checkout and
+  migrate per-store inventory first; the older delivery-speed checkout is
+  unchanged. Missing or unsuitable Car options show an explanation rather than
+  bypassing capacity checks.
 - **Checkout Stock Guard**: Prevents checkout/payment when requested quantity exceeds available stock
 - **User Accounts**: Registration, login, email verification
 - **Order Tracking**: View order history and status

@@ -5,14 +5,14 @@ const path = require("node:path");
 const vm = require("node:vm");
 const babel = require("@babel/core");
 
-function load(relative, dependencies) {
+function load(relative, dependencies, { development = false } = {}) {
   const filename = path.join(__dirname, "..", relative);
   const { code } = babel.transformSync(fs.readFileSync(filename, "utf8"), {
     filename, configFile: false, babelrc: false,
     plugins: ["@babel/plugin-transform-react-jsx", "@babel/plugin-transform-modules-commonjs"],
   });
   const exports = {};
-  vm.runInNewContext(code, { exports, console, process: { env: {} }, require: (name) => {
+  vm.runInNewContext(code, { exports, console, __DEV__: development, process: { env: {} }, require: (name) => {
     assert.ok(name in dependencies, `Unexpected dependency: ${name}`);
     return dependencies[name];
   } });
@@ -28,7 +28,7 @@ function text(value) {
   if (Array.isArray(value)) return value.map(text).join("");
   return text(value?.props?.children || []);
 }
-function harness(request, { resumeId, database = "E_ShopUSA", params = {}, exchangeState, packageSize } = {}) {
+function harness(request, { resumeId, database = "E_ShopUSA", params = {}, exchangeState, packageSize, development = false } = {}) {
   const states = [];
   let cursor = 0;
   let effects = [];
@@ -59,6 +59,7 @@ function harness(request, { resumeId, database = "E_ShopUSA", params = {}, excha
   const exchange = load("assets\\common\\exchangeRate.js", { "./storefront": { apiRequest: async () => exchangeState } });
   const summary = load("Shared\\DeliveryCheckout.js", { react, "react-native": native, "../assets/common/currency": currency, "../assets/common/exchangeRate": exchange });
   const rides = load("assets\\common\\rides.js", { "./storefront": { apiRequest: async () => assert.fail("Place search is mocked") } });
+  const paymentAvailability = load("assets\\common\\paymentAvailability.js", {});
   const { default: Component } = load("Screens\\Cart\\Checkout\\MultiDeliveryCheckout.js", {
     react, "react-native": native, "react-native-paper": { Button: "Button", TextInput: "TextInput" },
     "@react-native-picker/picker": { Picker: Object.assign((props) => ({ type: "Picker", props }), { Item: "PickerItem" }) },
@@ -73,7 +74,8 @@ function harness(request, { resumeId, database = "E_ShopUSA", params = {}, excha
     "../../../Shared/DeliveryCheckout": summary,
     "../../../Shared/AddressSearchInput": { __esModule: true, default: "AddressSearchInput" },
     "../../../assets/common/rides": rides,
-  });
+    "../../../assets/common/paymentAvailability": paymentAvailability,
+  }, { development });
   const render = () => {
     cursor = 0;
     effects = [];
@@ -92,6 +94,96 @@ function harness(request, { resumeId, database = "E_ShopUSA", params = {}, excha
 
 const freshExchange = () => ({ enabled: true, active: true, birrPerUsd: 3, revision: 5, source: "manual",
   appliedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 86400000).toISOString() });
+
+for (const development of [true, false]) {
+  test(`USA Car selection and cash checkout follow the development build gate (${development})`, async () => {
+    let prepared;
+    let confirmations = 0;
+    const current = { label: "Home", address1: "Main", city: "Town", zip: "12345", country: "USA", phone: "123" };
+    let quote;
+    const ui = harness(async (path, options) => {
+      if (path === "delivery-current-address") return current;
+      if (path === "delivery-addresses") return [];
+      if (path === "delivery-bank-accounts") return [{ _id: "bank", bankName: "Bank" }];
+      if (path === "checkouts/quote") {
+        quote = { _id: "usa-car", cart: options.data.cart, itemsSubtotal: 30, deliveryFee: 2, totalPrice: 32,
+          expiresAt: new Date(Date.now() + 600000).toISOString(),
+          deliveries: [{ key: "delivery", store: { _id: "store", name: "USA pickup" }, address: current,
+            lines: [{ product: "product", name: "Box", quantity: 3 }], cargo: { weightKg: 3, volumeLiters: 3 },
+            distanceKm: 2, vehicle: "motorcycle",
+            vehicleOptions: [{ type: "motorcycle", fee: 2 }, { type: "car", fee: 5 }] }] };
+        return quote;
+      }
+      if (path === "checkouts/usa-car/prepare") {
+        prepared = options.data;
+        return { ...quote, status: "awaiting_payment", paymentMethod: "cash", deliveryFee: 5, totalPrice: 35 };
+      }
+      if (path === "checkouts/usa-car/confirm") {
+        confirmations += 1;
+        return { ...quote, status: "placed", paymentMethod: "cash", paymentStatus: "pending", deliveryFee: 5, totalPrice: 35 };
+      }
+      throw new Error(path);
+    }, { development });
+    await ui.start();
+    await ui.button("Calculate routes & recommend vehicles").props.onPress();
+    const vehiclePicker = nodes(ui.render()).find((node) => node.type === "Picker" &&
+      node.props.accessibilityLabel === "Delivery vehicle for USA pickup");
+    assert.ok(nodes(vehiclePicker).some((node) => node.type === "PickerItem" &&
+      node.props.value === "car" && node.props.label === "Car - $5.00"));
+    vehiclePicker.props.onValueChange("car");
+    assert.match(text(ui.render()), /Combined total: \$35.00/);
+    const methodPicker = nodes(ui.render()).find((node) => node.type === "Picker" &&
+      nodes(node).some((child) => child.type === "PickerItem" && child.props.value === "bank"));
+    assert.equal(nodes(methodPicker).some((node) => node.props?.value === "cash"), development);
+    methodPicker.props.onValueChange("cash");
+    await ui.button("Reserve all deliveries & continue").props.onPress();
+    if (development) {
+      assert.equal(prepared.method, "cash");
+      assert.equal(prepared.developmentCashOnDelivery, true);
+      assert.equal(prepared.selections[0].vehicle, "car");
+      await ui.button("Finish checkout").props.onPress();
+      assert.equal(confirmations, 1);
+      assert.equal(ui.actions.at(-1).type, "complete");
+    } else {
+      assert.equal(prepared, undefined, "Release builds must block cash even if forced into component state");
+      assert.match(text(ui.render()), /requires a development\/debug build/);
+    }
+  });
+}
+
+test("release builds cannot finish a recovered USA development cash checkout", async () => {
+  const calls = [];
+  const ui = harness(async (path) => {
+    calls.push(path);
+    return { _id: "cash-recovery", cart: [], status: "awaiting_payment", paymentMethod: "cash",
+      expiresAt: new Date(Date.now() + 600000).toISOString() };
+  }, { resumeId: "cash-recovery", development: false });
+  await ui.start();
+  await ui.button("Finish checkout").props.onPress();
+  assert.deepEqual(calls, ["checkouts/cash-recovery"]);
+  assert.match(text(ui.render()), /only be completed in a development\/debug build/);
+});
+
+for (const database of ["E_ShopUSA", "E_Shopping"]) {
+  test(`unavailable Car is not fabricated and domestic cash follows regional policy (${database})`, async () => {
+    const current = { label: "Home", country: database === "E_ShopUSA" ? "USA" : "Ethiopia" };
+    const ui = harness(async (path, options) => {
+      if (path === "delivery-current-address") return current;
+      if (path === "delivery-addresses" || path === "delivery-bank-accounts") return [];
+      if (path === "checkouts/quote") return { _id: "van-only", cart: options.data.cart, itemsSubtotal: 30,
+        deliveryFee: 8, totalPrice: 38, expiresAt: new Date(Date.now() + 600000).toISOString(),
+        deliveries: [{ key: "delivery", store: { _id: "store", name: "Pickup" }, address: current,
+          lines: [], cargo: {}, vehicle: "van", distanceKm: 1, vehicleOptions: [{ type: "van", fee: 8 }] }] };
+      throw new Error(path);
+    }, { database, development: false });
+    await ui.start();
+    await ui.button("Calculate routes & recommend vehicles").props.onPress();
+    assert.equal(nodes(ui.render()).some((node) => node.type === "PickerItem" && node.props.value === "car"), false);
+    assert.equal(nodes(ui.render()).some((node) => node.type === "PickerItem" && node.props.value === "cash"), database === "E_Shopping");
+    if (database === "E_ShopUSA") assert.match(text(ui.render()), /Car delivery is unavailable for this load or disabled/);
+  });
+}
+
 test("checkout displays configured package sizes without requiring them", async () => {
   const ui = harness(async (route) => {
     if (route === "delivery-current-address") return { label: "Home", country: "USA" };
@@ -283,7 +375,7 @@ test("international product checkout adds shipping before converting to birr, on
     }
     if (path === "checkouts/export123456/confirm") return { ...quote, status: "bank_review", paymentMethod: "bank", paymentAmount: 8400, totalPrice: 56 };
     throw new Error(path);
-  }, { database: "E_ShopUSA", params: { paymentCurrency: "etb" }, exchangeState: policy });
+  }, { database: "E_ShopUSA", params: { paymentCurrency: "etb" }, exchangeState: policy, development: true });
   await ui.start();
   await ui.button("Calculate routes & recommend vehicles").props.onPress();
   assert.match(text(ui.render()), /International shipping: \$20.00/);
@@ -345,7 +437,7 @@ test("USD product checkout retains ETB totals, previews vehicle-adjusted dollars
       return { ...quoted, paymentAmount: 12, deliveryFee: 6, totalPrice: 36, status: "awaiting_payment", paymentMethod: "bank" };
     }
     throw new Error(path);
-  }, { database: "E_Shopping", params: { paymentCurrency: "usd" }, exchangeState: policy });
+  }, { database: "E_Shopping", params: { paymentCurrency: "usd" }, exchangeState: policy, development: true });
   await ui.start();
   await ui.button("Calculate routes & recommend vehicles").props.onPress();
   assert.match(text(ui.render()), /Combined total: ETB 33.00/);
@@ -381,7 +473,7 @@ test("service USD checkout uses its own Admin quote and never consumes product c
     }
     if (path === "checkouts/service123456/confirm") return { ...group, status: "placed", paymentMethod: "bank" };
     throw new Error(path);
-  }, { database: "E_Shopping", params: { serviceId: "service", paymentCurrency: "usd" }, exchangeState: policy });
+  }, { database: "E_Shopping", params: { serviceId: "service", paymentCurrency: "usd" }, exchangeState: policy, development: true });
   await ui.start();
   assert.match(text(ui.render()), /Service USD checkout/);
   assert.doesNotMatch(text(ui.render()), /Allocate each unit/);

@@ -4,4 +4,5 @@ export const isCashOnDeliveryAvailable = (databaseName, isDevelopment) =>
     : true;
 
 export const isCashOnDeliveryMethod = (value) =>
-  value === 1 || value === "1" || String(value).trim().toLowerCase() === "cash on delivery";
+  value === 1 || value === "1" ||
+  ["cash", "cash on delivery"].includes(String(value).trim().toLowerCase());
