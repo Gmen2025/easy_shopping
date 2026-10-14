@@ -3,6 +3,24 @@ import { StyleSheet, Text, View } from "react-native";
 import { useCurrency } from "../assets/common/currency";
 import { paymentText } from "../assets/common/exchangeRate";
 
+const measurementText = (value, unit) => Number.isFinite(value) && value > 0
+  ? `${value} ${unit}` : "Not available currently";
+
+export const PackageMeasurements = ({ size }) => <View>
+  <Text>Packaged weight: {measurementText(size?.weightKg, "kg")}</Text>
+  <Text>Packaged dimensions (L x W x H): {["lengthCm", "widthCm", "heightCm"]
+    .every((key) => Number.isFinite(size?.[key]) && size[key] > 0)
+    ? `${size.lengthCm} x ${size.widthCm} x ${size.heightCm} cm`
+    : ["lengthCm", "widthCm", "heightCm"].some((key) => Number.isFinite(size?.[key]) && size[key] > 0)
+      ? `L: ${measurementText(size?.lengthCm, "cm")} | W: ${measurementText(size?.widthCm, "cm")} | H: ${measurementText(size?.heightCm, "cm")}`
+      : "Not available currently"}</Text>
+</View>;
+
+export const CargoSummary = ({ cargo }) => <View>
+  <Text>Load weight: {Number.isFinite(cargo?.weightKg) ? `${cargo.weightKg.toFixed(2)} kg` : "Not available currently"}</Text>
+  <Text>Load volume: {Number.isFinite(cargo?.volumeLiters) ? `${cargo.volumeLiters.toFixed(2)} liters` : "Not available currently"}</Text>
+</View>;
+
 export const ExchangeReceipt = ({ value }) => value.exchangeRate ? <View>
   <Text style={styles.heading}>{value.exchangeRate.direction === "usd-to-etb" ? "Birr" : "USD"} payment: {paymentText(value)}</Text>
   <Text>Locked exchange rate: 1 USD = {value.exchangeRate.birrPerUsd} ETB</Text>

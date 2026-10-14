@@ -28,13 +28,13 @@ function text(value) {
   if (Array.isArray(value)) return value.map(text).join("");
   return text(value?.props?.children || []);
 }
-function harness(request, { resumeId, database = "E_ShopUSA", params = {}, exchangeState } = {}) {
+function harness(request, { resumeId, database = "E_ShopUSA", params = {}, exchangeState, packageSize } = {}) {
   const states = [];
   let cursor = 0;
   let effects = [];
   const actions = [];
   const dialogs = [];
-  const item = { _id: "product", name: "Box", quantity: 3, price: 10, databaseName: database };
+  const item = { _id: "product", name: "Box", quantity: 3, price: 10, databaseName: database, packageSize };
   const react = {
     createElement: (type, props, ...children) => {
       const passed = { ...props, children };
@@ -58,6 +58,7 @@ function harness(request, { resumeId, database = "E_ShopUSA", params = {}, excha
   const currency = { useCurrency: () => ({ formatPrice: (value) => `${/usa/i.test(database) ? "$" : "ETB "}${Number(value).toFixed(2)}` }) };
   const exchange = load("assets\\common\\exchangeRate.js", { "./storefront": { apiRequest: async () => exchangeState } });
   const summary = load("Shared\\DeliveryCheckout.js", { react, "react-native": native, "../assets/common/currency": currency, "../assets/common/exchangeRate": exchange });
+  const rides = load("assets\\common\\rides.js", { "./storefront": { apiRequest: async () => assert.fail("Place search is mocked") } });
   const { default: Component } = load("Screens\\Cart\\Checkout\\MultiDeliveryCheckout.js", {
     react, "react-native": native, "react-native-paper": { Button: "Button", TextInput: "TextInput" },
     "@react-native-picker/picker": { Picker: Object.assign((props) => ({ type: "Picker", props }), { Item: "PickerItem" }) },
@@ -70,6 +71,8 @@ function harness(request, { resumeId, database = "E_ShopUSA", params = {}, excha
     "../../../store/cartSlice": { beginCheckout: (payload) => ({ type: "begin", payload }), completeCheckout: (payload) => ({ type: "complete", payload }) },
     "../../../assets/common/currency": currency,
     "../../../Shared/DeliveryCheckout": summary,
+    "../../../Shared/AddressSearchInput": { __esModule: true, default: "AddressSearchInput" },
+    "../../../assets/common/rides": rides,
   });
   const render = () => {
     cursor = 0;
@@ -83,11 +86,175 @@ function harness(request, { resumeId, database = "E_ShopUSA", params = {}, excha
   };
   const button = (label) => nodes(render()).find((node) => node.type === "Button" && text(node) === label);
   const input = (label) => nodes(render()).find((node) => node.type === "TextInput" && node.props.label === label);
-  return { start, render, button, input, actions, dialogs };
+  const search = () => nodes(render()).find((node) => node.type === "AddressSearchInput");
+  return { start, render, button, input, search, actions, dialogs };
 }
 
 const freshExchange = () => ({ enabled: true, active: true, birrPerUsd: 3, revision: 5, source: "manual",
   appliedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 86400000).toISOString() });
+test("checkout displays configured package sizes without requiring them", async () => {
+  const ui = harness(async (route) => {
+    if (route === "delivery-current-address") return { label: "Home", country: "USA" };
+    if (route === "delivery-addresses" || route === "delivery-bank-accounts") return [];
+    throw new Error(route);
+  }, { packageSize: { weightKg: 2.5, lengthCm: 10, widthCm: 20, heightCm: 30 } });
+  await ui.start();
+  assert.match(text(ui.render()), /Packaged weight: 2.5 kg/);
+  assert.match(text(ui.render()), /Packaged dimensions \(L x W x H\): 10 x 20 x 30 cm/);
+  assert.equal(ui.button("Calculate routes & recommend vehicles").props.disabled, false);
+});
+
+test("partial dimensions display configured values and mark only missing measurements unavailable", async () => {
+  const ui = harness(async (route) => {
+    if (route === "delivery-current-address") return { label: "Home", country: "USA" };
+    if (route === "delivery-addresses" || route === "delivery-bank-accounts") return [];
+    throw new Error(route);
+  }, { packageSize: { lengthCm: 10 } });
+  await ui.start();
+  assert.match(text(ui.render()), /Packaged weight: Not available currently/);
+  assert.match(text(ui.render()), /L: 10 cm \| W: Not available currently \| H: Not available currently/);
+});
+
+for (const cargo of [undefined, { weightKg: null, volumeLiters: null, measurementsAvailable: false },
+  { weightKg: 6, volumeLiters: null, measurementsAvailable: false }]) {
+  test(`missing package measurements (${cargo?.weightKg ?? "unknown"} kg) require manual vehicle choice, not package entry`, async () => {
+    let prepared;
+    const size = cargo?.weightKg ? { weightKg: 2 } : null;
+    const current = { label: "Home", address1: "Main", city: "Town", zip: "12345", country: "USA", phone: "123" };
+    const ui = harness(async (route, options) => {
+      if (route === "delivery-current-address") return current;
+      if (route === "delivery-addresses") return [];
+      if (route === "delivery-bank-accounts") return [{ _id: "bank", bankName: "Bank" }];
+      if (route === "checkouts/quote") return { _id: "unknown-load", cart: options.data.cart, itemsSubtotal: 30,
+        deliveryFee: 4, totalPrice: 34, expiresAt: new Date(Date.now() + 600000).toISOString(),
+        deliveries: [{ key: "delivery", store: { _id: "store", name: "Pickup" }, address: current,
+          lines: [{ product: "product", name: "Box", quantity: 3, packageSize: size }], cargo,
+          requiresVehicleSelection: true, vehicle: "", deliveryFee: 4, distanceKm: 2,
+          vehicleOptions: [{ type: "car", fee: 4 }, { type: "van", fee: 8 }] }] };
+      if (route === "checkouts/unknown-load/prepare") {
+        prepared = options.data;
+        return { _id: "unknown-load", kind: "products", cart: options.data.cart || [], status: "awaiting_payment",
+          paymentMethod: "bank", itemsSubtotal: 30, deliveryFee: 8, totalPrice: 38, expiresAt: new Date().toISOString() };
+      }
+      throw new Error(route);
+    }, { packageSize: size });
+    await ui.start();
+    assert.match(text(ui.render()), /Packaged dimensions \(L x W x H\): Not available currently/);
+    await ui.button("Calculate routes & recommend vehicles").props.onPress();
+    assert.match(text(ui.render()), /Load volume: Not available currently/);
+    assert.match(text(ui.render()), cargo?.weightKg ? /Load weight: 6.00 kg/ : /Load weight: Not available currently/);
+    assert.match(text(ui.render()), /Choose a vehicle manually/);
+    assert.doesNotMatch(text(ui.render()), /Recommended:/);
+    assert.match(text(ui.render()), /Combined total estimate from: \$34.00/);
+    assert.equal(ui.button("Reserve all deliveries & continue").props.disabled, true);
+    await ui.button("Reserve all deliveries & continue").props.onPress();
+    assert.equal(prepared, undefined);
+    assert.match(text(ui.render()), /Choose a vehicle for every delivery/);
+    const picker = nodes(ui.render()).find((node) => node.type === "Picker" &&
+      nodes(node).some((child) => child.props.label === "Choose a vehicle..."));
+    assert.equal(picker.props.selectedValue, "");
+    picker.props.onValueChange("van");
+    assert.equal(ui.button("Reserve all deliveries & continue").props.disabled, false);
+    assert.match(text(ui.render()), /Combined total: \$38.00/);
+    await ui.button("Reserve all deliveries & continue").props.onPress();
+    assert.equal(prepared.selections[0].vehicle, "van");
+    assert.match(text(ui.render()), /Stock held until/);
+  });
+}
+
+test("delivery autocomplete preserves recipient fields and saves Ethiopian locations without postal codes", async () => {
+  const calls = [];
+  const current = { label: "Home", address1: "Old street", city: "Addis Ababa", country: "Ethiopia", phone: "123" };
+  const ui = harness(async (route, options) => {
+    calls.push({ route, options });
+    if (route === "delivery-current-address") return current;
+    if (route === "delivery-addresses" && !options) return [];
+    if (route === "delivery-bank-accounts") return [];
+    if (route === "delivery-addresses") return { ...options.data, _id: "saved-office" };
+    if (route === "checkouts/quote") return { ...options.data, _id: "quote", deliveries: [] };
+    throw new Error(route);
+  }, { database: "E_Shopping" });
+  await ui.start();
+  ui.button("Add another delivery address").props.onPress();
+  assert.equal(ui.input("Country").props.value, "Ethiopia");
+  assert.equal(ui.input("Postal code"), undefined);
+  assert.equal(ui.search().props.label, "Search delivery address");
+  ui.input("Address label").props.onChangeText("Office");
+  ui.input("Apartment / unit (optional)").props.onChangeText("Unit 2");
+  ui.input("Recipient phone").props.onChangeText("456");
+  const location = { type: "Point", coordinates: [38.78, 8.99] };
+  ui.search().props.onSelect({ placeId: "ChIJoffice", formattedAddress: "Edna Mall, Addis Ababa, Ethiopia",
+    address1: "Edna Mall", address2: "", label: "Place", phone: "", city: "Addis Ababa",
+    country: "Ethiopia", zip: "1000", location });
+  assert.equal(ui.input("Address label").props.value, "Office");
+  assert.equal(ui.input("Apartment / unit (optional)").props.value, "Unit 2");
+  assert.equal(ui.input("Recipient phone").props.value, "456");
+  assert.equal(ui.input("Street address").props.value, "Edna Mall");
+  assert.equal(ui.search().props.selectedText, "Edna Mall, Addis Ababa, Ethiopia");
+  await ui.button("Save address & use").props.onPress();
+  const stored = calls.find((call) => call.route === "delivery-addresses" && call.options).options.data;
+  assert.equal(stored.zip, "");
+  assert.equal(stored.placeId, "ChIJoffice");
+  assert.deepEqual(stored.location, location);
+  assert.equal(ui.dialogs.length, 0);
+  ui.input("Quantity for Home").props.onChangeText("2");
+  ui.input("Quantity for Office").props.onChangeText("1");
+  await ui.button("Calculate routes & recommend vehicles").props.onPress();
+  const sent = calls.find((call) => call.route === "checkouts/quote").options.data.addresses[1];
+  assert.equal(sent.placeId, "ChIJoffice");
+  assert.deepEqual(sent.location, location);
+  assert.equal(sent.zip, "");
+});
+
+for (const country of ["Ethiopia", " Ethio ", "et"]) {
+  test(`editing a ${country.trim()} address does not require postal code but still requires recipient details`, async () => {
+    const ui = harness(async (route) => {
+      if (route === "delivery-current-address") return { label: "Home", address1: "Bole", city: "Addis Ababa",
+        zip: "1000", country, phone: "123" };
+      if (route === "delivery-addresses" || route === "delivery-bank-accounts") return [];
+      throw new Error(route);
+    }, { database: "E_Shopping" });
+    await ui.start();
+    assert.doesNotMatch(text(ui.render()), /1000/);
+    ui.button("Edit address").props.onPress();
+    assert.equal(ui.input("Postal code"), undefined);
+    ui.input("Recipient phone").props.onChangeText("");
+    await ui.button("Use this address").props.onPress();
+    assert.match(text(ui.render()), /Complete all required address fields/);
+    ui.input("Recipient phone").props.onChangeText("456");
+    await ui.button("Use this address").props.onPress();
+    assert.equal(ui.search(), undefined);
+    assert.match(text(ui.render()), /456/);
+  });
+}
+
+test("non-Ethiopian addresses require postal code and manual location edits clear selected place metadata", async () => {
+  const ui = harness(async (route) => {
+    if (route === "delivery-current-address") return { label: "Home", address1: "Main", city: "Town", country: "USA", phone: "123" };
+    if (route === "delivery-addresses" || route === "delivery-bank-accounts") return [];
+    throw new Error(route);
+  });
+  await ui.start();
+  ui.button("Add another delivery address").props.onPress();
+  assert.equal(ui.input("Country").props.value, "USA");
+  ui.input("Address label").props.onChangeText("Office");
+  ui.input("Recipient phone").props.onChangeText("456");
+  const place = { placeId: "ChIJus", address1: "1 Main", city: "Town", country: "USA", zip: "",
+    formattedAddress: "1 Main, Town, USA", location: { type: "Point", coordinates: [-74, 40] } };
+  ui.search().props.onSelect(place);
+  await ui.button("Use this address").props.onPress();
+  assert.match(text(ui.render()), /Complete all required address fields/);
+  for (const [label, value] of [["Street address", "2 Main"], ["City", "Other town"],
+    ["Postal code", "12345"], ["Country", "USA"]]) {
+    ui.search().props.onSelect(place);
+    ui.input(label).props.onChangeText(value);
+    assert.equal(ui.search().props.selectedText, "");
+  }
+  ui.input("Postal code").props.onChangeText("12345");
+  await ui.button("Use this address").props.onPress();
+  assert.equal(ui.search(), undefined);
+});
+
 test("international product checkout adds shipping before converting to birr, only offers ETB bank and waits for verification", async () => {
   const policy = { ...freshExchange(), birrPerUsd: 150, direction: "usd-to-etb" };
   const recipient = { label: "Family", address1: "1 Addis Street", address2: "", city: "Addis Ababa", zip: "1000", country: "Ethiopia", phone: "123" };

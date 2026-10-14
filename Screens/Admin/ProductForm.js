@@ -241,8 +241,8 @@ const ProductForm = (props) => {
   return (
     <FormContainer title={isEditing ? "Edit Product" : "Add Product"}>
       {isEditing ? <TouchableOpacity onPress={() => props.navigation.navigate("VehicleDeliverySettings", { productId: item._id || item.id })}>
-        <Text style={{ color: "#8a6c09", padding: 12 }}>Configure packaged weight & dimensions</Text>
-      </TouchableOpacity> : <Text>After saving, configure this product's packaged size under Admin &gt; Vehicles.</Text>}
+        <Text style={{ color: "#8a6c09", padding: 12 }}>Configure optional packaged weight & dimensions</Text>
+      </TouchableOpacity> : <Text>After saving, optionally configure this product's packaged size under Admin &gt; Vehicles. Required for international shipping only.</Text>}
       {/* Multi-image section */}
       <View style={styles.imagesSection}>
         <Text style={styles.imagesSectionLabel}>Product Images</Text>

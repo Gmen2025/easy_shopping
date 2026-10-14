@@ -64,7 +64,8 @@ const VehicleDeliverySettings = ({ route }) => {
     <View style={styles.card}>
       <Text style={styles.title}>Vehicle delivery pricing</Text>
       <Text>Fees use this region's currency. Distance rates are per {/usa/i.test(database) ? "mile" : "kilometer"} of the pickup-to-destination driving route.</Text>
-      <Text>Configure real usable capacities and all products' packaged sizes before enabling. Unknown sizes block checkout, rather than guessing a vehicle.</Text>
+      <Text>Configure real usable vehicle capacities before enabling. Product packaged measurements are optional for domestic checkout.
+        Missing measurements require customers to choose a vehicle manually; full capacity cannot be verified. International shipping requires complete measurements.</Text>
       <Text>Enable multi-delivery checkout</Text>
       <Switch disabled={busy} value={config.enabled} onValueChange={(enabled) => setConfig((previous) => ({ ...previous, enabled }))} />
     </View>
@@ -86,12 +87,14 @@ const VehicleDeliverySettings = ({ route }) => {
     })}>Save vehicle configuration</Button>
     <View style={styles.card}>
       <Text style={styles.title}>Product packaged dimensions</Text>
-      <Text>Measure one sale unit including packaging. Weight and volume are multiplied by the delivery quantity.</Text>
+      <Text>Optional for domestic checkout. Measure one sale unit including packaging. Leave unavailable measurements blank.
+        Weight and volume are multiplied by the delivery quantity. International shipping requires all measurements.</Text>
       <TextInput label="Search catalog" value={search} onChangeText={setSearch} />
       <Picker selectedValue={productId} enabled={!busy} onValueChange={setProductId}>
         <Picker.Item label="Select a catalog product..." value="" />
         {products.filter((product) => String(product.name).toLowerCase().includes(search.toLowerCase())).map((product) =>
-          <Picker.Item key={product._id || product.id} label={`${product.name}${product.packageSize?.weightKg ? "" : " (size needed)"}`} value={String(product._id || product.id)} />)}
+          <Picker.Item key={product._id || product.id} label={`${product.name}${PACKAGE.every(([key]) =>
+            Number.isFinite(product.packageSize?.[key]) && product.packageSize[key] > 0) ? "" : " (measurements unavailable)"}`} value={String(product._id || product.id)} />)}
       </Picker>
       {productId ? <>
         {PACKAGE.map(([field, label]) => <TextInput key={field} label={label} style={styles.input}

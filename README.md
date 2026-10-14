@@ -78,7 +78,8 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   a rate. After exactly 24 hours without a successful apply, new USD checkout
   is unavailable with an explanation; ETB checkout continues.
 - USD products require backend per-store inventory migration, vehicle delivery
-  settings and packaged product sizes. USD checkout offers only card / explicitly
+  settings. Packaged product sizes are optional for domestic USD checkout;
+  missing measurements require manual vehicle selection. USD checkout offers only card / explicitly
   USD-tagged bank accounts, never cash. **Admin > Bank Account Settings** chooses
   ETB/USD for each account; old Ethiopia accounts remain ETB.
 - USD cards require a native development/production build, a USD-capable
@@ -185,13 +186,29 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   Storefront items stay within their selected store's branch family.
 - **Multiple destinations and vehicle checkout**: Enable this per region under
   **Admin > Vehicles**, after migrating per-store inventory. Set usable vehicle
-  payload, cargo volume/dimensions, base fees and distance rates, and configure
-  each product's packaged weight/dimensions. Product editing links to these size
-  controls. Checkout then supports mixed storefront/main-catalog carts, saved
+  payload, cargo volume/dimensions, base fees and distance rates. Optionally
+  configure each product's packaged weight/dimensions for domestic delivery.
+  Product editing links to these size controls. Checkout then supports mixed
+  storefront/main-catalog carts, saved
   and editable addresses, and splitting units of one product across addresses.
-  Missing package sizes block quoting with an explicit configuration message.
-  Each pickup/destination pair has its own order, recommended suitable vehicle
-  and upgrade choices. Road fees use miles in USA and kilometers in Ethiopia.
+  The address editor includes search-as-you-type place suggestions using the same
+  server-backed Places search as rides. Selecting a place fills its address and
+  location while preserving the label, unit and recipient phone; manual edits to
+  the street, city, postal code or country clear that selected location.
+  New addresses default to the checkout destination country. Postal code is
+  hidden and not required for Ethiopia (including `Ethio` and `ET`); it remains
+  required for other countries. Manual address entry is still available.
+  Customers see configured packaged weight and dimensions; missing values show
+  **Not available currently**. Missing measurements do not block domestic quoting,
+  but require the customer to choose a vehicle manually before continuing.
+  Known measurements still constrain vehicle options; full capacity cannot be
+  verified for unmeasured items. Until a vehicle is chosen, totals show estimates
+  using the lowest offered delivery fee. Admin can leave measurements blank or
+  configure them individually. International US-to-Ethiopia shipping still
+  requires complete measurements to calculate actual/volumetric shipping charges.
+  Each pickup/destination pair has its own order and vehicle choices, with an
+  automatic recommendation when measurements are complete. Road fees use miles
+  in USA and kilometers in Ethiopia.
   Recommendations check total weight/volume and individual parcel dimensions;
   they are load estimates, not a three-dimensional packing guarantee.
 - **Combined payments and recovery**: All delivery stock is reserved in one

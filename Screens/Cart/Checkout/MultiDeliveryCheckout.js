@@ -9,7 +9,9 @@ import { storeRequest } from "../../../assets/common/storefront";
 import { getDatabaseNameFromStorage, sanitizeDatabaseName } from "../../../assets/common/databaseConfig";
 import { beginCheckout, completeCheckout } from "../../../store/cartSlice";
 import { useCurrency } from "../../../assets/common/currency";
-import { DeliverySummary, styles } from "../../../Shared/DeliveryCheckout";
+import { CargoSummary, DeliverySummary, PackageMeasurements, styles } from "../../../Shared/DeliveryCheckout";
+import AddressSearchInput from "../../../Shared/AddressSearchInput";
+import { addressText, isEthiopia } from "../../../assets/common/rides";
 import { exchangeRequest, rateIsActive, usdAmount, usdText, usdInactiveMessage, birrAmount, etbText, exportInactiveMessage } from "../../../assets/common/exchangeRate";
 
 const ADDRESS_FIELDS = [
@@ -17,6 +19,7 @@ const ADDRESS_FIELDS = [
   ["city", "City"], ["zip", "Postal code"], ["country", "Country"], ["phone", "Recipient phone"],
 ];
 const blankAddress = () => Object.fromEntries(ADDRESS_FIELDS.map(([key]) => [key, ""]));
+const locatedFields = ["address1", "city", "zip", "country"];
 const MultiDeliveryCheckout = ({ navigation, route }) => {
   const items = useSelector((state) => state.cart.cartItems);
   const dispatch = useDispatch();
@@ -99,10 +102,10 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
       storeRequest(exportPurchase ? "delivery-bank-accounts?currency=ETB" :
         currency === "usd" && !/usa/i.test(db) ? "delivery-bank-accounts?currency=USD" : "delivery-bank-accounts"),
     ]);
-    const initial = { ...current, ...(exportPurchase && !["ethiopia", "et", "ethio"].includes(String(current.country).toLowerCase()) ?
+    const initial = { ...current, ...(exportPurchase && !isEthiopia(current.country) ?
       { address1: "", address2: "", city: "", zip: "", country: "Ethiopia", phone: current.phone || "" } : {}), id: "current" };
     setAddresses([initial]);
-    setSaved(exportPurchase ? existing.filter((entry) => ["ethiopia", "et", "ethio"].includes(String(entry.country).toLowerCase())) : existing);
+    setSaved(exportPurchase ? existing.filter((entry) => isEthiopia(entry.country)) : existing);
     setBanks(accounts);
     setBankId(accounts[0]?._id || "");
     setAllocations(Object.fromEntries(items.map((item) => [cartItemKey(item), { current: String(item.quantity) }])));
@@ -116,7 +119,9 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
   };
   const saveAddress = (persist) => run(async () => {
     const address = { ...editor };
-    if (ADDRESS_FIELDS.some(([key]) => key !== "address2" && !address[key]?.trim())) throw new Error("Complete all required address fields.");
+    if (isEthiopia(address.country)) address.zip = "";
+    if (ADDRESS_FIELDS.some(([key]) => key !== "address2" && !(key === "zip" && isEthiopia(address.country)) &&
+        !address[key]?.trim())) throw new Error("Complete all required address fields.");
     if (persist) {
       const stored = await storeRequest(address._id ? `delivery-addresses/${address._id}` : "delivery-addresses", {
         method: address._id ? "put" : "post", data: address,
@@ -146,6 +151,7 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
     setSelections(Object.fromEntries(result.deliveries.map((delivery) => [delivery.key, delivery.vehicle])));
   });
   const reserveCheckout = () => run(async () => {
+    if (quote.deliveries.some((delivery) => !selections[delivery.key])) throw new Error("Choose a vehicle for every delivery before continuing.");
     if (!service && (items.some((item) => !quote.cart.some((line) => line.key === cartItemKey(item) && line.quantity === item.quantity)) ||
         items.length !== quote.cart.length)) throw new Error("Your cart changed. Request a fresh quote.");
     const result = await storeRequest(`checkouts/${quote._id}/prepare`, { method: "post", timeout: 60000, data: {
@@ -166,7 +172,9 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
     if (result.error) throw new Error(`${result.error.message} This checkout keeps the same payment attempt. Check its payment status before retrying.`);
     await showGroup(await storeRequest(`checkouts/${group._id}/confirm`, { method: "post", timeout: 60000 }));
   });
-  const selectedFee = quote?.deliveries.reduce((sum, delivery) => sum + (delivery.vehicleOptions.find((option) => option.type === selections[delivery.key])?.fee || 0), 0) || 0;
+  const needsVehicleSelection = quote?.deliveries.some((delivery) => !selections[delivery.key]);
+  const selectedFee = quote?.deliveries.reduce((sum, delivery) => sum +
+    (delivery.vehicleOptions.find((option) => option.type === selections[delivery.key])?.fee ?? delivery.deliveryFee ?? 0), 0) || 0;
   const previewTotal = (quote?.itemsSubtotal || 0) + selectedFee + (quote?.international?.shippingFee || 0);
 
   return <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -212,7 +220,7 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
       <Text>Allocate each unit to one address. Pickup stores are selected from price-matching stock near that destination. Storefront items stay within that store's branch family.</Text>
       {addresses.map((address) => <View style={styles.card} key={address.id}>
         <Text style={styles.heading}>{address.label}</Text>
-        <Text>{[address.address1, address.address2, address.city, address.zip, address.country].filter(Boolean).join(", ")}</Text>
+        <Text>{addressText({ ...address, zip: isEthiopia(address.country) ? "" : address.zip })}</Text>
         <Text>{address.phone}</Text>
         <Button disabled={busy} onPress={() => setEditor({ ...address })}>Edit address</Button>
         <Button disabled={busy} onPress={() => {
@@ -230,10 +238,19 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
         <Picker.Item label="Add a saved address..." value="" />
         {saved.map((address) => <Picker.Item key={address._id} label={address.label} value={address._id} />)}
       </Picker> : null}
-      <Button disabled={busy || addresses.length >= 10} onPress={() => setEditor({ ...blankAddress(), ...(international ? { country: "Ethiopia" } : {}), id: `address-${Date.now()}` })}>Add another delivery address</Button>
+      <Button disabled={busy || addresses.length >= 10} onPress={() => setEditor({ ...blankAddress(),
+        country: international || !/usa/i.test(database) ? "Ethiopia" : "USA", id: `address-${Date.now()}` })}>Add another delivery address</Button>
       {editor ? <View style={styles.card}>
-        {ADDRESS_FIELDS.map(([key, label]) => <TextInput key={key} label={label} value={editor[key]}
-          onChangeText={(value) => setEditor((previous) => ({ ...previous, [key]: value }))} style={styles.input} />)}
+        <AddressSearchInput key={editor.id} label="Search delivery address" disabled={busy}
+          selectedText={editor.placeId ? editor.formattedAddress || addressText(editor) : ""}
+          onSelect={(place) => setEditor((previous) => ({ ...previous, ...place,
+            id: previous.id, _id: previous._id, label: previous.label, phone: previous.phone,
+            address2: previous.address2, zip: isEthiopia(place.country) ? "" : place.zip || "" }))} />
+        {ADDRESS_FIELDS.filter(([key]) => !(key === "zip" && isEthiopia(editor.country))).map(([key, label]) =>
+          <TextInput key={key} label={label} value={editor[key] || ""} disabled={busy}
+            onChangeText={(value) => setEditor((previous) => ({ ...previous, [key]: value,
+              ...(locatedFields.includes(key) ? { placeId: undefined, formattedAddress: undefined, location: undefined } : {}) }))}
+            style={styles.input} />)}
         <Button disabled={busy} onPress={() => saveAddress(false)}>Use this address</Button>
         <Button disabled={busy} onPress={() => saveAddress(true)}>Save address & use</Button>
         <Button disabled={busy} onPress={() => setEditor(null)}>Discard edits</Button>
@@ -244,6 +261,7 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
         return <View key={key} style={styles.card}>
           <Text style={styles.heading}>{item.name} - {item.quantity} units</Text>
           <Text>{item.storefrontName || (item.storefrontId ? `Store ${item.storefrontId}` : "Main catalog")} | {formatPrice(item.price)} each</Text>
+          <PackageMeasurements size={item.packageSize} />
           {addresses.map((address) => <TextInput key={address.id} label={`Quantity for ${address.label}`}
             keyboardType="number-pad" value={allocations[key]?.[address.id] || ""}
             onChangeText={(value) => updateAllocation(key, address.id, value)} style={styles.input} />)}
@@ -259,19 +277,25 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
           <Text selectable>Store ID: {delivery.store._id}</Text>
           <Text>{delivery.store.address}</Text>
           <Text>{quote.international ? "US consolidation hub" : "Deliver to"}: {delivery.address.label} - {delivery.address.address1}, {delivery.address.city}</Text>
-          {delivery.lines.map((line) => <Text key={line.product}>{line.quantity} x {line.name}</Text>)}
+          {delivery.lines.map((line) => <View key={line.product}>
+            <Text>{line.quantity} x {line.name}</Text>
+            <PackageMeasurements size={line.packageSize} />
+          </View>)}
           <Text>Road distance: {(/usa/i.test(database) ? delivery.distanceKm / 1.609344 : delivery.distanceKm).toFixed(2)} {/usa/i.test(database) ? "mi" : "km"}</Text>
-          <Text>Load: {delivery.cargo.weightKg.toFixed(2)} kg / {delivery.cargo.volumeLiters.toFixed(2)} liters</Text>
-          <Text>Recommended: {delivery.vehicle}. Choose a suitable upgrade below.</Text>
-          <Picker selectedValue={selections[delivery.key]} enabled={!busy}
+          <CargoSummary cargo={delivery.cargo} />
+          {delivery.requiresVehicleSelection || !delivery.vehicle ? <Text>Some packaged measurements are not available currently.
+            Choose a vehicle manually. Full load capacity cannot be verified; available options account for known measurements.</Text> :
+            <Text>Recommended: {delivery.vehicle}. Choose a suitable upgrade below.</Text>}
+          <Picker selectedValue={selections[delivery.key] || ""} enabled={!busy}
             onValueChange={(value) => setSelections((previous) => ({ ...previous, [delivery.key]: value }))}>
+            {delivery.requiresVehicleSelection || !delivery.vehicle ? <Picker.Item label="Choose a vehicle..." value="" /> : null}
             {delivery.vehicleOptions.map((option) => <Picker.Item key={option.type} label={`${option.type} - ${formatPrice(option.fee)}`} value={option.type} />)}
           </Picker>
         </View>)}
         <View style={styles.card}>
-          <Text>Products: {formatPrice(quote.itemsSubtotal)} | Delivery: {formatPrice(selectedFee)}</Text>
+          <Text>Products: {formatPrice(quote.itemsSubtotal)} | Delivery{needsVehicleSelection ? " estimate from" : ""}: {formatPrice(selectedFee)}</Text>
           {quote.international ? <Text>International shipping: {formatPrice(quote.international.shippingFee)}. Charged once per recipient shipment, including final address delivery.</Text> : null}
-          <Text style={styles.heading}>Combined total: {formatPrice(previewTotal)}</Text>
+          <Text style={styles.heading}>Combined total{needsVehicleSelection ? " estimate from" : ""}: {formatPrice(previewTotal)}</Text>
           {quote.exchangeRate ? <>
             <Text style={styles.heading}>{quote.international ? "Birr" : "USD"} payment estimate: {quote.international ?
               etbText(birrAmount(previewTotal, quote.exchangeRate.birrPerUsd)) : usdText(usdAmount(previewTotal, quote.exchangeRate.birrPerUsd))}</Text>
@@ -291,7 +315,7 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
           </Picker> : null}
           {!quote.international && (/usa/i.test(database) || quote.exchangeRate) && !availableCard ? <Text style={styles.error}>Card payment needs a native build and matching configured Stripe keys. USD requires the dedicated Ethiopia USD merchant.</Text> : null}
           {method === "bank" && !banks.length ? <Text style={styles.error}>Admin must configure a bank account, or choose another available payment method.</Text> : null}
-          <Button mode="contained" disabled={busy || (method === "bank" && !bankId)} onPress={reserveCheckout}>{service ? "Accept quote & continue in USD" : "Reserve all deliveries & continue"}</Button>
+          <Button mode="contained" disabled={busy || needsVehicleSelection || (method === "bank" && !bankId)} onPress={reserveCheckout}>{service ? "Accept quote & continue in USD" : "Reserve all deliveries & continue"}</Button>
           <Text>{quote.international ? "ETB bank transfer only. Submit your transfer reference before the hold expires. Stores cannot fulfill until Admin verifies funds. After submission the reservation stays held for Admin review." :
             service ? "The Admin service quote is locked when you continue. Submitted or paid service payments require support review for cancellation/refund." :
             quote.exchangeRate ? "All stock is reserved together. Pay one locked USD total by card or USD bank transfer; there is no cash option." :
