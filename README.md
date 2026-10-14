@@ -233,7 +233,13 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   an order. Each assignment has a five-minute acceptance deadline. The backend's
   30-second scan reroutes unanswered requests; rejection reroutes immediately.
   No driver is dispatched until acceptance. If no matching store remains, the
-  order explicitly waits unassigned rather than overselling or changing prices.
+  order enters a persistent default-store fallback list without holding stock.
+  The configured inventory default (or nearest/stable approved company store)
+  receives it even when closed; **Store assignments** offers **Claim & prepare**,
+  **Reroute**, or final **Reject** for Admin review, without a five-minute expiry.
+  Claim requires an approved open store and matching whole-order stock/prices;
+  it atomically reserves inventory. Selected storefront orders stay within their
+  store family. Checkout stock/payment guards remain unchanged.
   Reservations move with the order, release on cancellation and consume physical
   stock once on delivery. Order details retain the assigned store's ID, name,
   address, logo and new orders' purchase prices.
@@ -257,11 +263,24 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
 - **Company Order Fallback**: With no eligible partner store within 10 km or driver
   within 5 km, the backend routes to the nearest available company account without
   a radius limit. AdminStore receives assigned orders in its overview; AdminDriver
-  receives an unassigned offer to claim or reject. Claimed deliveries enter the
-  active queue; rejecting passes the offer to the next eligible driver.
+  receives an unassigned offer to claim, reroute, or finally reject. When no
+  currently eligible company driver remains, an approved default company driver
+  still receives a persistent list, even offline, busy or suspended. Existing
+  offers stay visible when availability or proximity changes. Claim enforces
+  approval, availability, suspension, service/ride conflicts, vehicle and capacity
+  checks. Claimed deliveries enter the active queue; **Reroute** tries another
+  account. With no alternative, rerouting fails explicitly and keeps the request
+  queued. Final **Reject** stops automatic reassignment and marks the order
+  **awaiting Admin cancellation or deletion** in Order Management. It does not
+  itself cancel payment, delete the order or issue a refund; grouped orders use
+  their combined checkout's cancellation/refund flow. Driver lists refresh every
+  15 seconds while focused.
   When company stores cannot be ranked by proximity, an eligible preferred
   company store or a stable available default is used instead of leaving pickup
   unassigned. Closed or unapproved stores are not eligible.
+  Closed approved stores may receive fallback requests but cannot claim them
+  until reopened. Deploy the matching backend in `D:\MERN_COURSE\backend` and
+  rebuild/update this app before testing these actions against the production API.
 - **Delivery Claim Deadline**: Claim/reject actions stop spinning after a
   20-second end-to-end deadline, including storage reads and request interceptors,
   in both Ethiopia and USA. A timed-out claim refreshes offers and Your Route;

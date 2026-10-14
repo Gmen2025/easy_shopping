@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   TouchableOpacity,
+  Alert,
 } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
 import axios from "axios";
@@ -13,6 +14,7 @@ import baseUrl from "../../assets/common/baseUrl";
 import { useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import OrderCard from "../../Shared/OrderCard";
+import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 
 const Orders = (props) => {
   const [orderList, setOrderList] = useState();
@@ -28,15 +30,18 @@ const Orders = (props) => {
 
   const getOrders = async () => {
     setIsRefreshing(true);
-    const tokenValue = await AsyncStorage.getItem("token");
     try {
+      const tokenValue = await AsyncStorage.getItem("token");
+      const databaseName = await getDatabaseNameFromStorage();
       const res = await axios.get(`${baseUrl}orders`, {
-        headers: { Authorization: `Bearer ${tokenValue}` },
+        timeout: 20000,
+        headers: { Authorization: `Bearer ${tokenValue}`, "x-database-name": databaseName },
       });
       const orders = res.data;
+      if (!Array.isArray(orders)) throw new Error("The server returned an invalid order list.");
       setOrderList(orders);
     } catch (error) {
-      console.log(error);
+      Alert.alert("Unable to load orders", error.response?.data?.message || error.message || "Please retry.");
     } finally {
       setIsRefreshing(false);
       setLoading(false);

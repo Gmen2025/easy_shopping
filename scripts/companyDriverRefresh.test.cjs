@@ -92,8 +92,11 @@ function fixture({ database = "E_Shopping" } = {}) {
   const reject = () => nodes(render()).find((node) =>
     node.type === "TouchableOpacity" && nodes(node).some((child) =>
       child.props?.children?.includes("Reject")));
+  const reroute = () => nodes(render()).find((node) =>
+    node.type === "TouchableOpacity" && nodes(node).some((child) =>
+      child.props?.children?.includes("Reroute")));
   return {
-    pending, actions, alerts, timers, button, text, claim, reject,
+    pending, actions, alerts, timers, button, text, claim, reject, reroute,
     focus: () => focused(),
     setStorageRead: (read) => { storageRead = read; },
     expireDeadline: () => {
@@ -241,15 +244,31 @@ test("claim deadline covers stalled storage and prevents sending a claim after e
 test("reject uses the same deadline and releases its action state", async () => {
   const f = fixture();
   await loadOffer(f);
-  const reject = f.reject().props.onPress();
+  f.reject().props.onPress();
+  assert.equal(f.actions.length, 0, "Final rejection requires confirmation");
+  assert.match(f.alerts.at(-1)[1], /stop rerouting/);
+  const reject = f.alerts.at(-1)[2].find((choice) => choice.text === "Reject").onPress();
   await new Promise(setImmediate);
   assert.match(f.actions[0].url, /company-reject$/);
   f.expireDeadline();
   await reject;
   assert.equal(f.actions[0].config.signal.aborted, true);
+  await new Promise(setImmediate);
+  await finishClaimRecovery(f);
   assert.equal(f.reject().props.disabled, false);
   assert.ok(f.claim());
-  assert.equal(f.alerts.at(-1)[0], "Unable to reject");
+  assert.equal(f.alerts.at(-1)[0], "Unable to respond");
+});
+
+test("reroute uses its own endpoint rather than final rejection", async () => {
+  const f = fixture();
+  await loadOffer(f);
+  const reroute = f.reroute().props.onPress();
+  await new Promise(setImmediate);
+  assert.match(f.actions[0].url, /company-reroute$/);
+  f.actions[0].resolve({ data: {} });
+  await reroute;
+  assert.equal(f.claim(), undefined);
 });
 
 test("driver dashboard shows dispatch eligibility and distinguishes failed requests from empty lists", async () => {

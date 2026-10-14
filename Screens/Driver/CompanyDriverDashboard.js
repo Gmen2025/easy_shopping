@@ -128,11 +128,11 @@ const CompanyDriverDashboard = ({ navigation }) => {
   const refreshInFlight = useRef(false);
   const actionInFlight = useRef(false);
 
-  const loadOrders = useCallback(async () => {
+  const loadOrders = useCallback(async (background = false) => {
     if (requestsInFlight.current.has("orders")) return;
     requestsInFlight.current.add("orders");
     setOrdersError("");
-    setLoading(true);
+    if (!background) setLoading(true);
     try {
       const token = await AsyncStorage.getItem("token");
       const currentDb = await getDatabaseNameFromStorage();
@@ -147,7 +147,7 @@ const CompanyDriverDashboard = ({ navigation }) => {
       setOrders(Array.isArray(response.data?.orders) ? response.data.orders : []);
     } catch (error) {
       setOrdersError(error?.response?.data?.message || error?.message || "Unable to load delivery offers.");
-      Alert.alert("Unable to load deliveries", error?.response?.data?.message ||
+      if (!background) Alert.alert("Unable to load deliveries", error?.response?.data?.message ||
         "The delivery request did not complete. Check your connection and tap Refresh Data to retry.");
     } finally {
       requestsInFlight.current.delete("orders");
@@ -155,11 +155,11 @@ const CompanyDriverDashboard = ({ navigation }) => {
     }
   }, []);
 
-  const loadQueue = useCallback(async () => {
+  const loadQueue = useCallback(async (background = false) => {
     if (requestsInFlight.current.has("queue")) return;
     requestsInFlight.current.add("queue");
     setQueueError("");
-    setLoadingQueue(true);
+    if (!background) setLoadingQueue(true);
     try {
       const token = await AsyncStorage.getItem("token");
       const currentDb = await getDatabaseNameFromStorage();
@@ -173,7 +173,7 @@ const CompanyDriverDashboard = ({ navigation }) => {
       setQueue(Array.isArray(response.data?.queue) ? response.data.queue : []);
     } catch (error) {
       setQueueError(error?.response?.data?.message || error?.message || "Unable to load active routes.");
-      Alert.alert("Unable to load active deliveries", error?.response?.data?.message || "Please try again.");
+      if (!background) Alert.alert("Unable to load active deliveries", error?.response?.data?.message || "Please try again.");
     } finally {
       requestsInFlight.current.delete("queue");
       setLoadingQueue(false);
@@ -253,8 +253,9 @@ const CompanyDriverDashboard = ({ navigation }) => {
   useFocusEffect(useCallback(() => {
     refreshData();
     const timer = setInterval(loadRides, 15000);
-    return () => clearInterval(timer);
-  }, [refreshData, loadRides]));
+    const deliveries = setInterval(() => { loadOrders(true); loadQueue(true); }, 15000);
+    return () => { clearInterval(timer); clearInterval(deliveries); };
+  }, [refreshData, loadRides, loadOrders, loadQueue]));
 
   const claimOrder = async (order) => {
     if (actionInFlight.current) return;
@@ -278,15 +279,18 @@ const CompanyDriverDashboard = ({ navigation }) => {
     }
   };
 
-  const rejectOrder = async (order) => {
+  const respondToOffer = async (order, action) => {
     if (actionInFlight.current) return;
     actionInFlight.current = true;
     setActingId(order._id);
     try {
-      await submitDeliveryAction(order._id, "reject");
+      await submitDeliveryAction(order._id, action);
       setOrders((current) => current.filter((item) => item._id !== order._id));
+      loadOrders();
     } catch (error) {
-      Alert.alert("Unable to reject", error?.response?.data?.message || "Please try again.");
+      Alert.alert("Unable to respond", error?.response?.data?.message || error.message || "Please try again.");
+      loadOrders();
+      loadQueue();
     } finally {
       actionInFlight.current = false;
       setActingId("");
@@ -396,14 +400,21 @@ const CompanyDriverDashboard = ({ navigation }) => {
         <View style={styles.cardActionsRow}>
           <TouchableOpacity
             style={styles.rejectBtn}
-            disabled={actingId === item._id}
-            onPress={() => rejectOrder(item)}
+            disabled={Boolean(actingId)}
+            onPress={() => Alert.alert("Reject for Admin review?", "The order will stop rerouting and wait for Admin to cancel or delete it. Payment is not cancelled or refunded by this action.", [
+              { text: "Cancel", style: "cancel" },
+              { text: "Reject", style: "destructive", onPress: () => respondToOffer(item, "reject") },
+            ])}
           >
             <Text style={styles.rejectBtnText}>Reject</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={styles.rejectBtn} disabled={Boolean(actingId)}
+            onPress={() => respondToOffer(item, "reroute")}>
+            <Text style={styles.rejectBtnText}>Reroute</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.claimBtn}
-            disabled={actingId === item._id}
+            disabled={Boolean(actingId)}
             onPress={() => claimOrder(item)}
           >
             {actingId === item._id ? (
@@ -653,11 +664,12 @@ const CompanyDriverDashboard = ({ navigation }) => {
             {/* Unassigned Deliveries Section */}
             <View style={styles.sectionContainer}>
               <Text style={styles.sectionHeaderTitle}>Unassigned Company Deliveries</Text>
+              <Text style={styles.helperText}>Default offers remain queued even while unavailable. Claim when eligible, reroute to another account, or reject for Admin review.</Text>
               {ordersError ? <Text accessibilityRole="alert" style={styles.helperText}>Offers could not be verified: {ordersError}</Text> : null}
               {dispatchMessage ? <Text style={styles.helperText}>{dispatchMessage}</Text> : null}
               {orders.length === 0 && !ordersError ? (
                 <View style={styles.emptyCard}>
-                  <Text style={styles.helperText}>No delivery offers right now. Offers go to the nearest available company driver when no partner driver can take the delivery.</Text>
+                  <Text style={styles.helperText}>No delivery offers right now. When no partner can take a delivery, it goes to an eligible company driver or the approved default account. Inventory orders wait for store acceptance first.</Text>
                 </View>
               ) : (
                 orders.map((item) => renderOrder(item))

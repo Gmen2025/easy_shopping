@@ -523,6 +523,9 @@ const OrderCard = (props) => {
         <Text style={styles.label}>
           Status: {statusText} {orderStatus}
         </Text>
+        {props.adminReviewRequired ? <Text style={styles.label}>
+          Rejected by {props.adminReviewRequired === "store" ? "default store" : "default driver"} - awaiting Admin cancellation or deletion. Payment/refunds must be handled separately.
+        </Text> : null}
         <Text style={styles.label}>
           Date Ordered: {formatOrderDateTime(props.dateOrdered)}
         </Text>
