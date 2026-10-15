@@ -182,8 +182,12 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   the planned destination. Confirm this only after affected passengers have
   safely exited. The booking stays `terminated`, not completed; its unfinished
   stops and occupied seats are removed without ending other shared bookings.
-  Payment is held for review in **Admin > Rides**. Admin records a review note
-  and an adjusted fare (zero waives payment). Customers can pay a positive
+  Payment is held for review in **Admin > Rides**. In the completed rides and
+  terminated ride reviews list, Admin enters a review note and selects
+  **Waive payment** to cancel the amount due, or enters an adjusted fare and
+  selects **Resolve termination review** (zero also waives payment).
+  Receipt confirmation is unavailable while review is required or payment is
+  waived. Customers can pay a positive
   reviewed fare using the existing regional methods; no estimate is charged
   automatically. Normal pickup/drop-off confirmation still requires nearby GPS.
 - **Admin > Rides** configures the region's fares, shared discount, maximum

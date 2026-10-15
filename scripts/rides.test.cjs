@@ -293,6 +293,67 @@ test("Admin can resolve a terminated booking review with a zero waived fare and 
   assert.equal(ui.button("Resolve termination review"), undefined);
   assert.match(text(ui.render()), /waived/);
 });
+test("Admin can explicitly waive a termination without entering a fare and cannot confirm a held or waived payment", async () => {
+  let resolved = false;
+  const ride = { _id: "ride", user: "payer", status: "terminated", currency: "usd", estimate: 8,
+    paymentMethod: "cash", paymentStatus: "review_required", stops: [{ address }],
+    termination: { at: new Date().toISOString(), reason: "Early stop", reviewStatus: "pending" } };
+  const ui = harness("Screens\\Admin\\RideSettings.js", async (route, options) => {
+    if (route === "config") return policy;
+    if (route === "admin/drivers") return [];
+    if (route === "admin/payments") return [resolved ? { ...ride, finalFare: 0, paymentStatus: "waived",
+      termination: { ...ride.termination, reviewStatus: "resolved", reviewNote: "No fare due" } } : ride];
+    assert.equal(route, "admin/terminations/ride/review");
+    assert.equal(options.data.fare, 0);
+    assert.equal(options.data.note, "No fare due");
+    resolved = true;
+    return {};
+  });
+  await ui.start();
+  assert.match(text(ui.render()), /Action required: review terminated ride/);
+  assert.match(text(ui.render()), /Estimate only/);
+  assert.equal(ui.button("Confirm cash received"), undefined);
+  assert.equal(ui.button("Waive payment").props.disabled, true);
+  nodes(ui.render()).find((node) => node.type === "TextInput" && node.props.label === "Admin review note")
+    .props.onChangeText("No fare due");
+  assert.equal(ui.button("Waive payment").props.disabled, false);
+  assert.equal(ui.button("Resolve termination review").props.disabled, true);
+  ui.button("Waive payment").props.onPress();
+  assert.equal(resolved, false);
+  await ui.dialogs.at(-1)[2].find((button) => button.text === "Waive payment").onPress();
+  assert.equal(resolved, true);
+  assert.equal(ui.button("Waive payment"), undefined);
+  assert.equal(ui.button("Confirm cash received"), undefined);
+  assert.match(text(ui.render()), /Payment waived. No payment is due/);
+});
+
+test("Admin can set a positive terminated fare before confirming cash received", async () => {
+  let reviewed = false;
+  const ride = { _id: "ride", user: "payer", status: "terminated", currency: "usd", estimate: 8,
+    paymentMethod: "cash", paymentStatus: "review_required", stops: [{ address }],
+    termination: { at: new Date().toISOString(), reason: "Early stop", reviewStatus: "pending" } };
+  const ui = harness("Screens\\Admin\\RideSettings.js", async (route, options) => {
+    if (route === "config") return policy;
+    if (route === "admin/drivers") return [];
+    if (route === "admin/payments") return [reviewed ? { ...ride, finalFare: 3.5, paymentStatus: "pending",
+      termination: { ...ride.termination, reviewStatus: "resolved" } } : ride];
+    assert.equal(route, "admin/terminations/ride/review");
+    assert.equal(options.data.fare, 3.5);
+    assert.equal(options.data.note, "Partial journey");
+    reviewed = true;
+    return {};
+  });
+  await ui.start();
+  const input = (label) => nodes(ui.render()).find((node) => node.type === "TextInput" && node.props.label === label);
+  input("Reviewed fare (0 to waive)").props.onChangeText("3.50");
+  input("Admin review note").props.onChangeText("Partial journey");
+  ui.button("Resolve termination review").props.onPress();
+  await ui.dialogs.at(-1)[2].find((button) => button.text === "Resolve review").onPress();
+  assert.equal(reviewed, true);
+  assert.equal(ui.button("Confirm cash received").props.disabled, false);
+  assert.equal(ui.button("Resolve termination review"), undefined);
+});
+
 test("ride screens and badge are connected to customer, company-driver and Admin navigation", () => {
   const root = path.join(__dirname, "..");
   for (const [file, pattern] of [
