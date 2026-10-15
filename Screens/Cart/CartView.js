@@ -29,18 +29,21 @@ const CartView = (props) => {
   const dispatch = useDispatch();
   const { formatPrice, currencySymbol } = useCurrency();
   const [checking, setChecking] = useState(false);
+  const [regionReady, setRegionReady] = useState(false);
   const [paymentCurrency, setPaymentCurrency] = useState("etb");
   const [exchange, setExchange] = useState(null);
   const [database, setDatabase] = useState("");
   const [exchangeError, setExchangeError] = useState("");
   useFocusEffect(useCallback(() => {
     let mounted = true;
+    setRegionReady(false);
     const load = async () => {
       try {
         const db = await getDatabaseNameFromStorage();
         if (!mounted) return;
         setDatabase(db);
         setPaymentCurrency(/usa/i.test(db) ? "usd" : "etb");
+        setRegionReady(true);
         setExchange(null); setExchangeError("");
         if (context.isAuthenticated) {
           const result = await exchangeRequest();
@@ -76,7 +79,7 @@ const CartView = (props) => {
     dispatch(deductQuantity({ cartKey: cartItemKey(item) }));
   };
   const checkout = async () => {
-    if (checking) return;
+    if (checking || !regionReady || !database) return;
     setChecking(true);
     try {
       const database = await getDatabaseNameFromStorage();
@@ -160,7 +163,7 @@ return (
         {database && context.isAuthenticated ? <>
           <Text>{/usa/i.test(database) ? "Pay USD for US delivery, or birr to ship approved US products to Ethiopia. Products only; shipping is added." :
             "Pay for Ethiopia deliveries in birr or US dollars. Rides are not included."}</Text>
-          <Picker selectedValue={paymentCurrency} enabled={!checking} onValueChange={setPaymentCurrency}>
+          <Picker selectedValue={paymentCurrency} enabled={regionReady && !checking} onValueChange={setPaymentCurrency}>
             <Picker.Item label={/usa/i.test(database) ? "Pay birr & ship to Ethiopia (ETB)" : "Pay in birr (ETB)"} value="etb" />
             <Picker.Item label={/usa/i.test(database) ? "Pay USD & deliver in USA" : "Pay in US dollars (USD)"} value="usd" />
           </Picker>
@@ -187,11 +190,12 @@ return (
             <EasyButton
               mode="contained"
               tertiary
-              disabled={checking}
+              disabled={checking || !regionReady}
               onPress={checkout}
               style={{ margin: 10 }}
             >
-              <Text style={{ color: '#030501' }}>{checking ? "Checking availability..." : "Proceed to Checkout"}</Text>
+              <Text style={{ color: '#030501' }}>{checking ? "Checking availability..." :
+                regionReady ? "Proceed to Checkout" : "Loading shopping region..."}</Text>
             </EasyButton>
           ) : (
             <EasyButton

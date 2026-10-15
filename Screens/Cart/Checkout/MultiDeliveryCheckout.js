@@ -382,6 +382,9 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
               : null}
             {cashAvailable ? <Picker.Item label={/usa/i.test(database) ? "Cash on delivery (development only)" : "Cash on delivery"} value="cash" /> : null}
           </Picker>
+          {!service && /usa/i.test(database) && !international && !converted && !quote.exchangeRate && !cashAvailable
+            ? <Text style={styles.error}>USA cash on delivery is available only in a development/debug app build.</Text>
+            : null}
           {cashAvailable && /usa/i.test(database) ? <Text>Development cash checkout creates real orders in the USA database. Use test products; cash is collected on each delivery.</Text> : null}
           {method === "bank" ? <Picker selectedValue={bankId} enabled={!busy} onValueChange={setBankId}>
             <Picker.Item label="Select bank account..." value="" />

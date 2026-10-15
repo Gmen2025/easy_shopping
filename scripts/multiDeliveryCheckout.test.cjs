@@ -135,6 +135,9 @@ for (const development of [true, false]) {
     const methodPicker = nodes(ui.render()).find((node) => node.type === "Picker" &&
       nodes(node).some((child) => child.type === "PickerItem" && child.props.value === "bank"));
     assert.equal(nodes(methodPicker).some((node) => node.props?.value === "cash"), development);
+    assert.match(text(ui.render()), development
+      ? /Development cash checkout creates real orders/
+      : /USA cash on delivery is available only in a development\/debug app build/);
     methodPicker.props.onValueChange("cash");
     await ui.button("Reserve all deliveries & continue").props.onPress();
     if (development) {
