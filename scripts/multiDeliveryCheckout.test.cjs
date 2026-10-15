@@ -151,6 +151,92 @@ for (const development of [true, false]) {
   });
 }
 
+for (const database of ["E_ShopUSA", "E_Shopping"]) {
+  test(`${database} vehicle checkout lets customers choose a delivery speed`, async () => {
+    let quoted;
+    let prepared;
+    const ui = harness(async (path, options) => {
+      if (path === "delivery-current-address") return {
+        label: "Home", address1: "Main", city: "Town", zip: "12345",
+        country: database === "E_ShopUSA" ? "USA" : "Ethiopia", phone: "123",
+      };
+      if (path === "delivery-addresses") return [];
+      if (path === "delivery-bank-accounts") return [{ _id: "bank", bankName: "Bank" }];
+      if (path === "checkouts/quote") {
+        quoted = options.data;
+        return { _id: "speed-quote", cart: options.data.cart, itemsSubtotal: 30,
+          expiresAt: new Date(Date.now() + 600000).toISOString(), deliveries: [] };
+      }
+      if (path === "checkouts/speed-quote/prepare") {
+        prepared = options.data;
+        return { _id: "speed-quote", status: "awaiting_payment", paymentMethod: "bank" };
+      }
+      throw new Error(path);
+    }, { database });
+
+    await ui.start();
+    const speedPicker = () => nodes(ui.render()).find((node) =>
+      node.type === "Picker" && node.props.accessibilityLabel === "Delivery speed");
+    assert.equal(speedPicker().props.selectedValue, "SAME_DAY");
+    speedPicker().props.onValueChange("NEXT_DAY");
+    await ui.button("Calculate routes & recommend vehicles").props.onPress();
+    assert.equal(quoted.deliveryMode, "NEXT_DAY");
+    assert.equal(quoted.scheduledFor, null);
+    assert.match(text(ui.render()), /Delivery speed: Next Day Delivery/);
+    await ui.button("Reserve all deliveries & continue").props.onPress();
+    assert.equal(prepared.deliveryMode, "NEXT_DAY");
+    assert.equal(prepared.scheduledFor, null);
+    assert.equal(ui.dialogs.length, 0);
+  });
+}
+
+test("scheduled vehicle delivery requires and sends a future date", async () => {
+  let quoteCount = 0;
+  let quoted;
+  let prepared;
+  const ui = harness(async (path, options) => {
+    if (path === "delivery-current-address") return {
+      label: "Home", address1: "Main", city: "Addis Ababa", country: "Ethiopia", phone: "123",
+    };
+    if (path === "delivery-addresses") return [];
+    if (path === "delivery-bank-accounts") return [{ _id: "bank", bankName: "Bank" }];
+    if (path === "checkouts/quote") {
+      quoteCount += 1;
+      quoted = options.data;
+      return { _id: "scheduled-quote", cart: options.data.cart, itemsSubtotal: 30,
+        expiresAt: new Date(Date.now() + 600000).toISOString(), deliveries: [] };
+    }
+    if (path === "checkouts/scheduled-quote/prepare") {
+      prepared = options.data;
+      return { _id: "scheduled-quote", status: "awaiting_payment", paymentMethod: "bank" };
+    }
+    throw new Error(path);
+  }, { database: "E_Shopping" });
+
+  await ui.start();
+  const speedPicker = () => nodes(ui.render()).find((node) =>
+    node.type === "Picker" && node.props.accessibilityLabel === "Delivery speed");
+  speedPicker().props.onValueChange("SCHEDULED");
+  const datePicker = () => nodes(ui.render()).find((node) =>
+    node.type === "Picker" && node.props.accessibilityLabel === "Scheduled delivery date");
+  assert.ok(datePicker());
+  await ui.button("Calculate routes & recommend vehicles").props.onPress();
+  assert.equal(quoteCount, 0);
+  assert.match(text(ui.render()), /Choose a valid future date for scheduled delivery/);
+
+  datePicker().props.onValueChange(nodes(datePicker()).find((node) =>
+    node.type === "PickerItem" && node.props.value)?.props.value);
+  const scheduledDate = datePicker().props.selectedValue;
+  await ui.button("Calculate routes & recommend vehicles").props.onPress();
+  assert.equal(quoted.deliveryMode, "SCHEDULED");
+  assert.ok(quoted.scheduledFor);
+  assert.equal(new Date(quoted.scheduledFor).getDate(), Number(scheduledDate.split("-")[2]));
+  await ui.button("Reserve all deliveries & continue").props.onPress();
+  assert.equal(prepared.deliveryMode, "SCHEDULED");
+  assert.equal(prepared.scheduledFor, quoted.scheduledFor);
+  assert.equal(ui.dialogs.length, 1);
+});
+
 test("release builds cannot finish a recovered USA development cash checkout", async () => {
   const calls = [];
   const ui = harness(async (path) => {

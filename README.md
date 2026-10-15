@@ -32,6 +32,12 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   migrate per-store inventory first; the older delivery-speed checkout is
   unchanged. Missing or unsuitable Car options show an explanation rather than
   bypassing capacity checks.
+- **Delivery Speed**: Vehicle/multi-delivery checkout supports Same Day, Next
+  Day and Scheduled delivery (with a future date), applied to all deliveries in
+  the checkout. The selected mode and scheduled date are sent to both the quote
+  and reservation APIs. The backend stores the selection on the checkout and
+  resulting orders and applies its dispatch schedule/priority; delivery fees
+  remain based on the selected vehicle and route.
 - **Checkout Stock Guard**: Prevents checkout/payment when requested quantity exceeds available stock
 - **User Accounts**: Registration, login, email verification
 - **Order Tracking**: View order history and status

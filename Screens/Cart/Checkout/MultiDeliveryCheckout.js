@@ -21,6 +21,25 @@ const ADDRESS_FIELDS = [
 ];
 const blankAddress = () => Object.fromEntries(ADDRESS_FIELDS.map(([key]) => [key, ""]));
 const locatedFields = ["address1", "city", "zip", "country"];
+const DELIVERY_MODES = [
+  ["SAME_DAY", "Same Day Delivery"],
+  ["NEXT_DAY", "Next Day Delivery"],
+  ["SCHEDULED", "Scheduled Delivery"],
+];
+const getUpcomingDeliveryDays = () =>
+  Array.from({ length: 14 }, (_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() + index + 1);
+    date.setHours(12, 0, 0, 0);
+    return {
+      value: [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"),
+        String(date.getDate()).padStart(2, "0")].join("-"),
+      label: date.toLocaleDateString(undefined, {
+        weekday: "long", month: "short", day: "numeric",
+      }),
+    };
+  });
+
 const MultiDeliveryCheckout = ({ navigation, route }) => {
   const items = useSelector((state) => state.cart.cartItems);
   const dispatch = useDispatch();
@@ -30,6 +49,8 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
   const [addresses, setAddresses] = useState([]);
   const [editor, setEditor] = useState(null);
   const [allocations, setAllocations] = useState({});
+  const [deliveryMode, setDeliveryMode] = useState("SAME_DAY");
+  const [scheduledDate, setScheduledDate] = useState("");
   const [quote, setQuote] = useState(null);
   const [group, setGroup] = useState(null);
   const [selections, setSelections] = useState({});
@@ -120,6 +141,21 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
     invalidate();
     setAllocations((previous) => ({ ...previous, [key]: { ...previous[key], [addressId]: quantity } }));
   };
+  const changeDeliveryMode = (value) => {
+    setDeliveryMode(value);
+    invalidate();
+  };
+  const changeScheduledDate = (value) => {
+    setScheduledDate(value);
+    invalidate();
+  };
+  const getScheduledFor = () => {
+    if (deliveryMode !== "SCHEDULED") return null;
+    const [year, month, day] = scheduledDate.split("-").map(Number);
+    const date = new Date(year, month - 1, day, 12);
+    if (!scheduledDate || Number.isNaN(date.getTime()) || date.getTime() <= Date.now()) return null;
+    return date.toISOString();
+  };
   const saveAddress = (persist) => run(async () => {
     const address = { ...editor };
     if (isEthiopia(address.country)) address.zip = "";
@@ -139,6 +175,10 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
   });
   const requestQuote = () => run(async () => {
     if (!items.length) throw new Error("Your cart is empty.");
+    const scheduledFor = getScheduledFor();
+    if (deliveryMode === "SCHEDULED" && !scheduledFor) {
+      throw new Error("Choose a valid future date for scheduled delivery.");
+    }
     const currentDb = await getDatabaseNameFromStorage();
     if (currentDb !== database || items.some((item) => sanitizeDatabaseName(item.databaseName || item.dbName) !== database)) throw new Error("The region changed. Return to the cart and restart checkout.");
     const cart = items.map((item) => ({ key: cartItemKey(item), product: item._id || item.id,
@@ -148,7 +188,8 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
     })).filter((entry) => entry.quantity !== 0));
     const usedIds = new Set(split.map((entry) => entry.addressId));
     const result = await storeRequest("checkouts/quote", { method: "post", timeout: 120000,
-      data: { cart, addresses: addresses.filter((address) => usedIds.has(address.id)), allocations: split, paymentCurrency } });
+      data: { cart, addresses: addresses.filter((address) => usedIds.has(address.id)), allocations: split,
+        paymentCurrency, deliveryMode, scheduledFor } });
     setQuote(result);
     dispatch(beginCheckout({ id: result._id }));
     setSelections(Object.fromEntries(result.deliveries.map((delivery) => [delivery.key, delivery.vehicle])));
@@ -160,6 +201,7 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
         items.length !== quote.cart.length)) throw new Error("Your cart changed. Request a fresh quote.");
     const result = await storeRequest(`checkouts/${quote._id}/prepare`, { method: "post", timeout: 60000, data: {
       method, bankAccountId: bankId,
+      deliveryMode, scheduledFor: getScheduledFor(),
       ...(method === "cash" && /usa/i.test(database) ? { developmentCashOnDelivery: __DEV__ === true } : {}),
       selections: quote.deliveries.map((delivery) => ({ key: delivery.key, vehicle: selections[delivery.key] })),
     } });
@@ -276,10 +318,27 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
           <Text style={total === item.quantity ? styles.success : styles.error}>Allocated {total} / {item.quantity}</Text>
         </View>;
       })}
+      {!service ? <View style={styles.card}>
+        <Text style={styles.heading}>Delivery speed (applies to all deliveries)</Text>
+        <Picker selectedValue={deliveryMode} enabled={!busy} accessibilityLabel="Delivery speed"
+          onValueChange={changeDeliveryMode}>
+          {DELIVERY_MODES.map(([value, label]) => <Picker.Item key={value} label={label} value={value} />)}
+        </Picker>
+        {deliveryMode === "SCHEDULED" ? <Picker selectedValue={scheduledDate} enabled={!busy}
+          accessibilityLabel="Scheduled delivery date" onValueChange={changeScheduledDate}>
+          <Picker.Item label="Choose a delivery date..." value="" />
+          {getUpcomingDeliveryDays().map((day) =>
+            <Picker.Item key={day.value} label={day.label} value={day.value} />)}
+        </Picker> : null}
+      </View> : null}
       <Button mode="contained" disabled={busy || !items.length || Boolean(editor)} onPress={requestQuote}>Calculate routes & recommend vehicles</Button>
       </>}
       {quote ? <>
         <Text>Quote expires {new Date(quote.expiresAt).toLocaleTimeString()}.</Text>
+        <Text>Delivery speed: {DELIVERY_MODES.find(([value]) => value === deliveryMode)?.[1]}
+          {deliveryMode === "SCHEDULED" && scheduledDate
+            ? ` - ${getUpcomingDeliveryDays().find((day) => day.value === scheduledDate)?.label || scheduledDate}`
+            : ""}</Text>
         {quote.deliveries.map((delivery) => <View key={delivery.key} style={styles.card}>
           <Text style={styles.heading}>Pickup: {delivery.store.name}</Text>
           <Text selectable>Store ID: {delivery.store._id}</Text>
