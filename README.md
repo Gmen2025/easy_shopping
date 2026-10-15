@@ -165,12 +165,27 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   actions disappear and the backend reroutes. Claiming and product delivery
   dispatch cannot occupy the same vehicle. Keep the app in the foreground for
   GPS/polling. Background-location tracking is not implemented.
+- The driver dashboard shows approval, online status, vehicle/seats and enabled
+  ride modes, even if reporting GPS fails. Open **Ride assignments & route** to
+  enable Regular/Shared rides and grant location permission. Admin must approve
+  and enable the company driver and configure car/van passenger seats first.
+  For simulator tests, set simulated GPS near the passenger pickup and use the
+  same shopping region on both accounts. Dispatch requires GPS updated within
+  two minutes and within the region's configured driver search radius.
 - The active ride lists ordered pickups/dropoffs, passenger counts and contacts.
   Open external Google navigation to the next stop; return to confirm boarding
   or dropoff. The backend requires fresh GPS within 300m of that stop. **Stop
   shared intake** warns before immediately rerouting accepted riders not yet
   onboard; only existing passengers' dropoffs remain. Reopen explicitly to
   resume matching. Disabling shared mode also reroutes waiting riders.
+- Drivers can **Terminate booking** with a reason and fresh GPS without reaching
+  the planned destination. Confirm this only after affected passengers have
+  safely exited. The booking stays `terminated`, not completed; its unfinished
+  stops and occupied seats are removed without ending other shared bookings.
+  Payment is held for review in **Admin > Rides**. Admin records a review note
+  and an adjusted fare (zero waives payment). Customers can pay a positive
+  reviewed fare using the existing regional methods; no estimate is charged
+  automatically. Normal pickup/drop-off confirmation still requires nearby GPS.
 - **Admin > Rides** configures the region's fares, shared discount, maximum
   pickup wait / extra travel, search radius, verified company car/van passenger
   seats (excluding the driver), and bank/cash receipt verification. The driver

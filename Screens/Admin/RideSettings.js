@@ -14,6 +14,7 @@ export default function RideSettings() {
   const [drivers, setDrivers] = useState([]);
   const [seats, setSeats] = useState({});
   const [payments, setPayments] = useState([]);
+  const [reviews, setReviews] = useState({});
   const [database, setDatabase] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -72,11 +73,35 @@ export default function RideSettings() {
       </View>)}
     </View>
     <View style={styles.card}>
-      <Text style={styles.heading}>Completed ride payments (latest 100)</Text>
+      <Text style={styles.heading}>Completed rides & terminated ride reviews (latest 100)</Text>
       {payments.map((ride) => <View key={ride._id}>
         <Text selectable>Ride {ride._id} - payer {ride.user}</Text>
         <Text>{addressText(ride.stops[0].address)} to {addressText(ride.stops.at(-1).address)}</Text>
         <Text>{rideFare(ride)} - {ride.paymentMethod || "Not selected"} / {ride.paymentStatus}</Text>
+        {ride.status === "terminated" ? <>
+          <Text>Terminated: {ride.termination?.reason}. At {new Date(ride.termination?.at).toLocaleString()}.</Text>
+          <Text>Reported GPS (longitude, latitude): {ride.termination?.location?.coordinates?.join(", ")}</Text>
+          {ride.paymentStatus === "review_required" ? <>
+            <Text>Review the early termination. No automatic fare has been charged.</Text>
+            <TextInput label="Reviewed fare (0 to waive)" keyboardType="decimal-pad" disabled={busy}
+              value={reviews[ride._id]?.fare || ""}
+              onChangeText={(fare) => setReviews((previous) => ({ ...previous,
+                [ride._id]: { ...previous[ride._id], fare } }))} />
+            <TextInput label="Admin review note" maxLength={500} disabled={busy}
+              value={reviews[ride._id]?.note || ""}
+              onChangeText={(note) => setReviews((previous) => ({ ...previous,
+                [ride._id]: { ...previous[ride._id], note } }))} />
+            <Button disabled={busy || !reviews[ride._id]?.fare?.trim() || !reviews[ride._id]?.note?.trim()}
+              onPress={() => Alert.alert("Resolve termination review?", "The entered fare will be payable by the rider, or waived if zero. This review cannot be edited through this screen.", [
+                { text: "Keep reviewing", style: "cancel" },
+                { text: "Resolve review", onPress: () => run(async () => {
+                  await rideRequest(`admin/terminations/${ride._id}/review`, { method: "post",
+                    data: { fare: Number(reviews[ride._id].fare), note: reviews[ride._id].note } });
+                  await refresh();
+                }) },
+              ])}>Resolve termination review</Button>
+          </> : <Text>Review: {ride.termination?.reviewNote}</Text>}
+        </> : null}
         {ride.paymentMethod === "bank" ? <>
           <Text>{ride.bankAccount?.bankName} {ride.bankAccount?.accountNumber}</Text>
           <Text selectable>Sender: {ride.bankSender || "Not submitted"}. Reference: {ride.bankReference || "Not submitted"}</Text>

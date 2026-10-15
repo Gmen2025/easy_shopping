@@ -5,7 +5,8 @@ const path = require("node:path");
 const vm = require("node:vm");
 const babel = require("@babel/core");
 
-function fixture({ database = "E_Shopping" } = {}) {
+function fixture({ database = "E_Shopping", rideDriver = { serviceModes: { delivery: true } },
+  locationPermission = "granted" } = {}) {
   const filename = path.join(__dirname, "..", "Screens", "Driver", "CompanyDriverDashboard.js");
   const { code } = babel.transformSync(fs.readFileSync(filename, "utf8"), {
     filename, configFile: false, babelrc: false,
@@ -55,8 +56,8 @@ function fixture({ database = "E_Shopping" } = {}) {
     "../../assets/common/currency": { useCurrency: () => ({ formatPrice: String }) },
     "../../assets/common/databaseConfig": { getDatabaseNameFromStorage: async () => database },
     "../../assets/common/delivery": { formatScheduledDeliveryDate: () => "" },
-    "../../assets/common/rides": { rideRequest: async () => ({ driver: { serviceModes: { delivery: true } }, trip: null, offer: null }) },
-    "expo-location": {},
+    "../../assets/common/rides": { rideRequest: async () => ({ driver: rideDriver, trip: null, offer: null }) },
+    "expo-location": { getForegroundPermissionsAsync: async () => ({ status: locationPermission }) },
   };
   const exports = {};
   vm.runInNewContext(code, {
@@ -128,6 +129,30 @@ async function finishClaimRecovery(f) {
   assert.ok(f.claim(), "Claim spinner should be replaced by the claim label");
   assert.equal(f.claim().props.disabled, false);
 }
+
+test("driver dashboard explains disabled ride modes and missing passenger setup", async () => {
+  const f = fixture({ rideDriver: { approvalStatus: "approved", isAvailable: true,
+    vehicleType: "car", serviceModes: { delivery: true } } });
+  await loadOffer(f);
+  assert.match(f.text(), /Online/);
+  assert.match(f.text(), /Passenger seats:/);
+  assert.match(f.text(), /Not configured/);
+  assert.match(f.text(), /Ask Admin to approve and enable/);
+  assert.match(f.text(), /enable Regular rides or Shared rides under Service preferences/);
+  assert.match(f.text(), /set the simulator GPS near the rider pickup/);
+});
+
+test("GPS permission failure retains driver status and service preferences", async () => {
+  const f = fixture({ rideDriver: { approvalStatus: "approved", isAvailable: true,
+    vehicleType: "car", passengerSeats: 4, serviceModes: { regular: true } },
+    locationPermission: "denied" });
+  await loadOffer(f);
+  assert.match(f.text(), /Open ride assignments to enable GPS/);
+  assert.match(f.text(), /Online/);
+  assert.match(f.text(), /Regular rides:/);
+  assert.match(f.text(), /Enabled/);
+  assert.doesNotMatch(f.text(), /Ask Admin to approve and enable/);
+});
 
 test("driver refresh is bounded, prevents overlap and becomes available after timeout", async () => {
   const fixtureInstance = fixture();

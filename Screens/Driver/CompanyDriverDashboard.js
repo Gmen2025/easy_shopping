@@ -235,7 +235,7 @@ const CompanyDriverDashboard = ({ navigation }) => {
       }
       setRideError("");
     }
-    catch (error) { setRideError(error.response?.data?.message || error.message); setRideOverview(null); }
+    catch (error) { setRideError(error.response?.data?.message || error.message); }
     finally { requestsInFlight.current.delete("rides"); }
   }, []);
   const refreshData = useCallback(async () => {
@@ -504,10 +504,27 @@ const CompanyDriverDashboard = ({ navigation }) => {
         <View style={styles.headerCard}>
           <Text style={styles.headerTitle}>Ride service</Text>
           <Text>Separate ride offers, passenger route and service preferences</Text>
-          {rideError ? <Text>Ride service: {rideError}</Text> : <Text>
+          {rideError ? <Text>Ride service: {rideError}</Text> : null}
+          {rideOverview ? <>
+            <Text>Approval: {rideOverview.driver.approvalStatus}. {rideOverview.driver.isAvailable ? "Online" : "Offline"}
+              {rideOverview.driver.isSuspended ? " - Suspended" : ""}.</Text>
+            <Text>Vehicle: {rideOverview.driver.vehicleType}. Passenger seats: {rideOverview.driver.passengerSeats || "Not configured"}.</Text>
+            <Text>Regular rides: {rideOverview.driver.serviceModes?.regular ? "Enabled" : "Disabled"}.
+              Shared rides: {rideOverview.driver.serviceModes?.shared ? "Enabled" : "Disabled"}.</Text>
+            {!rideOverview.driver.isAvailable || rideOverview.driver.approvalStatus !== "approved" ||
+              rideOverview.driver.isSuspended || !rideOverview.driver.passengerSeats ||
+              !["car", "van"].includes(rideOverview.driver.vehicleType)
+              ? <Text>Ask Admin to approve and enable your company driver and configure passenger seats on a car or van in Ride settings.</Text>
+              : null}
+            {!rideOverview.driver.serviceModes?.regular && !rideOverview.driver.serviceModes?.shared
+              ? <Text>Open ride assignments below and enable Regular rides or Shared rides under Service preferences.</Text>
+              : null}
+          </> : null}
+          <Text>
             {rideOverview?.trip ? "Active passenger route. " : ""}
             {rideOverview?.offer ? `Ride offer expires ${new Date(rideOverview.offer.offerDeadline).toLocaleTimeString()}. Open to claim/reject.` : "No current ride offer."}
-          </Text>}
+          </Text>
+          <Text>For simulator testing, set the simulator GPS near the rider pickup, select the same shopping region as the rider, and keep ride assignments open to report GPS.</Text>
           <TouchableOpacity style={styles.refreshLink} accessibilityRole="button"
             accessibilityLabel="Ride assignments"
             onPress={() => navigation.navigate("DriverRides")}>

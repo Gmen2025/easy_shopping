@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Linking, ScrollView, Text, View } from "react-native";
-import { Button, Switch } from "react-native-paper";
+import { Button, Switch, TextInput } from "react-native-paper";
 import { useIsFocused } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Location from "expo-location";
@@ -14,6 +14,7 @@ export default function DriverRides({ navigation }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [gpsError, setGpsError] = useState("");
+  const [terminationReason, setTerminationReason] = useState("");
   const [now, setNow] = useState(Date.now());
   const running = useRef(false);
   const region = useRef("");
@@ -128,10 +129,27 @@ export default function DriverRides({ navigation }) {
             }) },
           ])}>{next.type === "pickup" ? "Passengers onboard" : "Passengers dropped off"}</Button>
         </> : null}
+        <Text style={styles.heading}>End a booking without completion</Text>
+        <Text>Use only after the affected passengers have safely exited. This does not confirm arrival at the destination. Other bookings remain active; payment goes to Admin review.</Text>
+        <TextInput label="Termination reason" value={terminationReason} maxLength={500} disabled={busy}
+          onChangeText={setTerminationReason} />
+        {data.riders.map((rider) => <Button key={rider._id} disabled={busy || !terminationReason.trim()}
+          onPress={() => Alert.alert("Terminate this booking?", "Confirm the affected passengers have safely exited. The booking will end at your reported GPS, not be marked completed. Admin will review any fare.", [
+            { text: "Keep booking", style: "cancel" },
+            { text: "Terminate booking", style: "destructive", onPress: () => run(async () => {
+              await location(false, true);
+              try {
+                await rideRequest(`me/rides/${rider._id}/terminate`, { method: "post",
+                  data: { reason: terminationReason }, timeout: 120000 });
+                setTerminationReason("");
+              } finally { await refresh(); }
+            }) },
+          ])}>Terminate booking #{String(rider._id).slice(-6)}</Button>)}
       </View> : <Text>No active passenger ride.</Text>}
       <View style={styles.card}>
-        <Text style={styles.heading}>Completed ride payments</Text>
+        <Text style={styles.heading}>Ended ride payments & reviews</Text>
         {data.payments.map((ride) => <View key={ride._id}>
+          {ride.status === "terminated" ? <Text>Terminated without completion. {ride.paymentStatus === "review_required" ? "Payment on hold for Admin review." : ride.paymentStatus}</Text> : null}
           <Text>#{String(ride._id).slice(-6)} {rideFare(ride)} - {ride.paymentMethod || "Not selected"} / {ride.paymentStatus}</Text>
           {ride.paymentMethod === "cash" && ride.paymentStatus !== "completed" ? <Button disabled={busy}
             onPress={() => Alert.alert("Cash received?", `Confirm only after receiving ${rideFare(ride)} from this booking's payer.`, [

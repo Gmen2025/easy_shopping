@@ -215,6 +215,84 @@ test("driver screen separates offers and route, expires claim controls, and warn
   assert.equal(ui.button("Claim ride"), undefined);
   assert.match(text(ui.render()), /Offer expired/);
 });
+test("driver termination sends a reason and fresh GPS without confirming destination drop-off", async () => {
+  let ended = false;
+  const ui = harness("Screens\\Driver\\DriverRides.js", async (route, options) => {
+    if (route === "me/location") return {};
+    if (route === "me/rides/ride/terminate") {
+      assert.equal(options.data.reason, "Passenger requested an early stop");
+      ended = true;
+      return {};
+    }
+    assert.equal(route, "me/driver");
+    return { driver: { serviceModes: {}, passengerSeats: 3 },
+      trip: ended ? null : { mode: "regular", onboardSeats: 1, seatCapacity: 3,
+        stops: [{ key: "1", ride: "ride", type: "dropoff", address }] },
+      riders: ended ? [] : [{ _id: "ride" }], payments: [] };
+  });
+  await ui.start();
+  assert.equal(ui.button("Terminate booking #ride").props.disabled, true);
+  nodes(ui.render()).find((node) => node.type === "TextInput" &&
+    node.props.label === "Termination reason").props.onChangeText("Passenger requested an early stop");
+  ui.button("Terminate booking #ride").props.onPress();
+  assert.match(ui.dialogs.at(-1)[1], /safely exited/);
+  await ui.dialogs.at(-1)[2].find((button) => button.text === "Terminate booking").onPress();
+  assert.equal(ended, true);
+  const terminationIndex = ui.calls.findIndex((call) => call.route === "me/rides/ride/terminate");
+  assert.equal(ui.calls[terminationIndex - 1].route, "me/location");
+  assert.equal(ui.calls.some((call) => call.route === "me/next-stop"), false);
+  assert.match(text(ui.render()), /No active passenger ride/);
+});
+
+test("terminated rider payment stays blocked until Admin review and respects a waived fare", async () => {
+  let ride = { _id: "ride", currency: "usd", estimate: 8, status: "terminated",
+    paymentStatus: "review_required", stops: [{ key: "0", type: "pickup", address }],
+    termination: { reason: "Early stop", at: new Date().toISOString(), reviewStatus: "pending" } };
+  const ui = harness("Screens\\Ride\\MyRides.js", async (route) => route ? ride : [ride],
+    { rideId: "ride", database: "E_ShopUSA" });
+  await ui.start();
+  assert.match(text(ui.render()), /Payment is on hold for Admin review/);
+  assert.equal(ui.button("Choose payment method"), undefined);
+  ride = { ...ride, finalFare: 3, paymentStatus: "pending",
+    termination: { ...ride.termination, reviewStatus: "resolved", reviewNote: "Partial fare" } };
+  await ui.button("Refresh this ride").props.onPress();
+  assert.ok(ui.button("Choose payment method"));
+  ride = { ...ride, finalFare: 0, paymentStatus: "waived" };
+  await ui.button("Refresh this ride").props.onPress();
+  assert.equal(ui.button("Choose payment method"), undefined);
+  assert.match(text(ui.render()), /No payment is due/);
+});
+
+test("Admin can resolve a terminated booking review with a zero waived fare and a note", async () => {
+  let resolved = false;
+  const ride = { _id: "ride", user: "payer", status: "terminated", currency: "usd", estimate: 8,
+    paymentStatus: "review_required", stops: [{ address }],
+    termination: { at: new Date().toISOString(), reason: "Early stop",
+      location: { coordinates: [-74, 40] }, reviewStatus: "pending" } };
+  const ui = harness("Screens\\Admin\\RideSettings.js", async (route, options) => {
+    if (route === "config") return policy;
+    if (route === "admin/drivers") return [];
+    if (route === "admin/payments") return [resolved ? { ...ride, finalFare: 0, paymentStatus: "waived",
+      termination: { ...ride.termination, reviewStatus: "resolved", reviewNote: "Test booking" } } : ride];
+    assert.equal(route, "admin/terminations/ride/review");
+    assert.equal(options.data.fare, 0);
+    assert.equal(options.data.note, "Test booking");
+    resolved = true;
+    return {};
+  });
+  await ui.start();
+  assert.equal(ui.button("Resolve termination review").props.disabled, true);
+  const input = (label) => nodes(ui.render()).find((node) =>
+    node.type === "TextInput" && node.props.label === label);
+  input("Reviewed fare (0 to waive)").props.onChangeText("0");
+  input("Admin review note").props.onChangeText("Test booking");
+  assert.equal(ui.button("Resolve termination review").props.disabled, false);
+  ui.button("Resolve termination review").props.onPress();
+  await ui.dialogs.at(-1)[2].find((button) => button.text === "Resolve review").onPress();
+  assert.equal(resolved, true);
+  assert.equal(ui.button("Resolve termination review"), undefined);
+  assert.match(text(ui.render()), /waived/);
+});
 test("ride screens and badge are connected to customer, company-driver and Admin navigation", () => {
   const root = path.join(__dirname, "..");
   for (const [file, pattern] of [

@@ -61,7 +61,7 @@ export default function MyRides({ route, navigation }) {
     }
   }, [focused, isAuthenticated, loading, route.params?.rideId]);
   useEffect(() => {
-    if (!focused || !isAuthenticated || needsSignIn || loading || !selected || ["completed", "cancelled", "quote"].includes(selected.status)) return;
+    if (!focused || !isAuthenticated || needsSignIn || loading || !selected || ["completed", "cancelled", "terminated", "quote"].includes(selected.status)) return;
     const timer = setInterval(() => run(async () => setSelected(await rideRequest(selected._id)), false), 10000);
     return () => clearInterval(timer);
   }, [focused, isAuthenticated, needsSignIn, loading, selected?._id, selected?.status]);
@@ -91,6 +91,12 @@ export default function MyRides({ route, navigation }) {
     {selected ? <View style={styles.card}>
       <Text selectable style={styles.heading}>Ride #{String(selected._id).slice(-6)} - {selected.mode}</Text>
       <Text>Status: {selected.status}</Text><Text>{selected.dispatchMessage}</Text>
+      {selected.status === "terminated" ? <>
+        <Text>Termination reason: {selected.termination?.reason}</Text>
+        <Text>Terminated: {new Date(selected.termination?.at).toLocaleString()}. This ride did not complete its destination drop-off.</Text>
+        <Text>{selected.paymentStatus === "review_required" ? "Payment is on hold for Admin review. Do not pay the original estimate." :
+          selected.paymentStatus === "waived" ? "Admin waived the fare. No payment is due." : `Admin review: ${selected.termination?.reviewNote || ""}`}</Text>
+      </> : null}
       <RideRouteMap ride={selected} distanceUnit={selected.currency === "usd" ? "mile" : "km"}
         driverLocation={selected.status !== "completed" ? rideStopPoint({ address: { location: selected.assignedDriver?.location } }) : null} />
       {selected.stops.map((stop) => <Text key={stop.key}>{stop.type}: {addressText(stop.address)} ({stop.passengers} passengers)</Text>)}
@@ -106,7 +112,9 @@ export default function MyRides({ route, navigation }) {
           { text: "Keep ride", style: "cancel" },
           { text: "Cancel ride", style: "destructive", onPress: () => run(() => update("cancel", {})) },
         ])}>Cancel before pickup</Button> : null}
-      {selected.status !== "completed" ? <Text>Payment is available only after your ride finishes.</Text> : <>
+      {selected.status !== "completed" && !(selected.status === "terminated" &&
+        selected.termination?.reviewStatus === "resolved" && selected.paymentStatus !== "waived")
+        ? <Text>Payment is available only after your ride finishes or Admin approves a terminated ride's fare.</Text> : <>
         <Text style={styles.heading}>Your final fare: {rideFare(selected)}</Text>
         <Text>Payment: {selected.paymentStatus} {selected.paymentMethod || ""}</Text>
         {selected.paymentStatus !== "completed" ? <>
