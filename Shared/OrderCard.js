@@ -71,6 +71,12 @@ const OrderCard = (props) => {
   };
 
   const order = props.order || {};
+  const isCancelledGroupedOrder =
+    Boolean(props.checkoutGroup && props.fulfillmentStatus === "cancelled");
+  const isDeliveredOrder = !isCancelledGroupedOrder && (props.status === "3" ||
+    props.deliveryStatus === "Delivered" || props.fulfillmentStatus === "completed");
+  const canDeleteGroupedOrder = isDeliveredOrder ||
+    (isCancelledGroupedOrder && ["refunded", "not_required"].includes(props.refundStatus));
 
   //const order = props.route.params?.order || {};
 
@@ -417,9 +423,14 @@ const OrderCard = (props) => {
   };
 
   const confirmDeleteOrder = () => {
+    const confirmationMessage = props.checkoutGroup && isDeliveredOrder
+      ? "This delivery is completed. Deleting it will not issue a refund. This action cannot be undone."
+      : props.checkoutGroup
+        ? `This cancelled delivery's refund is ${props.refundStatus === "refunded" ? "complete" : "not required"}. Deleting it will not issue a refund. This action cannot be undone.`
+      : "Are you sure you want to delete this order? This action cannot be undone.";
     Alert.alert(
       "Delete Order",
-      "Are you sure you want to delete this order? This action cannot be undone.",
+      confirmationMessage,
       [
         {
           text: "Cancel",
@@ -442,16 +453,15 @@ const OrderCard = (props) => {
       props.customerEmail ||
       null;
     const fallbackName = props.user?.name || props.customerName || null;
-    // A delivered order being cleaned up isn't a cancellation - don't tell the customer
-    // their completed delivery was "cancelled and refunded".
-    const isDelivered = props.status === "3";
+    // Don't send another cancellation notice when a delivery is already cancelled or delivered.
+    const shouldNotifyCustomer = !isDeliveredOrder && !isCancelledGroupedOrder;
 
     const config = {
       headers: {
         Authorization: `Bearer ${token}`,
       },
       data: {
-        notifyCustomer: !isDelivered,
+        notifyCustomer: shouldNotifyCustomer,
         customerEmail: fallbackEmail,
         customerName: fallbackName,
       },
@@ -459,12 +469,12 @@ const OrderCard = (props) => {
 
     try {
       const response = await axios.delete(
-        `${baseUrl}orders/${props._id}?notifyCustomer=${!isDelivered}`,
+        `${baseUrl}orders/${props._id}?notifyCustomer=${shouldNotifyCustomer}`,
         config
       );
 
       if (response.status === 200) {
-        const [notificationResult, emailResult] = isDelivered
+        const [notificationResult, emailResult] = !shouldNotifyCustomer
           ? [{ sent: false }, { sent: false }]
           : await Promise.all([
               sendOrderDeletionNotification(config),
@@ -485,7 +495,7 @@ const OrderCard = (props) => {
             text1: "Customer notified",
             text2: "Order deletion notification/email sent",
           });
-        } else if (!isDelivered) {
+        } else if (shouldNotifyCustomer) {
           Toast.show({
             topOffset: 60,
             type: "info",
@@ -647,15 +657,21 @@ const OrderCard = (props) => {
                 </View>
               </View>
 
-              <View style={styles.deleteButtonWrap}>
-                <EasyButton
-                  danger
-                  large
-                  onPress={() => confirmDeleteOrder()}
-                >
-                  <Text style={styles.actionButtonText}>Delete Order</Text>
-                </EasyButton>
-              </View>
+              {props.checkoutGroup && !canDeleteGroupedOrder ? (
+                <Text style={styles.label}>
+                  Only cancelled deliveries with a settled refund or completed deliveries can be deleted.
+                </Text>
+              ) : (
+                <View style={styles.deleteButtonWrap}>
+                  <EasyButton
+                    danger
+                    large
+                    onPress={() => confirmDeleteOrder()}
+                  >
+                    <Text style={styles.actionButtonText}>Delete Order</Text>
+                  </EasyButton>
+                </View>
+              )}
             </View>
           </View>
         ) : null}

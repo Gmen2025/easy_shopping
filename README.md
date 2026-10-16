@@ -265,7 +265,10 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   cancellations are reconciled by the backend scan with idempotent refunds;
   Admin can retry failed refunds under **Payments**. Bank refunds require Admin
   to return funds manually and record the refund reference. Grouped orders cannot
-  be deleted or have payment amounts changed through the legacy order editor.
+  have payment amounts changed through the legacy order editor. Admin can delete
+  an individual grouped delivery from Order Management after it is cancelled and
+  its refund is complete or not required, or after delivery/store fulfillment is
+  completed.
   Delivery fees stay fixed if a store rejects/times out, while actual route
   distance is refreshed for the replacement pickup.
 - **Store assignments**: Open **Store assignments** to accept and prepare or reject
@@ -284,7 +287,9 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   address, logo and new orders' purchase prices.
 - **Product Management**: Add, edit, delete products
 - **Category Management**: Manage product categories
-- **Order Management**: View all orders, update status, delete orders
+- **Order Management**: View all orders, update status, delete orders. Grouped
+  deliveries can be deleted individually after cancellation and refund settlement,
+  or after delivery/store fulfillment is completed. Deleting an order does not issue a refund.
 - **Company Store Analytics**: AdminStore shows assigned orders and orders containing
   owned or marked-ready products; sales count completed orders only. Analytics
   refresh after marking a product ready, and load failures display a retry message.
