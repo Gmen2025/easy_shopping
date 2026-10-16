@@ -238,7 +238,8 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   location while preserving the label, unit and recipient phone; manual edits to
   the street, city, postal code or country clear that selected location.
   The street is not repeated when Google's place name is the same address with
-  different capitalization, punctuation or common street abbreviations.
+  different capitalization, punctuation, common street abbreviations or
+  directional abbreviations (for example, `810 W Grace St` / `810 West Grace Street`).
   New addresses default to the checkout destination country. Postal code is
   hidden and not required for Ethiopia (including `Ethio` and `ET`); it remains
   required for other countries. Manual address entry is still available.
