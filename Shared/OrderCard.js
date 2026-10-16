@@ -647,7 +647,7 @@ const OrderCard = (props) => {
                 </View>
               </View>
 
-              {!props.checkoutGroup ? <View style={styles.deleteButtonWrap}>
+              <View style={styles.deleteButtonWrap}>
                 <EasyButton
                   danger
                   large
@@ -655,7 +655,7 @@ const OrderCard = (props) => {
                 >
                   <Text style={styles.actionButtonText}>Delete Order</Text>
                 </EasyButton>
-              </View> : null}
+              </View>
             </View>
           </View>
         ) : null}
