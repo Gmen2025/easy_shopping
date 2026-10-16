@@ -230,6 +230,9 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   Product editing links to these size controls. Checkout then supports mixed
   storefront/main-catalog carts, saved
   and editable addresses, and splitting units of one product across addresses.
+  Under **Saved delivery addresses**, use **Delete saved address** to remove an
+  entry from your account after confirmation. Existing orders and addresses
+  already selected for the current checkout are unchanged.
   The address editor includes search-as-you-type place suggestions using the same
   server-backed Places search as rides. Selecting a place fills its address and
   location while preserving the label, unit and recipient phone; manual edits to

@@ -173,6 +173,27 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
     setEditor(null);
     invalidate();
   });
+  const deleteSavedAddress = (address) => Alert.alert(
+    "Delete saved address?",
+    `Remove "${address.label}" from your saved addresses? Existing orders and addresses selected for this checkout will not change.`,
+    [
+      { text: "Keep address", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: () => run(async () => {
+        await storeRequest(`delivery-addresses/${address._id}`, { method: "delete" });
+        setSaved((previous) => previous.filter((entry) => entry._id !== address._id));
+        setAddresses((previous) => previous.map((entry) => {
+          if (entry._id !== address._id) return entry;
+          const { _id, ...unsaved } = entry;
+          return unsaved;
+        }));
+        setEditor((previous) => {
+          if (previous?._id !== address._id) return previous;
+          const { _id, ...unsaved } = previous;
+          return unsaved;
+        });
+      }) },
+    ]
+  );
   const requestQuote = () => run(async () => {
     if (!items.length) throw new Error("Your cart is empty.");
     const scheduledFor = getScheduledFor();
@@ -288,6 +309,13 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
         <Picker.Item label="Add a saved address..." value="" />
         {saved.map((address) => <Picker.Item key={address._id} label={address.label} value={address._id} />)}
       </Picker> : null}
+      {saved.length ? <View style={styles.card}>
+        <Text style={styles.heading}>Saved delivery addresses</Text>
+        {saved.map((address) => <View key={address._id}>
+          <Text>{address.label}: {addressText(address)}</Text>
+          <Button disabled={busy} onPress={() => deleteSavedAddress(address)}>Delete saved address</Button>
+        </View>)}
+      </View> : null}
       <Button disabled={busy || addresses.length >= 10} onPress={() => setEditor({ ...blankAddress(),
         country: international || !/usa/i.test(database) ? "Ethiopia" : "USA", id: `address-${Date.now()}` })}>Add another delivery address</Button>
       {editor ? <View style={styles.card}>
