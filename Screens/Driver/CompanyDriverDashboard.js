@@ -511,6 +511,9 @@ const CompanyDriverDashboard = ({ navigation }) => {
             <Text>Vehicle: {rideOverview.driver.vehicleType}. Passenger seats: {rideOverview.driver.passengerSeats || "Not configured"}.</Text>
             <Text>Regular rides: {rideOverview.driver.serviceModes?.regular ? "Enabled" : "Disabled"}.
               Shared rides: {rideOverview.driver.serviceModes?.shared ? "Enabled" : "Disabled"}.</Text>
+            {rideOverview.driver.rideProfilePhotoRequired
+              ? <Text>Ride offers are paused. Take or refresh your driver profile photo every 90 days in Ride assignments.</Text>
+              : null}
             {!rideOverview.driver.isAvailable || rideOverview.driver.approvalStatus !== "approved" ||
               rideOverview.driver.isSuspended || !rideOverview.driver.passengerSeats ||
               !["car", "van"].includes(rideOverview.driver.vehicleType)
@@ -528,7 +531,9 @@ const CompanyDriverDashboard = ({ navigation }) => {
           <TouchableOpacity style={styles.refreshLink} accessibilityRole="button"
             accessibilityLabel="Ride assignments"
             onPress={() => navigation.navigate("DriverRides")}>
-            <Text style={styles.refreshLinkText}>Open ride assignments & route</Text>
+            <Text style={styles.refreshLinkText}>{rideOverview?.driver?.rideProfilePhotoRequired
+              ? "Update ride profile photo"
+              : "Open ride assignments & route"}</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.headerCard}>

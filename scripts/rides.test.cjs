@@ -56,8 +56,20 @@ function harness(file, request, params = {}, auth = { isAuthenticated: true, loa
   const { default: Component } = load(file, {
     react, "react-native": native, "react-native-paper": { Button: "Button", TextInput: "TextInput", Switch: "Switch" },
     "@react-native-picker/picker": { Picker: Object.assign((props) => ({ type: "Picker", props }), { Item: "PickerItem" }) },
+    "@expo/vector-icons": { FontAwesome5: "FontAwesome5" },
     "@react-navigation/native": { useIsFocused: () => true },
     "react-native-safe-area-context": { SafeAreaView: "SafeAreaView" },
+    "expo-image-picker": {
+      CameraType: { front: "front" },
+      requestCameraPermissionsAsync: async () => ({ status: "granted" }),
+      launchCameraAsync: async () => ({ canceled: false, assets: [{ uri: "file:///driver.jpg", mimeType: "image/jpeg" }] }),
+    },
+    "@react-native-async-storage/async-storage": { getItem: async () => "test-token" },
+    "../../assets/common/baseUrl": { __esModule: true, default: "https://api.example.com/api/v1/" },
+    "../../Shared/CloudinaryUploader": { __esModule: true, default: {
+      getSignature: async () => ({ signature: "signature", api_key: "key", timestamp: 1, cloud_name: "demo" }),
+      uploadToCloudinary: async () => ({ secure_url: "https://res.cloudinary.com/demo/image/upload/v1/driver.jpg" }),
+    } },
     "expo-location": { Accuracy: { High: 1 }, requestForegroundPermissionsAsync: async () => ({ status: "granted" }),
       getForegroundPermissionsAsync: async () => ({ status: "granted" }), getCurrentPositionAsync: async () => ({ coords: { latitude: 0, longitude: 0 } }) },
     "../../assets/common/rides": { ...helpers, rideRequest: async (route = "", options) => {
@@ -160,7 +172,9 @@ test("customer UI defaults to regular, submits ordered multi-stops and one fare,
   await ui.start();
   assert.equal(ui.switches()[0].props.value, false);
   assert.match(text(ui.render()), /one fare for everyone/);
-  ui.button("Add intermediate stop (choose pickup or drop-off)").props.onPress();
+  assert.match(text(ui.render()), /shown for reference only/);
+  assert.doesNotMatch(text(ui.render()), /\bEconomy\b|\bComfort\b/);
+  ui.button("+ Add another stop").props.onPress();
   await ui.button("Calculate road route & fare").props.onPress();
   const routeMap = nodes(ui.render()).find((node) => node.type === "RideRouteMap");
   assert.equal(routeMap.props.ride._id, "ride");
@@ -180,7 +194,8 @@ test("shared form exposes only the booking's pickup/dropoff and synchronizes its
   });
   await ui.start();
   ui.switches()[0].props.onValueChange(true);
-  assert.equal(ui.button("Add intermediate stop (choose pickup or drop-off)"), undefined);
+  assert.equal(ui.button("+ Add another stop"), undefined);
+  ui.button("Saved address & passenger details").props.onPress();
   const input = nodes(ui.render()).find((node) => node.type === "TextInput" && node.props.label === "Passengers boarding");
   input.props.onChangeText("2");
   assert.match(text(ui.render()), /unrelated customers/);
@@ -214,6 +229,25 @@ test("driver screen separates offers and route, expires claim controls, and warn
   await ui.button("Refresh / enable GPS").props.onPress();
   assert.equal(ui.button("Claim ride"), undefined);
   assert.match(text(ui.render()), /Offer expired/);
+});
+test("ride driver takes a camera photo, uploads it, and saves it to the required profile endpoint", async () => {
+  const requests = [];
+  const driver = { serviceModes: { delivery: true }, rideProfilePhotoRequired: true };
+  const ui = harness("Screens\\Driver\\DriverRides.js", async (route, options) => {
+    requests.push({ route, options });
+    if (route === "me/driver") return { driver, offer: null, trip: null, riders: [], payments: [] };
+    return {};
+  });
+  await ui.start();
+  assert.match(text(ui.render()), /Take a current photo/);
+  const capture = ui.button("Take profile photo");
+  assert.ok(capture);
+  await capture.props.onPress();
+  const saved = requests.find((request) => request.route === "me/profile-photo");
+  assert.equal(saved.options.method, "put");
+  assert.equal(saved.options.data.profilePhotoUrl, "https://res.cloudinary.com/demo/image/upload/v1/driver.jpg");
+  assert.equal(requests.filter((request) => request.route === "me/location").length, 2);
+  assert.ok(ui.dialogs.some(([title]) => title === "Profile photo updated"));
 });
 test("driver termination sends a reason and fresh GPS without confirming destination drop-off", async () => {
   let ended = false;
@@ -386,6 +420,8 @@ test("ride form uses selected places, hides ZIP for Ethiopia and drops stale pla
   const inputs = () => nodes(ui.render()).filter((node) => node.type === "TextInput");
   assert.equal(searches().length, 2);
   assert.equal(searches()[0].props.label, "Search pickup location");
+  ui.button("Saved address & passenger details").props.onPress();
+  ui.button("Saved address & passenger details").props.onPress();
   assert.ok(inputs().some((node) => node.props.label === "ZIP code"));
   searches()[0].props.onSelect({ placeId: "ChIJpickup000001", address1: "1 Main St", city: "Town", zip: "12345",
     country: "USA", formattedAddress: "1 Main St, Town, USA" });

@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Image, ScrollView, Text, View } from "react-native";
 import { Button, TextInput } from "react-native-paper";
 import { Picker } from "@react-native-picker/picker";
 import { useIsFocused } from "@react-navigation/native";
@@ -102,7 +102,20 @@ export default function MyRides({ route, navigation }) {
       {selected.stops.map((stop) => <Text key={stop.key}>{stop.type}: {addressText(stop.address)} ({stop.passengers} passengers)</Text>)}
       <Text>Estimate: {rideFare(selected, selected.estimate)}</Text>
       {selected.assignedDriver ? <>
-        <Text>Driver: {selected.assignedDriver.name} - {selected.assignedDriver.vehicleType} {selected.assignedDriver.plateNumber || ""}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginVertical: 8 }}>
+          {selected.assignedDriver.profilePhotoUrl
+            ? <Image source={{ uri: selected.assignedDriver.profilePhotoUrl }}
+              accessibilityLabel={`${selected.assignedDriver.name}'s driver profile photo`}
+              style={{ width: 64, height: 64, borderRadius: 32 }} />
+            : <View accessibilityLabel="Driver photo unavailable" style={{ width: 64, height: 64,
+              borderRadius: 32, backgroundColor: "#e5e7eb", alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ color: "#4b5563", fontSize: 12 }}>Photo</Text>
+            </View>}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.heading}>Your driver</Text>
+            <Text>{selected.assignedDriver.name} - {selected.assignedDriver.vehicleType} {selected.assignedDriver.plateNumber || ""}</Text>
+          </View>
+        </View>
         <Text>Contact: {selected.assignedDriver.phone}</Text>
         {selected.status !== "completed" ? <Text>Driver GPS: {selected.assignedDriver.location?.coordinates?.slice().reverse().join(", ") || "Unavailable"}.
           Updated: {selected.assignedDriver.locationUpdatedAt ? new Date(selected.assignedDriver.locationUpdatedAt).toLocaleTimeString() : "No current GPS"}</Text> : null}

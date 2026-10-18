@@ -178,6 +178,21 @@ test("checkout geocodes and verifies the address country, asking for Android geo
   assert.equal(permissionCalls.length, 1);
 });
 
+test("delivery address verification accepts USA aliases and ISO country codes", async () => {
+  for (const [expectedCountry, reverseResult] of [
+    ["USA", { country: "United States", isoCountryCode: "US" }],
+    ["United States", { country: "USA" }],
+    ["US", { country: "United States" }],
+    ["Ethiopia", { country: "Ethiopia", isoCountryCode: "ET" }],
+    ["Ethio", { country: "Ethiopia", isoCountryCode: "ET" }],
+  ]) {
+    const { resolveDeliveryLocation } = loadDeliveryLocation(
+      "ios", async () => [dropoff], "granted", async () => [reverseResult]
+    );
+    assert.deepEqual(plain(await resolveDeliveryLocation("123 Main Street", expectedCountry)), dropoff);
+  }
+});
+
 test("iOS address resolution does not require GPS permission", async () => {
   const { resolveDeliveryLocation, permissionCalls } = loadDeliveryLocation(
     "ios", async () => [dropoff]

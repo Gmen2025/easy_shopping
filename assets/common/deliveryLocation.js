@@ -6,13 +6,29 @@ import countries from "../data/countries.json";
 const normalizeCountry = (value) =>
   String(value || "").trim().toLowerCase().replace(/[^a-z]/g, "");
 
+const countryAliases = {
+  us: "US",
+  usa: "US",
+  unitedstates: "US",
+  unitedstatesofamerica: "US",
+  et: "ET",
+  ethio: "ET",
+  ethiopia: "ET",
+};
+
+const countryCode = (value) => {
+  const normalized = normalizeCountry(value);
+  return countryAliases[normalized] ||
+    countries.find((country) => normalizeCountry(country.name) === normalized)?.code?.toUpperCase() ||
+    (normalized.length === 2 ? normalized.toUpperCase() : "");
+};
+
 const matchesCountry = (result, expectedCountry) => {
-  const expected = countries.find(
-    (country) => normalizeCountry(country.name) === normalizeCountry(expectedCountry)
-  );
-  const actualCode = String(result?.isoCountryCode || "").toUpperCase();
-  if (expected?.code && actualCode) {
-    return expected.code.toUpperCase() === actualCode;
+  const expectedCode = countryCode(expectedCountry);
+  const actualCode = String(result?.isoCountryCode || "").trim().toUpperCase() ||
+    countryCode(result?.country);
+  if (expectedCode && actualCode) {
+    return expectedCode === actualCode;
   }
   return normalizeCountry(result?.country) === normalizeCountry(expectedCountry);
 };
