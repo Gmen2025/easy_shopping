@@ -9,7 +9,7 @@ const toolkit = require("@reduxjs/toolkit");
 function load(relative, dependencies) {
   const filename = path.join(__dirname, "..", relative);
   const { code } = babel.transformSync(fs.readFileSync(filename, "utf8"), {
-    filename, configFile: false, babelrc: false, plugins: ["@babel/plugin-transform-modules-commonjs"],
+    filename, configFile: false, babelrc: false, plugins: ["@babel/plugin-transform-react-jsx", "@babel/plugin-transform-modules-commonjs"],
   });
   const exports = {};
   vm.runInNewContext(code, { exports, require: (name) => {
@@ -45,6 +45,15 @@ test("same product at two storefronts or prices stays separate and decrement rem
   assert.equal(state.cartItems.length, 1);
   assert.equal(state.cartItems[0].price, 10);
 });
+test("remove button removes every unit of only its exact cart variant", () => {
+  const other = { ...product, storefrontId: "other" };
+  let state = slice.default(undefined, slice.addToCart(product));
+  state = slice.default(state, slice.addToCart(product));
+  state = slice.default(state, slice.addToCart(other));
+  state = slice.default(state, slice.removeFromCart({ cartKey: identity.cartItemKey(product) }));
+  assert.equal(state.cartItems.length, 1);
+  assert.equal(state.cartItems[0].storefrontId, "other");
+});
 
 test("checkout completion subtracts only purchased units once and preserves items added during payment", () => {
   let state;
@@ -70,4 +79,59 @@ test("recovering another device's checkout or clearing the original cart does no
   state = slice.default(state, slice.addToCart(product));
   state = slice.default(state, action);
   assert.equal(state.cartItems.length, 1);
+});
+test("cart quantity and removal controls preserve the exact storefront variant and checkout currency", async () => {
+  const item = { ...product, storefrontId: "store", name: "Box", quantity: 3 };
+  const states = [], effects = [], actions = [], navigations = [];
+  let cursor = 0;
+  const react = {
+    createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
+    useContext: () => ({ isAuthenticated: true }),
+    useState: (initial) => {
+      const at = cursor++;
+      if (!(at in states)) states[at] = initial;
+      return [states[at], (next) => { states[at] = typeof next === "function" ? next(states[at]) : next; }];
+    },
+    useCallback: (action) => action,
+  };
+  const Component = load("Screens\\Cart\\CartView.js", {
+    react, "react-native": { View: "View", Text: "Text", FlatList: "FlatList", StyleSheet: { create: (value) => value },
+      Alert: { alert() {} } },
+    "react-native-paper": { Button: "Button", Avatar: { Image: "Image" } },
+    "react-redux": { useSelector: (selector) => selector({ cart: { cartItems: [item] } }),
+      useDispatch: () => (action) => actions.push(action) },
+    "../../store/cartSlice": slice,
+    "../../Context/store/Auth": { AuthContext: {} },
+    "../../Shared/StyledComponenets/EasyButton": "EasyButton",
+    "../../Shared/DeliveryCheckout": { CheckoutHeader: "CheckoutHeader" },
+    "../../assets/common/currency": { useCurrency: () => ({ formatPrice: (value) => `$${value.toFixed(2)}`, currencySymbol: "$" }) },
+    "../../assets/common/cartIdentity": identity,
+    "../../assets/common/storefront": { storeRequest: async () => ({ enabled: true }), getStorefrontScope() {} },
+    "../../assets/common/databaseConfig": { ...database, getDatabaseNameFromStorage: async () => "E_ShopUSA" },
+    "@react-navigation/native": { useFocusEffect: (effect) => effects.push(effect) },
+    "@react-native-picker/picker": { Picker: Object.assign("Picker", { Item: "PickerItem" }) },
+    "../../assets/common/exchangeRate": { exchangeRequest: async () => ({ active: true }), rateIsActive: (value) => value?.active },
+  }).default;
+  const render = () => { cursor = 0; return Component({ navigation: { push: (...args) => navigations.push(args), navigate() {}, goBack() {} } }); };
+  function nodes(value) {
+    if (!value || typeof value !== "object") return [];
+    if (Array.isArray(value)) return value.flatMap(nodes);
+    return [value, ...nodes(value.props?.children)];
+  }
+  render(); effects[0]();
+  for (let at = 0; at < 5; at++) await new Promise(setImmediate);
+  const list = nodes(render()).find((node) => node.type === "FlatList");
+  const row = list.props.renderItem({ item });
+  nodes(row).find((node) => node.props.accessibilityLabel === "Increase Box quantity").props.onPress();
+  nodes(row).find((node) => node.props.accessibilityLabel === "Decrease Box quantity").props.onPress();
+  nodes(row).find((node) => node.props.accessibilityLabel === "Remove Box").props.onPress();
+  assert.equal(actions[0].type, "cart/addToCart");
+  assert.equal(actions[0].payload.storefrontId, "store");
+  assert.equal(actions[1].payload.cartKey, identity.cartItemKey(item));
+  assert.equal(actions[2].type, "cart/removeFromCart");
+  assert.equal(actions[2].payload.cartKey, identity.cartItemKey(item));
+  const proceed = nodes(list.props.ListFooterComponent).find((node) => node.type === "EasyButton");
+  await proceed.props.onPress();
+  assert.equal(navigations[0][0], "MultiDeliveryCheckout");
+  assert.equal(navigations[0][1].paymentCurrency, "usd");
 });

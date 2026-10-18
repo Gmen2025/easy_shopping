@@ -4,7 +4,8 @@ import { Button, TextInput } from "react-native-paper";
 import { useFocusEffect } from "@react-navigation/native";
 import { storeRequest } from "../../../assets/common/storefront";
 import { useCurrency } from "../../../assets/common/currency";
-import { DeliverySummary, ExchangeReceipt, InternationalReceipt, styles } from "../../../Shared/DeliveryCheckout";
+import { DeliverySummary, DeliveryWindow, ExchangeReceipt, InternationalReceipt, styles } from "../../../Shared/DeliveryCheckout";
+import { deliveryModeLabel } from "../../../assets/common/delivery";
 import { paymentText } from "../../../assets/common/exchangeRate";
 import { getDatabaseNameFromStorage } from "../../../assets/common/databaseConfig";
 
@@ -92,6 +93,8 @@ const DeliveryCheckouts = ({ navigation, route }) => {
         <Text>{order.assignedStoreSnapshot?.address}</Text>
         <Text>Destination: {order.shippingAddress1}, {order.shippingAddress2}, {order.city}, {order.zip}, {order.country}</Text>
         <Text>Vehicle: {order.requiredVehicle}</Text>
+        <Text>Delivery method: {deliveryModeLabel(order.deliveryMode)}</Text>
+        <DeliveryWindow value={order} />
         {(order.orderItems || []).map((line) => <Text key={line._id}>
           {line.quantity} x {line.product?.name || "Product no longer available"} - {line.unitPrice == null ? "Price unavailable" : formatPrice(line.unitPrice)} each
         </Text>)}

@@ -528,7 +528,7 @@ test("mobile checkout charges USA per mile for all modes while preserving non-US
     scheduledBase: 0, scheduledPerKm: 2,
     scheduledPeakSurcharge: 0, scheduledOffPeakDiscount: 0,
   };
-  for (const mode of ["SAME_DAY", "NEXT_DAY", "SCHEDULED"]) {
+  for (const mode of ["EXPRESS", "STANDARD", "SCHEDULED"]) {
     for (const database of ["E_ShopUSA", "E_ShoppingUSA", "E_Shopping", "E_Shopping_2"]) {
       context.mode = mode;
       context.database = database;
@@ -540,7 +540,7 @@ test("mobile checkout charges USA per mile for all modes while preserving non-US
     }
   }
   for (const [mode, hour, expected] of [
-    ["SAME_DAY", 12, 19.21], ["NEXT_DAY", 12, 7.73],
+    ["EXPRESS", 12, 19.21], ["STANDARD", 12, 7.73],
     ["SCHEDULED", 18, 11.16], ["SCHEDULED", 12, 9.16], ["SCHEDULED", 8, 9.66],
   ]) {
     const runContext = { ...context, mode, hour, database: "E_ShopUSA", config: {} };
@@ -550,6 +550,18 @@ test("mobile checkout charges USA per mile for all modes while preserving non-US
     );
     assert.equal(runContext.result, expected);
   }
+});
+
+test("new delivery labels reflect Admin windows while historical same-day and next-day labels remain distinct", () => {
+  const delivery = loadDelivery({});
+  const options = delivery.deliveryMethodOptions({ expressMinBusinessDays: 2, expressMaxBusinessDays: 3,
+    standardMinBusinessDays: 3, standardMaxBusinessDays: 7 });
+  assert.deepEqual(Array.from(options, (option) => option.value), ["STANDARD", "EXPRESS", "SCHEDULED"]);
+  assert.equal(options[0].description, "3 - 7 business days");
+  assert.equal(options[1].description, "2 - 3 business days");
+  assert.equal(delivery.deliveryModeLabel("EXPRESS"), "Express Delivery");
+  assert.equal(delivery.deliveryModeLabel("SAME_DAY"), "Same Day Delivery (legacy)");
+  assert.equal(delivery.deliveryModeLabel("NEXT_DAY"), "Next Day Delivery (legacy)");
 });
 
 test("checkout requires a server road distance and never silently substitutes a straight-line distance", async () => {

@@ -6,6 +6,17 @@ import { getDatabaseNameFromStorage, sanitizeDatabaseName } from "./databaseConf
 
 const DELIVERY_SETTINGS_CACHE_PREFIX = "deliverySettings:";
 
+export const deliveryMethodOptions = (config = {}) => [
+  { value: "STANDARD", label: "Standard Delivery", description: `${config.standardMinBusinessDays ?? 2} - ${config.standardMaxBusinessDays ?? 5} business days`, icon: "truck-delivery-outline" },
+  { value: "EXPRESS", label: "Express Delivery", description: `${config.expressMinBusinessDays ?? 1} - ${config.expressMaxBusinessDays ?? 2} business days`, icon: "lightning-bolt" },
+  { value: "SCHEDULED", label: "Scheduled Delivery", description: "Choose your delivery day", icon: "calendar-clock" },
+];
+
+export const deliveryModeLabel = (mode) => ({
+  EXPRESS: "Express Delivery", STANDARD: "Standard Delivery", SCHEDULED: "Scheduled Delivery",
+  SAME_DAY: "Same Day Delivery (legacy)", NEXT_DAY: "Next Day Delivery (legacy)",
+}[mode] || mode || "Delivery");
+
 export const getDeliveryDistanceUnit = (databaseName) =>
   sanitizeDatabaseName(databaseName) === "E_ShopUSA" ? "mile" : "km";
 

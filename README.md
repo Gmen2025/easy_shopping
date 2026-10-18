@@ -39,15 +39,35 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   fee updates and the saved order requires a car driver. Car is shown only when
   enabled with valid pricing/capacity in **USA > Admin > Vehicle delivery
   settings** and suitable for the known load. Enable vehicle checkout and
-  migrate per-store inventory first; the older delivery-speed checkout is
-  unchanged. Missing or unsuitable Car options show an explanation rather than
+  migrate per-store inventory first. Missing or unsuitable Car options show an explanation rather than
   bypassing capacity checks.
-- **Delivery Speed**: Vehicle/multi-delivery checkout supports Same Day, Next
-  Day and Scheduled delivery (with a future date), applied to all deliveries in
-  the checkout. The selected mode and scheduled date are sent to both the quote
-  and reservation APIs. The backend stores the selection on the checkout and
-  resulting orders and applies its dispatch schedule/priority; delivery fees
-  remain based on the selected vehicle and route.
+- **Delivery Speed**: New checkouts offer **Express (1-2 business days)**,
+  **Standard (2-5 business days, default)** and **Scheduled** (future date),
+  applied to all deliveries. Business days are Monday-Friday, with no holiday
+  calendar; counting starts on the next business day. Admin can adjust day
+  ranges, delivery hours, IANA time zone and pricing under **Delivery Pricing**.
+  Hours default to 09:00-18:00; the regional default zone is America/New_York
+  for USA and Africa/Addis_Ababa for Ethiopia. Set the USA zone to match your
+  operation. For US-to-Ethiopia purchases the window covers the US hub leg
+  only, not international arrival.
+  Express retains the previous same-day legacy base/premium/distance rates;
+  Standard retains previous next-day legacy rates. Multi-delivery retains its
+  vehicle/route fees with explicit speed surcharges per delivery (zero by
+  default), rather than charging the legacy distance fee again. Historical
+  Same Day/Next Day orders keep their original mode and delivery promises.
+  Deploy the matching backend and upgraded mobile together: old clients sending
+  SAME_DAY/NEXT_DAY for new orders will be rejected. Existing orders and
+  in-flight legacy quotes retain their timing.
+- **Reference-inspired cart flow**: White cards, a yellow brand header/actions
+  and progress through Cart, Address, Delivery and Payment lead to a separate
+  Order Summary. Quantity +/- and remove respect the exact regional/storefront
+  cart variant. Multi-address allocations, server vehicle recommendations,
+  USD/Birr choices, exchange-rate locks, international shipping and recovery
+  remain intact. Review displays server-estimated delivery windows and
+  vehicle-adjusted totals; payment eligibility is unchanged. No store pickup,
+  invented tax, unsupported Telebirr flow or email/SMS promise is added.
+  Processing reflects real requests; confirmation distinguishes paid orders,
+  cash due, pending bank verification and international bank review.
 - **Checkout Stock Guard**: Prevents checkout/payment when requested quantity exceeds available stock
 - **User Accounts**: Registration, login, email verification
 - **Order Tracking**: View order history and status

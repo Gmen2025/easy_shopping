@@ -15,7 +15,7 @@ import baseUrl from "../assets/common/baseUrl";
 import { AuthContext } from "../Context/store/Auth";
 import UserOrderItems from "./UserOrderItems";
 import { useCurrency } from "../assets/common/currency";
-import { formatScheduledDeliveryDate } from "../assets/common/delivery";
+import { deliveryModeLabel, formatScheduledDeliveryDate } from "../assets/common/delivery";
 import { ExchangeReceipt, InternationalReceipt } from "./DeliveryCheckout";
 
 const OrderCard = (props) => {
@@ -557,7 +557,7 @@ const OrderCard = (props) => {
         </View> : null}
         {props.deliveryMode ? (
           <Text style={styles.label}>
-            Delivery option: {props.deliveryMode.replace(/_/g, " ")}
+            Delivery option: {deliveryModeLabel(props.deliveryMode)}
           </Text>
         ) : null}
         {props.deliveryMode === "SCHEDULED" ||

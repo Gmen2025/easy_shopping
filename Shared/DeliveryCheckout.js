@@ -1,10 +1,39 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useCurrency } from "../assets/common/currency";
 import { paymentText } from "../assets/common/exchangeRate";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const measurementText = (value, unit) => Number.isFinite(value) && value > 0
   ? `${value} ${unit}` : "Not available currently";
+
+export const CheckoutHeader = ({ step = 0, title, onBack, disabled }) => {
+  const insets = useSafeAreaInsets();
+  return <View>
+  <View style={[checkoutStyles.brand, { paddingTop: insets.top + 16 }]}>
+    {onBack ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="Back"
+      disabled={disabled} onPress={onBack} style={checkoutStyles.back}><Text style={checkoutStyles.backText}>{"<"}</Text></TouchableOpacity> : null}
+    <View style={checkoutStyles.bag} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <View style={checkoutStyles.bagHandle} />
+    </View>
+    <View style={{ flex: 1 }}><Text style={checkoutStyles.brandName}>Addu Genet Eshop</Text>
+      <Text style={checkoutStyles.tagline}>Global Products - Local Access</Text></View>
+  </View>
+  <View style={checkoutStyles.progress} accessible accessibilityLabel={`Checkout step ${Math.min(step + 1, 4)} of 4`}>
+    {["Cart", "Address", "Delivery", "Payment"].map((label, index) => <View key={label} style={checkoutStyles.progressStep}>
+      <View style={[checkoutStyles.number, index <= step && checkoutStyles.activeNumber]}><Text style={checkoutStyles.numberText}>{index + 1}</Text></View>
+      <Text style={checkoutStyles.stepText}>{label}</Text>
+    </View>)}
+  </View>
+  {title ? <Text style={checkoutStyles.title}>{title}</Text> : null}
+</View>;
+};
+
+export const DeliveryWindow = ({ value }) => value?.deliveryWindowStart && value?.deliveryWindowEnd ? <View>
+  <Text style={styles.heading}>{value.international || value.internationalShipping ? "Estimated US hub delivery" : "Estimated delivery"}</Text>
+  <Text>{new Date(value.deliveryWindowStart).toLocaleDateString()} - {new Date(value.deliveryWindowEnd).toLocaleDateString()}</Text>
+  {value.international || value.internationalShipping ? <Text>US delivery to consolidation hub only. International arrival is tracked separately.</Text> : null}
+</View> : null;
 
 export const PackageMeasurements = ({ size }) => <View>
   <Text>Packaged weight: {measurementText(size?.weightKg, "kg")}</Text>
@@ -41,6 +70,7 @@ export const DeliverySummary = ({ group }) => {
   return <View style={styles.card}>
     <Text selectable style={styles.title}>Checkout #{String(group._id).slice(-6).toUpperCase()}</Text>
     <Text>Status: {group.status} | Payment: {group.paymentStatus}</Text>
+    <DeliveryWindow value={group} />
     <Text>{group.kind === "service" ? "Service quote" : "Products"}: {formatPrice(group.itemsSubtotal)}</Text>
     <Text>Delivery: {formatPrice(group.deliveryFee)}</Text>
     {group.international ? <>
@@ -66,4 +96,37 @@ export const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: "700", color: "#111827" },
   heading: { fontSize: 17, fontWeight: "700", color: "#111827" }, input: { backgroundColor: "#fff", marginVertical: 4 },
   error: { color: "#b91c1c" }, success: { color: "#166534" },
+});
+
+export const checkoutStyles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: "#fff" },
+  content: { padding: 16, paddingTop: 0, paddingBottom: 40, gap: 14 },
+  card: { padding: 16, backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#e5e7eb", gap: 10 },
+  title: { fontSize: 22, fontWeight: "800", color: "#101820", marginVertical: 12 },
+  heading: { fontSize: 16, fontWeight: "700", color: "#101820" },
+  brand: { backgroundColor: "#ffdb00", paddingHorizontal: 16, paddingVertical: 22, flexDirection: "row", alignItems: "center", gap: 18, marginHorizontal: -16 },
+  brandName: { fontSize: 20, fontWeight: "800", color: "#101820" },
+  bag: { width: 24, height: 27, borderWidth: 2, borderColor: "#101820", borderRadius: 3, marginTop: 5 },
+  bagHandle: { position: "absolute", width: 12, height: 12, borderWidth: 2, borderColor: "#101820", borderRadius: 6, top: -8, left: 4 },
+  tagline: { fontSize: 11, color: "#27313d", marginTop: 4 },
+  back: { padding: 8 },
+  backText: { fontSize: 24, color: "#101820", fontWeight: "700" },
+  progress: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 20 },
+  progressStep: { alignItems: "center", flex: 1, gap: 5 },
+  number: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: "#e5e7eb", alignItems: "center", justifyContent: "center" },
+  activeNumber: { backgroundColor: "#ffdb00", borderColor: "#ffdb00" },
+  numberText: { color: "#101820", fontWeight: "700" },
+  stepText: { fontSize: 11, color: "#374151" },
+  primary: { backgroundColor: "#ffdb00", borderRadius: 10, paddingVertical: 5 },
+  primaryLabel: { color: "#101820", fontWeight: "800" },
+  option: { padding: 16, borderRadius: 12, borderWidth: 1, borderColor: "#e5e7eb", flexDirection: "row", alignItems: "center", gap: 14 },
+  selectedOption: { borderColor: "#e6bd00", backgroundColor: "#fffbea" },
+  optionBody: { flex: 1, gap: 5 },
+  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: "#9ca3af", padding: 4 },
+  radioSelected: { borderColor: "#d4ab00", backgroundColor: "#ffdb00" },
+  radioDot: { flex: 1, borderRadius: 8, backgroundColor: "#101820" },
+  note: { color: "#596579", fontSize: 13, lineHeight: 19 },
+  row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  successPanel: { borderRadius: 16, padding: 22, backgroundColor: "#f0fdf4", gap: 14, alignItems: "center" },
+  successTitle: { color: "#166534", fontSize: 24, fontWeight: "800", textAlign: "center" },
 });

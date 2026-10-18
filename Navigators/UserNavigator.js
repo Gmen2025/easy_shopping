@@ -35,8 +35,8 @@ const MyStack = () => {
           <Stack.Screen name="User Profile" component={UserProfile} />
           <Stack.Screen name="EditProfile" component={EditProfile} />
           <Stack.Screen name="ServiceRequests" component={ServiceRequests} />
-          <Stack.Screen name="ServiceUsdCheckout" component={MultiDeliveryCheckout} />
-          <Stack.Screen name="MultiDeliveryCheckout" component={MultiDeliveryCheckout} />
+          <Stack.Screen name="ServiceUsdCheckout" component={MultiDeliveryCheckout} options={{ headerShown: false }} />
+          <Stack.Screen name="MultiDeliveryCheckout" component={MultiDeliveryCheckout} options={{ headerShown: false }} />
           <Stack.Screen name="DeliveryCheckouts" component={DeliveryCheckouts} />
           <Stack.Screen name="OrderTracking" component={OrderTrackingScreen} />
           <Stack.Screen name="RoleSetup" component={RoleSetupScreen} />

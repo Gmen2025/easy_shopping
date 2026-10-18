@@ -1,8 +1,8 @@
 import React, {useContext, useState, useCallback} from 'react';
 import { View, Text, FlatList, StyleSheet, Alert } from 'react-native';
-import { Card, Button, Appbar, Avatar } from 'react-native-paper';
+import { Button, Avatar } from 'react-native-paper';
 import { useSelector, useDispatch } from 'react-redux';
-import { clearCart, deductQuantity} from '../../store/cartSlice'; // Adjust the import path as necessary
+import { addToCart, removeFromCart, clearCart, deductQuantity } from '../../store/cartSlice';
 import { AuthContext } from '../../Context/store/Auth';
 import EasyButton from '../../Shared/StyledComponenets/EasyButton';
 import { useCurrency } from '../../assets/common/currency';
@@ -12,6 +12,7 @@ import { getDatabaseNameFromStorage, sanitizeDatabaseName } from '../../assets/c
 import { useFocusEffect } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 import { exchangeRequest, rateIsActive, usdAmount, usdText, usdInactiveMessage, birrAmount, etbText, exportInactiveMessage } from '../../assets/common/exchangeRate';
+import { CheckoutHeader } from '../../Shared/DeliveryCheckout';
 //import { CheckoutProvider } from '../../Context/store/CheckoutContext'; // Import the CheckoutProvider
 
 // products data
@@ -22,7 +23,6 @@ import { exchangeRequest, rateIsActive, usdAmount, usdText, usdInactiveMessage, 
 const CartView = (props) => {
 
   const context = useContext(AuthContext);
-  console.log("context value", context)
 
 
   const cartItems = useSelector((state) => state.cart.cartItems);
@@ -72,7 +72,10 @@ const CartView = (props) => {
   
 
   const handleClearCart = () => {
-    dispatch(clearCart());
+    Alert.alert("Clear your cart?", "Remove all items from this cart?", [
+      { text: "Keep items", style: "cancel" },
+      { text: "Clear cart", style: "destructive", onPress: () => dispatch(clearCart()) },
+    ]);
   };
 
   const handleDeductQuantity = (item) => {
@@ -106,23 +109,20 @@ const CartView = (props) => {
 
 return (
   <View style={styles.container}>
-    <Appbar.Header>
-      <Appbar.Content titleStyle={styles.appbarTitle} title="Your Cart" />
-      <Appbar.Action
-        icon="delete"
-        color="red"
-        size={40}
-        onPress={handleClearCart}
-      />
-    </Appbar.Header>
+    <FlatList
+      data={productsData}
+      ListHeaderComponent={<>
+    <View style={{ paddingHorizontal: 16 }}>
+      <CheckoutHeader step={0} onBack={() => props.navigation.goBack()} title={`Your Cart (${productsData.length})`} />
+    </View>
+    {productsData.length ? <Button disabled={checking} onPress={handleClearCart}>Clear cart</Button> : null}
     {context.isAuthenticated ? <Button onPress={() => props.navigation.navigate("DeliveryCheckouts")}>My multi-delivery checkouts</Button> : null}
-    {productsData.length === 0 ? (
+      </>}
+      ListEmptyComponent={
       <View style={styles.emptyCart}>
         <Text style={styles.emptyText}>Your cart is empty</Text>
       </View>
-    ) : (
-      <FlatList
-        data={productsData}
+      }
         renderItem={({ item }) => {
           const quantity = item.quantity;
           return (
@@ -140,25 +140,25 @@ return (
                 <Text style={styles.itemName}>{item.name}</Text>
                 {item.storefrontId ? <Text>{item.storefrontName || `Store ${item.storefrontId}`}</Text> : <Text>Main catalog</Text>}
                 <Text style={styles.itemPrice}>{formatPrice(item.price)}</Text>
-                <Text>Qty: {quantity}</Text>
-                <Text>Subtotal: {formatPrice(item.price * quantity)}</Text>
+                <View style={styles.quantity}>
+                  <Button compact disabled={checking} accessibilityLabel={`Decrease ${item.name} quantity`}
+                    onPress={() => handleDeductQuantity(item)}>-</Button>
+                  <Text>{quantity}</Text>
+                  <Button compact disabled={checking} accessibilityLabel={`Increase ${item.name} quantity`}
+                    onPress={() => dispatch(addToCart(item))}>+</Button>
+                </View>
               </View>
               <View style={styles.actions}>
-                <Button
-                  onPress={() => handleDeductQuantity(item)}
-                  mode="outlined"
-                >
-                  -
-                </Button>
+                <Button compact icon="delete-outline" disabled={checking} accessibilityLabel={`Remove ${item.name}`}
+                  onPress={() => dispatch(removeFromCart({ cartKey: cartItemKey(item) }))}>Remove</Button>
+                <Text style={styles.lineTotal}>{formatPrice(item.price * quantity)}</Text>
               </View>
             </View>
           );
         }}
         keyExtractor={cartItemKey}
         contentContainerStyle={styles.listContent}
-      />
-    )}
-    {productsData.length > 0 && (
+        ListFooterComponent={productsData.length > 0 ? (
       <View style={{ padding: 10 }}>
         {database && context.isAuthenticated ? <>
           <Text>{/usa/i.test(database) ? "Pay USD for US delivery, or birr to ship approved US products to Ethiopia. Products only; shipping is added." :
@@ -177,8 +177,9 @@ return (
             (/usa/i.test(database) ? exportInactiveMessage : usdInactiveMessage) : exchange?.message ||
               (/usa/i.test(database) ? exportInactiveMessage : usdInactiveMessage)}</Text> : null}
         </> : null}
-        <Text style={{ fontSize: 18, fontWeight: "bold" }}>
-          Grand Total: {currencySymbol} 
+        <Text style={{ color: "#596579", marginVertical: 6 }}>Delivery fees are calculated after choosing addresses, delivery speed and vehicles. Only server-confirmed charges apply.</Text>
+        <Text style={{ fontSize: 22, fontWeight: "800", marginVertical: 8 }}>
+          Products subtotal: {currencySymbol}
           {productsData
             .reduce((total, item) => {
               return total + item.price * item.quantity;
@@ -192,7 +193,7 @@ return (
               tertiary
               disabled={checking || !regionReady}
               onPress={checkout}
-              style={{ margin: 10 }}
+              style={{ marginVertical: 10, backgroundColor: "#ffdb00", borderRadius: 10 }}
             >
               <Text style={{ color: '#030501' }}>{checking ? "Checking availability..." :
                 regionReady ? "Proceed to Checkout" : "Loading shopping region..."}</Text>
@@ -209,7 +210,8 @@ return (
           )}
         </View>
       </View>
-    )}
+    ) : null}
+    />
   </View>
 );
 }
@@ -217,7 +219,7 @@ return (
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'gainsboro',
+    backgroundColor: '#fff',
   },
   rowItem: {
     flexDirection: 'row',
@@ -253,6 +255,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: 10,
   },
+  quantity: { flexDirection: "row", alignItems: "center", marginTop: 6 },
+  lineTotal: { fontWeight: "800", fontSize: 15, color: "#101820", marginTop: 10 },
   listContent: {
     paddingBottom: 20,
   },

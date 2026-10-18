@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, ScrollView, Text, View, ActivityIndicator } from "react-native";
+import { Alert, Image, ScrollView, Share, Text, TouchableOpacity, View, ActivityIndicator } from "react-native";
 import { Button, TextInput } from "react-native-paper";
 import { Picker } from "@react-native-picker/picker";
 import { useDispatch, useSelector } from "react-redux";
@@ -9,11 +9,12 @@ import { storeRequest } from "../../../assets/common/storefront";
 import { getDatabaseNameFromStorage, sanitizeDatabaseName } from "../../../assets/common/databaseConfig";
 import { beginCheckout, completeCheckout } from "../../../store/cartSlice";
 import { useCurrency } from "../../../assets/common/currency";
-import { CargoSummary, DeliverySummary, PackageMeasurements, styles } from "../../../Shared/DeliveryCheckout";
+import { CargoSummary, CheckoutHeader, DeliverySummary, DeliveryWindow, PackageMeasurements, styles as sharedStyles, checkoutStyles } from "../../../Shared/DeliveryCheckout";
 import AddressSearchInput from "../../../Shared/AddressSearchInput";
 import { addressText, isEthiopia } from "../../../assets/common/rides";
 import { exchangeRequest, rateIsActive, usdAmount, usdText, usdInactiveMessage, birrAmount, etbText, exportInactiveMessage } from "../../../assets/common/exchangeRate";
 import { isCashOnDeliveryAvailable } from "../../../assets/common/paymentAvailability";
+import { deliveryMethodOptions, deliveryModeLabel, getDeliverySettings } from "../../../assets/common/delivery";
 
 const ADDRESS_FIELDS = [
   ["label", "Address label"], ["address1", "Street address"], ["address2", "Apartment / unit (optional)"],
@@ -21,11 +22,7 @@ const ADDRESS_FIELDS = [
 ];
 const blankAddress = () => Object.fromEntries(ADDRESS_FIELDS.map(([key]) => [key, ""]));
 const locatedFields = ["address1", "city", "zip", "country"];
-const DELIVERY_MODES = [
-  ["SAME_DAY", "Same Day Delivery"],
-  ["NEXT_DAY", "Next Day Delivery"],
-  ["SCHEDULED", "Scheduled Delivery"],
-];
+const styles = { ...sharedStyles, ...checkoutStyles };
 const getUpcomingDeliveryDays = () =>
   Array.from({ length: 14 }, (_, index) => {
     const date = new Date();
@@ -49,7 +46,9 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
   const [addresses, setAddresses] = useState([]);
   const [editor, setEditor] = useState(null);
   const [allocations, setAllocations] = useState({});
-  const [deliveryMode, setDeliveryMode] = useState("SAME_DAY");
+  const [deliveryMode, setDeliveryMode] = useState("STANDARD");
+  const [deliveryConfig, setDeliveryConfig] = useState(null);
+  const [step, setStep] = useState(1);
   const [scheduledDate, setScheduledDate] = useState("");
   const [quote, setQuote] = useState(null);
   const [group, setGroup] = useState(null);
@@ -64,6 +63,7 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
   const [exchange, setExchange] = useState(null);
   const region = useRef("");
   const running = useRef(false);
+  const scroll = useRef(null);
   const resumeId = route.params?.groupId;
   const serviceId = route.params?.serviceId;
   const service = Boolean(serviceId || group?.kind === "service" || quote?.kind === "service");
@@ -110,7 +110,7 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
         storeRequest("delivery-bank-accounts?currency=USD"),
       ]);
       setExchange(policy); setBanks(accounts); setBankId(accounts[0]?._id || "");
-      if (result.status === "quote") setQuote(result);
+      if (result.status === "quote") { setQuote(result); setStep(3); }
       else await showGroup(result, false);
       return;
     }
@@ -121,11 +121,14 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
       setExchange(policy);
       if (!rateIsActive(policy)) throw new Error(policy.message || (exportPurchase ? exportInactiveMessage : usdInactiveMessage));
     }
-    const [current, existing, accounts] = await Promise.all([
+    const [current, existing, accounts, settings] = await Promise.all([
       storeRequest("delivery-current-address"), storeRequest("delivery-addresses"),
       storeRequest(exportPurchase ? "delivery-bank-accounts?currency=ETB" :
         currency === "usd" && !/usa/i.test(db) ? "delivery-bank-accounts?currency=USD" : "delivery-bank-accounts"),
+      getDeliverySettings({ allowCached: false }),
     ]);
+    if (!settings?.deliveryConfig) throw new Error("Delivery methods could not be loaded. Reload checkout before continuing.");
+    setDeliveryConfig(settings.deliveryConfig);
     const initial = { ...current, ...(exportPurchase && !isEthiopia(current.country) ?
       { address1: "", address2: "", city: "", zip: "", country: "Ethiopia", phone: current.phone || "" } : {}), id: "current" };
     setAddresses([initial]);
@@ -135,6 +138,7 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
     setAllocations(Object.fromEntries(items.map((item) => [cartItemKey(item), { current: String(item.quantity) }])));
   });
   useEffect(() => { load(); }, [resumeId, serviceId]);
+  useEffect(() => { scroll.current?.scrollTo({ y: 0, animated: false }); }, [step, group?.status]);
 
   const invalidate = () => { setQuote(null); setSelections({}); };
   const updateAllocation = (key, addressId, quantity) => {
@@ -149,6 +153,23 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
     setScheduledDate(value);
     invalidate();
   };
+  const continueAddresses = () => run(async () => {
+    if (editor) throw new Error("Save or discard address edits before continuing.");
+    if (!items.length || !deliveryConfig) throw new Error("Reload checkout to load your cart and delivery methods.");
+    for (const item of items) {
+      const assigned = addresses.map((address) => Number(allocations[cartItemKey(item)]?.[address.id] || 0));
+      if (assigned.some((quantity) => !Number.isSafeInteger(quantity) || quantity < 0) ||
+          assigned.reduce((sum, quantity) => sum + quantity, 0) !== item.quantity) {
+        throw new Error(`Allocate all ${item.quantity} units of ${item.name} exactly once using whole quantities.`);
+      }
+    }
+    const used = addresses.filter((address) => items.some((item) => Number(allocations[cartItemKey(item)]?.[address.id]) > 0));
+    if (used.some((address) => ADDRESS_FIELDS.some(([key]) => key !== "address2" &&
+        !(key === "zip" && isEthiopia(address.country)) && !address[key]?.trim()))) {
+      throw new Error("Complete every selected delivery address and recipient phone before continuing.");
+    }
+    setStep(2);
+  });
   const getScheduledFor = () => {
     if (deliveryMode !== "SCHEDULED") return null;
     const [year, month, day] = scheduledDate.split("-").map(Number);
@@ -216,6 +237,11 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
     setSelections(Object.fromEntries(result.deliveries.map((delivery) => [delivery.key, delivery.vehicle])));
   });
   const reserveCheckout = () => run(async () => {
+    const expiresAt = new Date(quote.expiresAt).getTime();
+    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+      invalidate(); setStep(service ? 3 : 2);
+      throw new Error("This quote expired. Calculate a new quote before placing your order.");
+    }
     if (method === "cash" && !cashAvailable) throw new Error("Cash on delivery is unavailable for this checkout. USA cash checkout requires a development/debug build.");
     if (quote.deliveries.some((delivery) => !selections[delivery.key])) throw new Error("Choose a vehicle for every delivery before continuing.");
     if (!service && (items.some((item) => !quote.cart.some((line) => line.key === cartItemKey(item) && line.quantity === item.quantity)) ||
@@ -247,12 +273,44 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
   const selectedFee = quote?.deliveries.reduce((sum, delivery) => sum +
     (delivery.vehicleOptions.find((option) => option.type === selections[delivery.key])?.fee ?? delivery.deliveryFee ?? 0), 0) || 0;
   const previewTotal = (quote?.itemsSubtotal || 0) + selectedFee + (quote?.international?.shippingFee || 0);
+  const methods = [
+    { value: "bank", label: "Bank Transfer", description: "Verified by Admin after submitting your reference" },
+    ...(!quote?.international && (/usa/i.test(database) || quote?.exchangeRate) && availableCard
+      ? [{ value: "card", label: "Credit / Debit Card", description: "Secure card payment" }] : []),
+    ...(cashAvailable ? [{ value: "cash", label: "Cash on Delivery", description: /usa/i.test(database)
+      ? "Development/debug builds only" : "Pay separately when each delivery arrives" }] : []),
+  ];
+  const placed = group?.status === "placed";
+  const shareOrder = () => run(async () => {
+    await Share.share({ message: `Addu Genet Eshop order #${group._id}\nStatus: ${group.status}\nPayment: ${group.paymentStatus || "pending"}` });
+  });
 
-  return <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-    {busy ? <ActivityIndicator /> : null}
+  return <ScrollView ref={scroll} style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <CheckoutHeader step={group ? 3 : Math.min(step, 3)}
+      title={group ? placed ? "Order confirmation" : "Checkout status" : service ? "Service payment" :
+        ["", "Delivery Address", "Choose Delivery Method", "Payment Method", "Order Summary"][step]}
+      disabled={busy} onBack={() => {
+        if (group || service || step === 1) navigation.goBack();
+        else setStep(step - 1);
+      }} />
+    {busy ? <View style={styles.card} accessibilityLiveRegion="polite">
+      <ActivityIndicator color="#b39100" />
+      <Text style={styles.heading}>Processing your checkout...</Text>
+      <Text style={checkoutStyles.note}>Waiting for the server to verify this request. Please do not submit another payment.</Text>
+    </View> : null}
     {error ? <Text style={styles.error}>{error}</Text> : null}
     {!addresses.length && !group && !quote ? <Button disabled={busy} onPress={load}>Reload checkout</Button> : null}
     {group ? <>
+      {placed ? <View style={checkoutStyles.successPanel}>
+        <Text style={checkoutStyles.successTitle}>Order Placed Successfully!</Text>
+        <Text style={checkoutStyles.note}>{group.paymentStatus === "completed" ? "Your payment is confirmed." :
+          group.paymentMethod === "cash" ? "Pay on each delivery. No online payment was taken." :
+            "Your bank payment is pending Admin verification. Do not pay twice."}</Text>
+        <Text selectable style={styles.heading}>Order #{String(group._id).toUpperCase()}</Text>
+      </View> : group.status === "bank_review" ? <View style={styles.card}>
+        <Text style={styles.heading}>Transfer submitted for review</Text>
+        <Text>Your order is not confirmed for fulfillment until Admin verifies funds. Do not send another payment.</Text>
+      </View> : null}
       <DeliverySummary group={group} />
       {group.status === "awaiting_payment" ? <View style={styles.card}>
         <Text style={styles.heading}>{service ? "Payment reserved until " : "Stock held until "}{new Date(group.expiresAt).toLocaleString()}</Text>
@@ -277,15 +335,20 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
           }) },
         ])}>Cancel unpaid reservation</Button>
       </View> : null}
-      <Button onPress={() => navigation.navigate("DeliveryCheckouts", { groupId: group._id })}>{service ? "View service payment" : "View individual deliveries"}</Button>
-      <Button onPress={() => service ? navigation.goBack() : navigation.navigate("CartHome")}>{service ? "Back to services" : "Return to cart"}</Button>
+      <Button disabled={busy} mode="contained" style={checkoutStyles.primary} labelStyle={checkoutStyles.primaryLabel}
+        onPress={() => navigation.navigate("DeliveryCheckouts", { groupId: group._id })}>{service ? "View service payment" : "View individual deliveries"}</Button>
+      {placed ? <Button disabled={busy} icon="share-variant" onPress={shareOrder}>Share order</Button> : null}
+      {placed && !service ? <Button disabled={busy}
+        onPress={() => navigation.navigate("Home")}>Continue shopping</Button> : null}
+      <Button disabled={busy} onPress={() => service ? navigation.goBack() : navigation.navigate("CartHome")}>{service ? "Back to services" : "Return to cart"}</Button>
     </> : <>
       {service ? <View style={styles.card}>
         <Text style={styles.title}>Service USD checkout</Text>
         <Text>Accept and pay the Admin's birr quote in US dollars. Fulfillment stays in Ethiopia. No passenger rides or cash payments.</Text>
         <Button disabled={busy} onPress={load}>Refresh service quote / payment status</Button>
       </View> : <>
-      <Text style={styles.title}>Delivery addresses & quantities</Text>
+      {step === 1 ? <>
+      <Text style={styles.heading}>Delivery addresses & quantities</Text>
       {international ? <Text>Enter Ethiopian recipient addresses. US stores deliver to the consolidation hub; Admin manages international shipping. Birr bank transfer only, verified before fulfillment. Import duties/customs are excluded.</Text> : null}
       {converted ? <Text>Pay in USD; all delivery addresses and pickups must be in Ethiopia.</Text> : null}
       <Text>Allocate each unit to one address. Pickup stores are selected from price-matching stock near that destination. Storefront items stay within that store's branch family.</Text>
@@ -337,33 +400,54 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
         const key = cartItemKey(item);
         const total = addresses.reduce((sum, address) => sum + Number(allocations[key]?.[address.id] || 0), 0);
         return <View key={key} style={styles.card}>
-          <Text style={styles.heading}>{item.name} - {item.quantity} units</Text>
+          <View style={checkoutStyles.row}>
+            {item.image ? <Image source={{ uri: item.image }} style={{ width: 52, height: 64, resizeMode: "contain" }} /> : null}
+            <Text style={[styles.heading, { flex: 1 }]}>{item.name} - {item.quantity} units</Text>
+          </View>
           <Text>{item.storefrontName || (item.storefrontId ? `Store ${item.storefrontId}` : "Main catalog")} | {formatPrice(item.price)} each</Text>
           <PackageMeasurements size={item.packageSize} />
           {addresses.map((address) => <TextInput key={address.id} label={`Quantity for ${address.label}`}
+            disabled={busy}
             keyboardType="number-pad" value={allocations[key]?.[address.id] || ""}
             onChangeText={(value) => updateAllocation(key, address.id, value)} style={styles.input} />)}
           <Text style={total === item.quantity ? styles.success : styles.error}>Allocated {total} / {item.quantity}</Text>
         </View>;
       })}
-      {!service ? <View style={styles.card}>
+      <Button mode="contained" style={checkoutStyles.primary} labelStyle={checkoutStyles.primaryLabel}
+        disabled={busy || !items.length || Boolean(editor) || !deliveryConfig}
+        onPress={continueAddresses}>Save & continue to delivery</Button>
+      </> : null}
+      {step === 2 ? <>
+      <View style={styles.card}>
         <Text style={styles.heading}>Delivery speed (applies to all deliveries)</Text>
-        <Picker selectedValue={deliveryMode} enabled={!busy} accessibilityLabel="Delivery speed"
-          onValueChange={changeDeliveryMode}>
-          {DELIVERY_MODES.map(([value, label]) => <Picker.Item key={value} label={label} value={value} />)}
-        </Picker>
+        {deliveryMethodOptions(deliveryConfig || {}).map((option) => <TouchableOpacity key={option.value}
+          accessibilityRole="radio" accessibilityLabel={option.label} accessibilityState={{ checked: deliveryMode === option.value, disabled: busy }}
+          disabled={busy} onPress={() => changeDeliveryMode(option.value)}
+          style={[checkoutStyles.option, deliveryMode === option.value && checkoutStyles.selectedOption]}>
+          <View style={[checkoutStyles.radio, deliveryMode === option.value && checkoutStyles.radioSelected]}>
+            {deliveryMode === option.value ? <View style={checkoutStyles.radioDot} /> : null}
+          </View>
+          <View style={checkoutStyles.optionBody}><Text style={styles.heading}>{option.label}</Text>
+            <Text style={checkoutStyles.note}>{option.description}</Text>
+          </View>
+        </TouchableOpacity>)}
+        <Text style={checkoutStyles.note}>Business days are Monday-Friday, excluding weekends. Holidays are not currently excluded. Route and vehicle fees are calculated below.</Text>
+        {international ? <Text style={checkoutStyles.note}>These speeds cover the US delivery to the consolidation hub only, not arrival in Ethiopia.</Text> : null}
         {deliveryMode === "SCHEDULED" ? <Picker selectedValue={scheduledDate} enabled={!busy}
           accessibilityLabel="Scheduled delivery date" onValueChange={changeScheduledDate}>
           <Picker.Item label="Choose a delivery date..." value="" />
           {getUpcomingDeliveryDays().map((day) =>
             <Picker.Item key={day.value} label={day.label} value={day.value} />)}
         </Picker> : null}
-      </View> : null}
-      <Button mode="contained" disabled={busy || !items.length || Boolean(editor)} onPress={requestQuote}>Calculate routes & recommend vehicles</Button>
+      </View>
+      <Button mode="contained" style={checkoutStyles.primary} labelStyle={checkoutStyles.primaryLabel}
+        disabled={busy || !items.length || Boolean(editor) || !deliveryConfig} onPress={requestQuote}>Calculate routes & recommend vehicles</Button>
+      </> : null}
       </>}
-      {quote ? <>
+      {quote && step > 1 ? <>
+        {step === 2 || service ? <>
         <Text>Quote expires {new Date(quote.expiresAt).toLocaleTimeString()}.</Text>
-        <Text>Delivery speed: {DELIVERY_MODES.find(([value]) => value === deliveryMode)?.[1]}
+        <Text>Delivery speed: {deliveryModeLabel(deliveryMode)}
           {deliveryMode === "SCHEDULED" && scheduledDate
             ? ` - ${getUpcomingDeliveryDays().find((day) => day.value === scheduledDate)?.label || scheduledDate}`
             : ""}</Text>
@@ -392,6 +476,8 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
             {delivery.vehicleOptions.map((option) => <Picker.Item key={option.type} label={`${option.type === "car" ? "Car" : option.type} - ${formatPrice(option.fee)}`} value={option.type} />)}
           </Picker>
         </View>)}
+        <DeliveryWindow value={quote} />
+        </> : null}
         <View style={styles.card}>
           <Text>Products: {formatPrice(quote.itemsSubtotal)} | Delivery{needsVehicleSelection ? " estimate from" : ""}: {formatPrice(selectedFee)}</Text>
           {quote.international ? <Text>International shipping: {formatPrice(quote.international.shippingFee)}. Charged once per recipient shipment, including final address delivery.</Text> : null}
@@ -403,13 +489,19 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
             <Text>The rate must still be current when you continue. The server locks the final payment amount after vehicle upgrades.</Text>
             {quote.international ? <Text>{quote.international.customsNotice}</Text> : null}
           </> : null}
-          <Picker selectedValue={method} enabled={!busy} onValueChange={setMethod}>
-            <Picker.Item label="Bank transfer" value="bank" />
-            {quote.international ? null : /usa/i.test(database) || quote.exchangeRate
-              ? availableCard ? <Picker.Item label="Card" value="card" /> : null
-              : null}
-            {cashAvailable ? <Picker.Item label={/usa/i.test(database) ? "Cash on delivery (development only)" : "Cash on delivery"} value="cash" /> : null}
-          </Picker>
+          {step === 2 && !service ? <Button mode="contained" style={checkoutStyles.primary} labelStyle={checkoutStyles.primaryLabel}
+            disabled={busy || needsVehicleSelection} onPress={() => setStep(3)}>Continue to payment</Button> : null}
+          {step === 3 ? <>
+          {methods.map((option) => <TouchableOpacity key={option.value} accessibilityRole="radio"
+            accessibilityLabel={option.label} accessibilityState={{ checked: method === option.value, disabled: busy }}
+            disabled={busy} onPress={() => setMethod(option.value)}
+            style={[checkoutStyles.option, method === option.value && checkoutStyles.selectedOption]}>
+            <View style={[checkoutStyles.radio, method === option.value && checkoutStyles.radioSelected]}>
+              {method === option.value ? <View style={checkoutStyles.radioDot} /> : null}
+            </View>
+            <View style={checkoutStyles.optionBody}><Text style={styles.heading}>{option.label}</Text>
+              <Text style={checkoutStyles.note}>{option.description}</Text></View>
+          </TouchableOpacity>)}
           {!service && /usa/i.test(database) && !international && !converted && !quote.exchangeRate && !cashAvailable
             ? <Text style={styles.error}>USA cash on delivery is available only in a development/debug app build.</Text>
             : null}
@@ -420,7 +512,38 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
           </Picker> : null}
           {!quote.international && (/usa/i.test(database) || quote.exchangeRate) && !availableCard ? <Text style={styles.error}>Card payment needs a native build and matching configured Stripe keys. USD requires the dedicated Ethiopia USD merchant.</Text> : null}
           {method === "bank" && !banks.length ? <Text style={styles.error}>Admin must configure a bank account, or choose another available payment method.</Text> : null}
-          <Button mode="contained" disabled={busy || needsVehicleSelection || (method === "bank" && !bankId)} onPress={reserveCheckout}>{service ? "Accept quote & continue in USD" : "Reserve all deliveries & continue"}</Button>
+          <Button mode="contained" style={checkoutStyles.primary} labelStyle={checkoutStyles.primaryLabel}
+            disabled={busy || needsVehicleSelection || (method === "bank" && !bankId)}
+            onPress={() => setStep(4)}>Review order</Button>
+          </> : null}
+          {step === 4 ? <>
+            <Text style={styles.heading}>Delivery Method</Text>
+            <Text>{service ? "Service quote" : deliveryModeLabel(quote.deliveryMode || deliveryMode)}</Text>
+            <DeliveryWindow value={quote} />
+            {!service ? <Button disabled={busy} onPress={() => setStep(2)}>Change delivery method</Button> : null}
+            <Text style={styles.heading}>Payment Method</Text>
+            <Text>{methods.find((option) => option.value === method)?.label || method}</Text>
+            {method === "bank" ? <Text>{banks.find((bank) => bank._id === bankId)?.bankName}</Text> : null}
+            <Button disabled={busy} onPress={() => setStep(3)}>Change payment method</Button>
+            {quote.deliveries.map((delivery) => <View key={delivery.key} style={styles.card}>
+              <Text style={styles.heading}>{delivery.address.label}</Text>
+              <Text>{addressText(delivery.address)}</Text><Text>{delivery.address.phone}</Text>
+              <Text>Pickup: {delivery.store.name} | Vehicle: {selections[delivery.key]}</Text>
+              {delivery.lines.map((line) => {
+                const item = items.find((entry) => (entry._id || entry.id) === line.product);
+                return <View key={line.product} style={checkoutStyles.row}>
+                  {item?.image ? <Image source={{ uri: item.image }} style={{ width: 36, height: 48, resizeMode: "contain" }} /> : null}
+                  <Text style={{ flex: 1 }}>{line.quantity} x {line.name}</Text>
+                  {Number.isFinite(line.price) ? <Text>{formatPrice(line.price * line.quantity)}</Text> : null}
+                </View>;
+              })}
+            </View>)}
+            {!service ? <Button disabled={busy} onPress={() => setStep(1)}>Change addresses & quantities</Button> : null}
+            <Text style={checkoutStyles.note}>The combined total includes the server-quoted charges. Stock, prices and payment eligibility are verified when you continue.</Text>
+            <Button mode="contained" style={checkoutStyles.primary} labelStyle={checkoutStyles.primaryLabel}
+              disabled={busy || needsVehicleSelection || (method === "bank" && !bankId)}
+              onPress={reserveCheckout}>{service ? "Accept quote & continue in USD" : "Place order & continue"}</Button>
+          </> : null}
           <Text>{quote.international ? "ETB bank transfer only. Submit your transfer reference before the hold expires. Stores cannot fulfill until Admin verifies funds. After submission the reservation stays held for Admin review." :
             service ? "The Admin service quote is locked when you continue. Submitted or paid service payments require support review for cancellation/refund." :
             quote.exchangeRate ? "All stock is reserved together. Pay one locked USD total by card or USD bank transfer; there is no cash option." :
@@ -428,7 +551,7 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
         </View>
       </> : null}
     </>}
-    <Button onPress={() => navigation.navigate("DeliveryCheckouts")}>Recover an existing checkout</Button>
+    <Button disabled={busy} onPress={() => navigation.navigate("DeliveryCheckouts")}>Recover an existing checkout</Button>
   </ScrollView>;
 };
 

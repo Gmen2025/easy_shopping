@@ -38,15 +38,15 @@ import { getStorefrontScope, storeRequest } from "../../../assets/common/storefr
 
 const DELIVERY_MODE_OPTIONS = [
   {
-    value: "SAME_DAY",
-    label: "Same Day Delivery",
-    desc: "Fastest option available",
+    value: "EXPRESS",
+    label: "Express Delivery",
+    desc: "1 - 2 business days",
     icon: "shipping-fast",
   },
   {
-    value: "NEXT_DAY",
-    label: "Next Day Delivery",
-    desc: "Arrives tomorrow",
+    value: "STANDARD",
+    label: "Standard Delivery",
+    desc: "2 - 5 business days",
     icon: "calendar-day",
   },
   {
@@ -96,7 +96,7 @@ const estimateDeliveryFee = (
 ) => {
   const distance = getDeliveryPricingDistance(distanceKm, databaseName) || 0;
 
-  if (deliveryMode === "SAME_DAY") {
+  if (deliveryMode === "EXPRESS") {
     const base = config.sameDayBase ?? DELIVERY_FEE_DEFAULTS.SAME_DAY.base;
     const perKm = config.sameDayPerKm ?? DELIVERY_FEE_DEFAULTS.SAME_DAY.perKm;
     const premium =
@@ -104,7 +104,7 @@ const estimateDeliveryFee = (
     return roundCurrency(base + premium + distance * perKm);
   }
 
-  if (deliveryMode === "NEXT_DAY") {
+  if (deliveryMode === "STANDARD") {
     const base = config.nextDayBase ?? DELIVERY_FEE_DEFAULTS.NEXT_DAY.base;
     const perKm = config.nextDayPerKm ?? DELIVERY_FEE_DEFAULTS.NEXT_DAY.perKm;
     return roundCurrency(base + distance * perKm);
@@ -137,7 +137,7 @@ function Checkout(props) {
   const [country, setCountry] = useState("");
   const [phone, setPhone] = useState("");
   const [user, setUser] = useState();
-  const [deliveryMode, setDeliveryMode] = useState("SAME_DAY");
+  const [deliveryMode, setDeliveryMode] = useState("STANDARD");
   const [scheduledDate, setScheduledDate] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deliveryConfig, setDeliveryConfig] = useState({});
@@ -582,7 +582,11 @@ function Checkout(props) {
                   >
                     {option.label}
                   </Text>
-                  <Text style={styles.optionDesc}>{option.desc}</Text>
+                  <Text style={styles.optionDesc}>{option.value === "EXPRESS"
+                    ? `${deliveryConfig.expressMinBusinessDays ?? 1} - ${deliveryConfig.expressMaxBusinessDays ?? 2} business days`
+                    : option.value === "STANDARD"
+                      ? `${deliveryConfig.standardMinBusinessDays ?? 2} - ${deliveryConfig.standardMaxBusinessDays ?? 5} business days`
+                      : option.desc}</Text>
                 </View>
                 <View
                   style={[

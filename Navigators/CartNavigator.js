@@ -16,8 +16,8 @@ function MyStack() {
         headerTintColor: '#8a6c09ff',
       }}
     >
-      <Stack.Screen name="MultiDeliveryCheckout" component={MultiDeliveryCheckout} options={{ title: "Multi-delivery checkout" }} />
-      <Stack.Screen name="ServiceUsdCheckout" component={MultiDeliveryCheckout} options={{ title: "Service USD payment" }} />
+      <Stack.Screen name="MultiDeliveryCheckout" component={MultiDeliveryCheckout} options={{ headerShown: false }} />
+      <Stack.Screen name="ServiceUsdCheckout" component={MultiDeliveryCheckout} options={{ headerShown: false }} />
       <Stack.Screen name="DeliveryCheckouts" component={DeliveryCheckouts} options={{ title: "Deliveries & payments" }} />
       <Stack.Screen
         name="CartHome"

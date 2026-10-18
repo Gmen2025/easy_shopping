@@ -14,15 +14,30 @@ import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import { cacheDeliverySettings, getDeliverySettings, getDeliveryDistanceUnit } from "../../assets/common/delivery";
 
 const DELIVERY_FIELDS = [
-  ["sameDayBase", "Same-day base fee"],
-  ["sameDayPerKm", "Same-day fee per km"],
-  ["sameDayPremium", "Same-day premium"],
-  ["nextDayBase", "Next-day base fee"],
-  ["nextDayPerKm", "Next-day fee per km"],
+  ["sameDayBase", "Express base fee (legacy checkout)"],
+  ["sameDayPerKm", "Express fee per km (legacy checkout)"],
+  ["sameDayPremium", "Express premium (legacy checkout)"],
+  ["nextDayBase", "Standard base fee (legacy checkout)"],
+  ["nextDayPerKm", "Standard fee per km (legacy checkout)"],
   ["scheduledBase", "Scheduled base fee"],
   ["scheduledPerKm", "Scheduled fee per km"],
   ["scheduledPeakSurcharge", "Scheduled peak surcharge (5-8 PM)"],
   ["scheduledOffPeakDiscount", "Scheduled off-peak discount (10 AM-3 PM)"],
+];
+const WINDOW_FIELDS = [
+  ["expressMinBusinessDays", "Express earliest business day"],
+  ["expressMaxBusinessDays", "Express latest business day"],
+  ["standardMinBusinessDays", "Standard earliest business day"],
+  ["standardMaxBusinessDays", "Standard latest business day"],
+];
+const SPEED_FIELDS = [
+  ["expressSurcharge", "Express surcharge per vehicle delivery"],
+  ["standardSurcharge", "Standard surcharge per vehicle delivery"],
+  ["scheduledSurcharge", "Scheduled surcharge per vehicle delivery"],
+];
+const HOUR_FIELDS = [
+  ["businessDayStartHour", "Earliest delivery hour (0-23)"],
+  ["businessDayEndHour", "Latest delivery hour (1-24)"],
 ];
 
 const DEFAULT_DELIVERY_CONFIG = {
@@ -35,6 +50,16 @@ const DEFAULT_DELIVERY_CONFIG = {
   scheduledPerKm: 0.75,
   scheduledPeakSurcharge: 1.5,
   scheduledOffPeakDiscount: 0.5,
+  expressMinBusinessDays: 1,
+  expressMaxBusinessDays: 2,
+  standardMinBusinessDays: 2,
+  standardMaxBusinessDays: 5,
+  expressSurcharge: 0,
+  standardSurcharge: 0,
+  scheduledSurcharge: 0,
+  businessDayStartHour: 9,
+  businessDayEndHour: 18,
+  businessTimeZone: "",
 };
 
 const DeliverySettings = () => {
@@ -52,13 +77,13 @@ const DeliverySettings = () => {
         setDatabaseName(selectedDatabaseName);
         setCurrencyCode(getCurrencyConfigForDatabase(selectedDatabaseName).code);
         const token = await AsyncStorage.getItem("token");
-        const settings = await getDeliverySettings({ token });
+        const settings = await getDeliverySettings({ token, allowCached: false });
         if (!settings?.deliveryConfig) {
           throw new Error("Delivery pricing is unavailable.");
         }
         setDeliveryConfig({ ...DEFAULT_DELIVERY_CONFIG, ...settings.deliveryConfig });
       } catch (error) {
-        setDeliveryConfig(DEFAULT_DELIVERY_CONFIG);
+        setDeliveryConfig({});
         Toast.show({
           type: "error",
           text1: "Could not load delivery pricing",
@@ -77,24 +102,35 @@ const DeliverySettings = () => {
   };
 
   const saveSettings = async () => {
-    const normalizedConfig = {};
+    const normalizedConfig = { ...deliveryConfig };
 
-    for (const [field] of DELIVERY_FIELDS) {
+    for (const [field] of [...DELIVERY_FIELDS, ...WINDOW_FIELDS, ...SPEED_FIELDS, ...HOUR_FIELDS]) {
       const value = Number(deliveryConfig[field]);
-      if (!Number.isFinite(value) || value < 0) {
+      if (deliveryConfig[field] === "" || deliveryConfig[field] == null || !Number.isFinite(value) || value < 0 ||
+          (WINDOW_FIELDS.some(([key]) => key === field) && (!Number.isInteger(value) || value < 1 || value > 30)) ||
+          (HOUR_FIELDS.some(([key]) => key === field) && (!Number.isInteger(value) ||
+            value > (field === "businessDayEndHour" ? 24 : 23) || (field === "businessDayEndHour" && value < 1)))) {
         Toast.show({
           type: "error",
           text1: "Enter valid delivery prices",
-          text2: "Every delivery setting must be zero or greater.",
+          text2: "Fees must be non-negative. Days must be whole numbers from 1 to 30; start hour 0-23 and end hour 1-24.",
         });
         return;
       }
       normalizedConfig[field] = value;
     }
+    if (normalizedConfig.expressMinBusinessDays > normalizedConfig.expressMaxBusinessDays ||
+        normalizedConfig.standardMinBusinessDays > normalizedConfig.standardMaxBusinessDays ||
+        normalizedConfig.businessDayStartHour >= normalizedConfig.businessDayEndHour) {
+      Toast.show({ type: "error", text1: "Invalid delivery window", text2: "Earliest day cannot exceed latest day; the start hour must be before the end hour." });
+      return;
+    }
+    normalizedConfig.businessTimeZone = String(deliveryConfig.businessTimeZone || "").trim();
 
     setSaving(true);
     try {
       const token = await AsyncStorage.getItem("token");
+      if (await getDatabaseNameFromStorage() !== databaseName) throw new Error("Region changed. Reopen delivery settings before saving.");
       const response = await axios.put(
         `${baseUrl}settings/delivery`,
         { deliveryConfig: normalizedConfig },
@@ -139,10 +175,30 @@ const DeliverySettings = () => {
             These {currencyCode} rates apply only to the selected {databaseName} database.
           </Text>
           <Text style={styles.rateHint}>
-            Same-day fee = base fee + premium + (distance x fee per {distanceUnit}). Store coordinates are required for distance charges.
+            Express: 1-2 business days by default. Standard: 2-5. Business days are Monday-Friday; holidays are not excluded.
           </Text>
         </View>
-        {DELIVERY_FIELDS.map(([field, label]) => (
+        <Text style={styles.title}>Delivery windows</Text>
+        {WINDOW_FIELDS.map(([field, label]) => <View key={field} style={styles.field}>
+          <Text style={styles.label}>{label}</Text>
+          <Input name={field} value={deliveryConfig[field] == null ? "" : String(deliveryConfig[field])}
+            onChangeText={(value) => updateField(field, value)} keyboardType="number-pad" />
+        </View>)}
+        <Text style={styles.description}>Delivery hours use the configured IANA time zone. Leave it blank for America/New_York in USA or Africa/Addis_Ababa in Ethiopia. Confirm the USA time zone matches your operation.</Text>
+        <View style={styles.field}>
+          <Text style={styles.label}>Business time zone</Text>
+          <Input name="businessTimeZone" value={deliveryConfig.businessTimeZone || ""}
+            placeholder="Regional default" autoCapitalize="none" autoCorrect={false}
+            onChangeText={(value) => updateField("businessTimeZone", value)} />
+        </View>
+        {HOUR_FIELDS.map(([field, label]) => <View key={field} style={styles.field}>
+          <Text style={styles.label}>{label}</Text>
+          <Input name={field} value={deliveryConfig[field] == null ? "" : String(deliveryConfig[field])}
+            onChangeText={(value) => updateField(field, value)} keyboardType="number-pad" />
+        </View>)}
+        <Text style={styles.title}>Multi-delivery speed pricing</Text>
+        <Text style={styles.description}>These surcharges are added once per pickup/destination delivery to the configured vehicle fee. Defaults are zero. Vehicle capacity and distance pricing stay in Vehicle Delivery Settings.</Text>
+        {[...SPEED_FIELDS, ...DELIVERY_FIELDS].map(([field, label]) => (
           <View key={field} style={styles.field}>
             <Text style={styles.label}>{label.replace("per km", `per ${distanceUnit}`)} ({currencyCode})</Text>
             <Input
