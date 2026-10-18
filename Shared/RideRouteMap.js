@@ -6,7 +6,7 @@ import { rideRequest, rideStopPoint, rideDirectionsUrl } from "../assets/common/
 
 const EDGE_PADDING = { top: 50, right: 40, bottom: 40, left: 40 };
 
-const RideRouteMap = ({ ride, driverLocation, distanceUnit = "km", routeEndpoint, routeVersion, startAtDriver = false, fullScreen = false, bottomInset = 0 }) => {
+const RideRouteMap = ({ ride, driverLocation, distanceUnit = "km", routeEndpoint, routeVersion, startAtDriver = false, fullScreen = false, bottomInset = 0, onSelectLocation, selectionDisabled = false }) => {
   const mapRef = useRef(null);
   const [route, setRoute] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -19,9 +19,10 @@ const RideRouteMap = ({ ride, driverLocation, distanceUnit = "km", routeEndpoint
   const located = stops.filter((entry) => entry.point);
 
   useEffect(() => {
+    setRoute(null); setError(""); setLoading(false);
     if (!ride?._id) return undefined;
     let active = true;
-    setRoute(null); setError(""); setLoading(true);
+    setLoading(true);
     rideRequest(routeEndpoint || `${ride._id}/route`, { timeout: 60000 })
       .then((path) => { if (active) setRoute(path); })
       .catch((failure) => {
@@ -65,9 +66,10 @@ const RideRouteMap = ({ ride, driverLocation, distanceUnit = "km", routeEndpoint
           initialRegion={initialPoint ? { ...initialPoint, latitudeDelta: 0.08, longitudeDelta: 0.08 } : undefined}
           onMapReady={() => setMapReady(true)}
           onLayout={fit}
+          onPress={onSelectLocation && !selectionDisabled ? (event) => onSelectLocation(event.nativeEvent.coordinate) : undefined}
         >
           {route?.coordinates?.length > 1 ? (
-            <Polyline coordinates={route.coordinates} strokeColor="#2563eb" strokeWidth={5} />
+            <Polyline coordinates={route.coordinates} strokeColor="#ffd400" strokeWidth={5} />
           ) : null}
           {located.map(({ stop, index, point }) => (
             <Marker
@@ -82,6 +84,7 @@ const RideRouteMap = ({ ride, driverLocation, distanceUnit = "km", routeEndpoint
         </MapView>
       ) : null}
       <View pointerEvents="box-none" style={fullScreen ? styles.mapControls : undefined}>
+      {onSelectLocation ? <Text style={styles.note}>Tap the map to choose the selected stop. The address is verified before saving.</Text> : null}
       {!canRenderNativeMap ? <Text accessibilityRole="alert" style={styles.error}>{MAP_UNAVAILABLE_MESSAGE}</Text> : null}
       {missingLocations ? <Text accessibilityRole="alert" style={styles.error}>
         Some stops have no verified map coordinates. Their pins cannot be shown. Refresh / GPS to reload trip locations.

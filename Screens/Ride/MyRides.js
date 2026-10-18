@@ -1,15 +1,30 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Image, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Linking, ScrollView, Share, Text, View } from "react-native";
 import { Button, TextInput } from "react-native-paper";
 import { Picker } from "@react-native-picker/picker";
 import { useIsFocused } from "@react-navigation/native";
-import { rideRequest, rideFare, rideOptionName, addressText, rideStopPoint } from "../../assets/common/rides";
+import { rideRequest, rideFare, rideOptionName, addressText, rideStopPoint, pickupArrivalText } from "../../assets/common/rides";
 import { storeRequest } from "../../assets/common/storefront";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import CardPayment, { canPayByCard } from "../../Shared/CheckoutCardPayment";
 import { styles } from "../../Shared/DeliveryCheckout";
 import { AuthContext } from "../../Context/store/Auth";
 import RideRouteMap from "../../Shared/RideRouteMap";
+
+const ui = {
+  screen: { flex: 1, backgroundColor: "#fff" },
+  content: { padding: 16, gap: 14, paddingBottom: 32 },
+  card: { borderWidth: 1, borderColor: "#e8eaed", borderRadius: 18, padding: 16, gap: 10, backgroundColor: "#fff" },
+  status: { backgroundColor: "#fff8d6", borderRadius: 14, padding: 14, gap: 6 },
+  title: { color: "#171b20", fontSize: 22, fontWeight: "800" },
+  note: { color: "#68717e", fontSize: 13, lineHeight: 19 },
+  actions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+};
+const statusLabels = {
+  quote: "Ride estimate", waiting: "Finding your driver", offered: "Waiting for driver confirmation",
+  assigned: "Driver on the way", onboard: "Trip in progress", completed: "You've arrived",
+  cancelled: "Ride cancelled", terminated: "Trip ended early",
+};
 
 export default function MyRides({ route, navigation }) {
   const { isAuthenticated, loading, logout } = useContext(AuthContext);
@@ -25,6 +40,7 @@ export default function MyRides({ route, navigation }) {
   const [database, setDatabase] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [etaNow, setEtaNow] = useState(Date.now);
   const running = useRef(false);
   const region = useRef(route.params?.database || "");
   const run = async (action, notify = true) => {
@@ -61,6 +77,13 @@ export default function MyRides({ route, navigation }) {
     }
   }, [focused, isAuthenticated, loading, route.params?.rideId]);
   useEffect(() => {
+    if (!focused || !isAuthenticated || needsSignIn || selected?.status !== "assigned" ||
+        selected.pickupEta?.status !== "available") return undefined;
+    setEtaNow(Date.now());
+    const timer = setInterval(() => setEtaNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [focused, isAuthenticated, needsSignIn, selected?._id, selected?.status, selected?.pickupEta]);
+  useEffect(() => {
     if (!focused || !isAuthenticated || needsSignIn || loading || !selected || ["completed", "cancelled", "terminated", "quote"].includes(selected.status)) return;
     const timer = setInterval(() => run(async () => setSelected(await rideRequest(selected._id)), false), 10000);
     return () => clearInterval(timer);
@@ -74,6 +97,17 @@ export default function MyRides({ route, navigation }) {
     if (result.error) throw new Error(`${result.error.message} Resume this same ride payment; do not start another payment.`);
     await update("payment-confirm", {});
   });
+  const active = selected && !["completed", "cancelled", "terminated", "quote"].includes(selected.status);
+  const driverLocation = active ? rideStopPoint({ address: { location: selected.assignedDriver?.location } }) : null;
+  const callDriver = () => run(async () => {
+    const phone = selected.assignedDriver?.phone;
+    if (!phone) throw new Error("The driver's contact number is not available. Refresh this ride.");
+    await Linking.openURL(`tel:${encodeURIComponent(phone)}`);
+  });
+  const shareRide = () => run(async () => {
+    await Share.share({ message: `Addu Genet Ride #${String(selected._id).slice(-6)}\nStatus: ${selected.status}\n` +
+      selected.stops.map((stop, index) => `${index + 1}. ${stop.type}: ${addressText(stop.address)}`).join("\n") });
+  });
   if (loading) return <ActivityIndicator />;
   if (!isAuthenticated || needsSignIn) return <View style={styles.content}>
     <Text style={styles.title}>Sign in to view rides</Text>
@@ -83,12 +117,38 @@ export default function MyRides({ route, navigation }) {
       navigation.navigate("User", { screen: "Login" });
     })}>Sign in</Button>
   </View>;
-  return <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-    <Text style={styles.title}>My rides</Text>
+  return <ScrollView style={ui.screen} contentContainerStyle={ui.content} keyboardShouldPersistTaps="handled">
+    <Text style={ui.title}>{active ? "Track your ride" : "My rides"}</Text>
     <Button disabled={busy} onPress={load}>Refresh rides</Button>
     {busy ? <ActivityIndicator /> : null}
     {error ? <Text style={styles.error}>{error}</Text> : null}
-    {selected ? <View style={styles.card}>
+    {selected ? <View style={ui.card}>
+      <View style={ui.status} accessibilityLiveRegion="polite">
+        <Text style={ui.title}>{statusLabels[selected.status] || selected.status}</Text>
+        <Text style={ui.note}>{selected.dispatchMessage || (selected.status === "onboard"
+          ? "Follow your trip to the next stop." : selected.status === "assigned"
+            ? "Your driver is heading to your pickup." : "Your latest booking status is shown below.")}</Text>
+        {active ? <Text style={ui.note}>Updates every 10 seconds while this screen is open.</Text> : null}
+      </View>
+      <RideRouteMap ride={selected} distanceUnit={selected.currency === "usd" ? "mile" : "km"}
+        driverLocation={driverLocation} />
+      {active ? <View style={ui.status}>
+        <Text style={styles.heading}>{selected.status === "onboard" ? "Live trip location" : "Pickup arrival time"}</Text>
+        <Text style={ui.note} accessibilityLiveRegion="polite">{selected.status === "onboard"
+          ? "The blue pin shows the driver's latest reported location."
+          : pickupArrivalText(selected, Math.max(etaNow, Date.now()))}</Text>
+        {selected.status === "assigned" && selected.pickupEta?.status === "available" ? <>
+          <Text style={ui.note}>Traffic-aware driving estimate{selected.pickupEta.stopsBeforePickup > 0
+            ? `, including ${selected.pickupEta.stopsBeforePickup} stop(s) before your pickup` : ""}.
+            Boarding time and changing traffic may affect arrival.</Text>
+          <Text style={ui.note}>ETA updated: {new Date(selected.pickupEta.computedAt).toLocaleTimeString()}</Text>
+        </> : null}
+        {!driverLocation ? <Text accessibilityRole="alert" style={styles.error}>Driver location is not available yet.</Text> : null}
+        {driverLocation && (!selected.assignedDriver?.locationUpdatedAt ||
+          Date.now() - new Date(selected.assignedDriver.locationUpdatedAt).getTime() > 60000 ||
+          !Number.isFinite(new Date(selected.assignedDriver.locationUpdatedAt).getTime()))
+          ? <Text accessibilityRole="alert" style={styles.error}>Driver GPS may be out of date. Check the last update below.</Text> : null}
+      </View> : null}
       <Text selectable style={styles.heading}>Ride #{String(selected._id).slice(-6)} - {selected.mode}</Text>
       {selected.vehicleOption ? <Text>Vehicle: {rideOptionName(selected.vehicleOption)}</Text> : null}
       <Text>Status: {selected.status}</Text><Text>{selected.dispatchMessage}</Text>
@@ -98,8 +158,6 @@ export default function MyRides({ route, navigation }) {
         <Text>{selected.paymentStatus === "review_required" ? "Payment is on hold for Admin review. Do not pay the original estimate." :
           selected.paymentStatus === "waived" ? "Admin waived the fare. No payment is due." : `Admin review: ${selected.termination?.reviewNote || ""}`}</Text>
       </> : null}
-      <RideRouteMap ride={selected} distanceUnit={selected.currency === "usd" ? "mile" : "km"}
-        driverLocation={selected.status !== "completed" ? rideStopPoint({ address: { location: selected.assignedDriver?.location } }) : null} />
       {selected.stops.map((stop) => <Text key={stop.key}>{stop.type}: {addressText(stop.address)} ({stop.passengers} passengers)</Text>)}
       <Text>Estimate: {rideFare(selected, selected.estimate)}</Text>
       {selected.assignedDriver ? <>
@@ -118,7 +176,11 @@ export default function MyRides({ route, navigation }) {
           </View>
         </View>
         <Text>Contact: {selected.assignedDriver.phone}</Text>
-        {selected.status !== "completed" ? <Text>Driver GPS: {selected.assignedDriver.location?.coordinates?.slice().reverse().join(", ") || "Unavailable"}.
+        <View style={ui.actions}>
+          <Button icon="phone" mode="outlined" disabled={busy || !selected.assignedDriver.phone} onPress={callDriver}>Call driver</Button>
+          <Button icon="share-variant" disabled={busy} onPress={shareRide}>Share ride</Button>
+        </View>
+        {active ? <Text>Driver GPS: {selected.assignedDriver.location?.coordinates?.slice().reverse().join(", ") || "Unavailable"}.
           Updated: {selected.assignedDriver.locationUpdatedAt ? new Date(selected.assignedDriver.locationUpdatedAt).toLocaleTimeString() : "No current GPS"}</Text> : null}
       </> : null}
       {["waiting", "offered", "assigned", "quote"].includes(selected.status) ? <Button disabled={busy}
@@ -158,7 +220,7 @@ export default function MyRides({ route, navigation }) {
       </>}
       <Button disabled={busy} onPress={() => run(() => selectRide(selected._id))}>Refresh this ride</Button>
       <Button onPress={() => setSelected(null)}>Back to ride list</Button>
-    </View> : rides.map((ride) => <View key={ride._id} style={styles.card}>
+    </View> : rides.map((ride) => <View key={ride._id} style={ui.card}>
       <Text>{ride.mode} - {ride.status} - {rideFare(ride)}</Text>
       <Text>{addressText(ride.stops[0].address)} to {addressText(ride.stops.at(-1).address)}</Text>
       <Button disabled={busy} onPress={() => run(() => selectRide(ride._id))}>Track / view / pay</Button>

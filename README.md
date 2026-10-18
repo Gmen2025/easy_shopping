@@ -136,6 +136,33 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   headings and product rows together, including while products are loading.
 
 ### Ride Service
+- The customer flow uses white cards, yellow actions and a four-step progress
+  indicator: **Your trip > Map & stops > Select ride > Trip summary**. Review all
+  ordered stops, passenger/contact details, the server-priced vehicle, driving
+  route and estimated fare before requesting. Back preserves the draft; **Edit
+  trip** clears prices. Payments remain after completion, not at booking.
+- In **Map & stops**, select the numbered stop and tap the map to choose its
+  address. The existing `POST /rides/places/current-location` endpoint reverse
+  geocodes and validates the chosen coordinates in the current region; failures
+  leave the stop unchanged. Address search, saved addresses, manual entry and
+  device GPS remain available. The pre-quote map shows pins only; a verified
+  driving route appears in the quote review. No new server endpoint is required.
+- Regular intermediate stops have **Move up**, **Move down**, and **Remove
+  stop** controls. The first pickup and final drop-off stay fixed, the maximum
+  remains 12 stops, and reordering recalculates the final passenger count.
+- Tracking presents the booking status, driver pin, GPS freshness, calling,
+  native trip sharing and the existing ten-second foreground refresh. Completed,
+  cancelled and terminated rides do not show a live driver pin. For assigned
+  rides, `GET /rides/:id` supplies `pickupEta`: traffic-aware driving from fresh
+  driver GPS through any preceding stops to your pickup (including Shared-trip
+  stops). The UI counts down from `arrivalAt`, displays the preceding stop count
+  and last calculation time, and expires the estimate at `expiresAt` or when its
+  source GPS reaches 60 seconds old. Status polling remains every ten seconds;
+  the backend caches routing for at most 30 seconds to limit Google calls.
+  Stale GPS, route failures and older backends show an explicit unavailable
+  message, never planned trip duration as pickup ETA. Boarding delays are not
+  included. Deploy the updated backend with `GOOGLE_ROUTES_API_KEY` and enable
+  Google Routes API/billing; no routing secret is added to the mobile app.
 - Ride booking and history require sign-in. Guests see a sign-in action instead
   of an authorization popup; expired sessions offer sign-in again. Returning to
   the Ride page after login reloads the configuration and saved addresses.

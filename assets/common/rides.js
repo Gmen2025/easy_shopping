@@ -10,6 +10,21 @@ export const rideOptions = [
 ];
 export const rideOptionName = (key) => rideOptions.find((option) => option.key === key)?.name || "";
 export const offerSeconds = (deadline, now = Date.now()) => Math.max(0, Math.ceil((new Date(deadline).getTime() - now) / 1000));
+export const pickupArrivalText = (ride, now = Date.now()) => {
+  if (ride.status !== "assigned") return "An arrival estimate will be available after a driver is assigned.";
+  const eta = ride.pickupEta;
+  if (eta?.status === "unavailable") return eta.reason || "Pickup arrival estimate is temporarily unavailable.";
+  if (eta?.status !== "available") return "Pickup arrival estimate is not available. Refresh this ride.";
+  const arrival = new Date(eta.arrivalAt).getTime();
+  const expires = new Date(eta.expiresAt).getTime();
+  const gps = new Date(eta.driverLocationUpdatedAt).getTime();
+  if (!Number.isFinite(arrival) || !Number.isFinite(expires) || !Number.isFinite(gps) ||
+      expires <= now || gps > now || now - gps >= 60000) {
+    return "Pickup arrival estimate expired. Waiting for fresh GPS and an updated route.";
+  }
+  const minutes = Math.ceil((arrival - now) / 60000);
+  return minutes <= 0 ? "Driver is less than a minute away (estimated)." : `Arriving in ${minutes} min (estimated)`;
+};
 export const addressText = (address) => [address.address1, address.address2, address.city, address.zip, address.country].filter(Boolean).join(", ");
 export const newRideStop = (type, country = "") => ({
   type, passengers: "1", address: { label: type === "pickup" ? "Pickup" : "Drop-off", address1: "",
