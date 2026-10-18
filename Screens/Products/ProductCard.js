@@ -4,10 +4,9 @@ import {
   Text,
   StyleSheet,
   Image,
-  useWindowDimensions,
   TouchableOpacity,
 } from "react-native";
-import EasyButton from "../../Shared/StyledComponenets/EasyButton";
+import Icon from "react-native-vector-icons/FontAwesome5";
 import Toast from "react-native-toast-message";
 import getImageUrl from "../../assets/common/getImageUrl";
 import { useCurrency } from "../../assets/common/currency";
@@ -20,12 +19,11 @@ const ProductCard = (props) => {
   const addStoreProduct = useStoreCart();
   const { formatPrice } = useCurrency();
   const stockCount = Number(countInStock || 0);
-  const { width, height } = useWindowDimensions();
-  const shortestSide = Math.min(width, height);
-  const isTablet = shortestSide >= 600;
-  const cardWidth = isTablet ? width / 2 - 28 : width / 2 - 20;
+  const rating = Number(props.rating);
+  const reviewCount = Number(props.numReviews);
 
-  const handleAddToCart = async () => {
+  const handleAddToCart = async (event) => {
+    event?.stopPropagation?.();
     const databaseName = await getDatabaseNameFromStorage();
     const product = {
       _id: props._id,
@@ -48,14 +46,14 @@ const ProductCard = (props) => {
   };
 
   return (
-    <View style={[styles.container, { width: cardWidth }]}>
+    <View style={styles.container}>
       <View style={styles.imageWrap}>
         <Image
           source={{
             uri: imageUrl,
           }}
           style={styles.image}
-          resizeMode="cover"
+          resizeMode="contain"
         />
       </View>
 
@@ -73,6 +71,10 @@ const ProductCard = (props) => {
       <Text style={styles.title} numberOfLines={2}>
         {name}
       </Text>
+      {Number.isFinite(rating) && rating > 0 ? <View style={styles.ratingRow}>
+        <Icon name="star" solid size={12} color="#F2BD00" />
+        <Text style={styles.ratingText}>{rating.toFixed(1)}{Number.isFinite(reviewCount) && reviewCount > 0 ? ` (${reviewCount})` : ""}</Text>
+      </View> : null}
 
       <Text style={styles.price}>{formatPrice(price)}</Text>
 
@@ -82,7 +84,10 @@ const ProductCard = (props) => {
             style={styles.addButton}
             activeOpacity={0.85}
             onPress={handleAddToCart}
+            accessibilityRole="button"
+            accessibilityLabel={`Add ${name} to cart`}
           >
+            <Icon name="shopping-cart" size={12} color="#111111" />
             <Text style={styles.addText}>Add to Cart</Text>
           </TouchableOpacity>
         </View>
@@ -95,6 +100,8 @@ const ProductCard = (props) => {
 
 const styles = StyleSheet.create({
   container: {
+    width: "100%",
+    flex: 1,
     padding: 10,
     borderRadius: 10,
     marginTop: 10,
@@ -103,18 +110,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5E7EB",
     backgroundColor: "#FFFFFF",
-    elevation: 2,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
   },
   imageWrap: {
     width: "100%",
     height: 125,
     borderRadius: 8,
     overflow: "hidden",
-    backgroundColor: "#F3F4F6",
+    backgroundColor: "#FFFFFF",
   },
   image: {
     width: "100%",
@@ -149,7 +151,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   price: {
-    fontSize: 15,
+    fontSize: 18,
     color: "#000000",
     fontWeight: "800",
     marginTop: 4,
@@ -159,13 +161,17 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   addButton: {
-    backgroundColor: "#eac749ff",
-    borderRadius: 6,
+    backgroundColor: "#FFDA0A",
+    borderRadius: 20,
+    flexDirection: "row",
+    gap: 6,
     paddingVertical: 8,
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
   },
+  ratingRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 5 },
+  ratingText: { fontSize: 11, color: "#64748B" },
   addText: {
     color: "#030501",
     fontWeight: "700",

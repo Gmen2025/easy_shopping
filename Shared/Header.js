@@ -1,7 +1,6 @@
 import React, { useState, useContext, useEffect } from "react";
 import { 
     StyleSheet, 
-    Image, 
     View, 
     Text, 
     Alert,
@@ -10,7 +9,8 @@ import {
     FlatList,
     Modal,
     Platform,
-    ActionSheetIOS
+    ActionSheetIOS,
+    useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AuthContext } from "../Context/store/Auth";
@@ -21,6 +21,7 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import baseUrl from "../assets/common/baseUrl";
 import { COUNTRY_DB_MAP, getDatabaseNameFromStorage, setDatabaseNameInStorage } from "../assets/common/databaseConfig";
+import CartIcon from "./CartIcon";
 
 const DB_COUNTRY_MAP = {
     E_Shopping: "Ethio",
@@ -36,7 +37,11 @@ const Header = ({
     onMarkAllNotificationsRead,
     onMarkNotificationRead,
     onDeleteNotification,
+    onNavigate,
 }) => {
+    const { width } = useWindowDimensions();
+    const compact = width < 500;
+    const [menuVisible, setMenuVisible] = useState(false);
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     const [isNotificationModalVisible, setIsNotificationModalVisible] = useState(false);
     const [selectedCountry, setSelectedCountry] = useState('Ethio');
@@ -156,7 +161,7 @@ const Header = ({
             <Text style={styles.flagEmoji}>{item.flag}</Text>
             <View style={styles.countryInfo}>
                 <Text style={styles.countryLabel}>{item.label}</Text>
-                <Text style={styles.currencyLabel}>{item.currency}</Text>
+                <Text style={styles.currencyLabel}>Shop from {item.value === "USA" ? "United States" : "Ethiopia"}</Text>
             </View>
             {selectedCountry === item.value && (
                 <Icon name="check" size={16} color="#007AFF" />
@@ -226,42 +231,26 @@ const Header = ({
     );
 
     return(
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
             <View style={styles.header}>
-                {/* Left spacer for centering logo when no admin controls */}
-                <View style={styles.leftSpacer}>
-                    {/* Empty view for spacing */}
-                </View>
-
-                {/* Centered Logo */}
-                {/* <View style={styles.logoContainer}>
-                    <Image
-                        source={require('../assets/addugenet1.png')}
-                        style={styles.logo}
-                        resizeMode="contain"
-                    />
-                </View> */}
-                
-                {/* Right side - Admin Controls or Spacer */}
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Open shopping menu"
+                    style={styles.menuButton} onPress={() => setMenuVisible(true)}>
+                    <Icon name="bars" size={compact ? 19 : 24} color="#111111" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.brand} accessibilityRole="button" accessibilityLabel="Addu Genet Eshop home"
+                    onPress={() => onNavigate("Home", { screen: "Home Screen" })}>
+                    {!compact ? <Icon name="shopping-bag" size={32} color="#111111" /> : null}
+                    <View style={styles.brandCopy}>
+                        <Text style={[styles.brandTitle, compact && { fontSize: 14 }]} numberOfLines={1}>Addu Genet Eshop</Text>
+                        <Text style={[styles.brandTagline, compact && { fontSize: 8 }]} numberOfLines={1}>Global Products  -  Local Access</Text>
+                    </View>
+                </TouchableOpacity>
                 <View style={styles.rightContainer}>
-                    <TouchableOpacity
-                        style={styles.notificationButton}
-                        onPress={handleNotificationBellPress}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                        <Icon name="bell" size={16} color="#333" />
-                        {notificationCount > 0 && (
-                            <View style={styles.notificationBadge}>
-                                <Text style={styles.notificationBadgeText}>
-                                    {notificationCount > 99 ? '99+' : notificationCount}
-                                </Text>
-                            </View>
-                        )}
-                    </TouchableOpacity>
-
                     <TouchableOpacity
                         style={styles.countrySelector}
                         onPress={toggleDropdown}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Shopping country: ${selectedCountry === "USA" ? "USA" : "Ethiopia"}. Change country`}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
                         <Text style={styles.selectedCountryText}>
@@ -274,6 +263,18 @@ const Header = ({
                             color="#333" 
                             style={styles.chevron}
                         />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.notificationButton} onPress={handleNotificationBellPress}
+                        accessibilityRole="button" accessibilityLabel={`Notifications, ${notificationCount} unread`}>
+                        <Icon name="bell" size={compact ? 20 : 24} color="#111111" />
+                        {notificationCount > 0 ? <View style={styles.notificationBadge}>
+                            <Text style={styles.notificationBadgeText}>{notificationCount > 99 ? "99+" : notificationCount}</Text>
+                        </View> : null}
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.notificationButton} onPress={() => onNavigate("Cart")}
+                        accessibilityRole="button" accessibilityLabel="Open cart">
+                        <Icon name="shopping-cart" size={compact ? 20 : 24} color="#111111" />
+                        <CartIcon />
                     </TouchableOpacity>
 
                     {Platform.OS !== "ios" && (
@@ -357,6 +358,37 @@ const Header = ({
                     </Modal>
                 </View>
             </View>
+            <Modal transparent visible={menuVisible} animationType="fade" onRequestClose={() => setMenuVisible(false)}>
+                <TouchableWithoutFeedback onPress={() => setMenuVisible(false)}>
+                    <View style={styles.notificationBackdrop}>
+                        <TouchableWithoutFeedback>
+                            <View style={styles.notificationModalCard}>
+                                <View style={styles.notificationModalHeader}>
+                                    <Text style={styles.notificationModalTitle}>Explore Addu Genet</Text>
+                                    <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close shopping menu" onPress={() => setMenuVisible(false)}>
+                                        <Icon name="times" size={18} color="#111111" />
+                                    </TouchableOpacity>
+                                </View>
+                                {[
+                                    { label: "Home", tab: "Home", screen: "Home Screen", icon: "home" },
+                                    { label: "Stores", tab: "Home", screen: "Stores", icon: "store" },
+                                    { label: "Book a ride", tab: "Home", screen: "RideBooking", icon: "car" },
+                                    { label: "Service Request", tab: "Home", screen: "Service Request", icon: "wrench" },
+                                    { label: "Cart", tab: "Cart", icon: "shopping-cart" },
+                                    { label: "Account & orders", tab: "User", icon: "user" },
+                                ].map((item) => <TouchableOpacity key={item.label} style={styles.menuItem}
+                                    accessibilityRole="button" onPress={() => {
+                                        setMenuVisible(false);
+                                        onNavigate(item.tab, item.screen ? { screen: item.screen } : undefined);
+                                    }}>
+                                    <Icon name={item.icon} size={18} color="#111111" />
+                                    <Text style={styles.countryLabel}>{item.label}</Text>
+                                </TouchableOpacity>)}
+                            </View>
+                        </TouchableWithoutFeedback>
+                    </View>
+                </TouchableWithoutFeedback>
+            </Modal>
         </SafeAreaView>
     )
 }
@@ -365,8 +397,7 @@ const styles = StyleSheet.create({
     safeArea: {
         width: '100%',
         alignSelf: 'stretch',
-        backgroundColor: 'goldenrod',
-        paddingTop: Platform.OS === 'ios' ? 10 : 0,
+        backgroundColor: '#FFDA0A',
         overflow: 'visible',
         zIndex: 1000,
         elevation: 1000,
@@ -376,56 +407,41 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 14,
+        paddingHorizontal: 12,
         paddingVertical: Platform.OS === 'ios' ? 12 : 10,
-        backgroundColor: 'goldenrod',
+        backgroundColor: '#FFDA0A',
         minHeight: Platform.OS === 'ios' ? 72 : 60,
         overflow: 'visible',
         zIndex: 1000,
         elevation: 1000,
     },
-    leftSpacer: {
-        width: 170,
-    },
-    logoContainer: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    logo: {
-        height: 48,
-        width: 150,
-    },
+    menuButton: { width: 28, minHeight: 44, justifyContent: "center" },
+    brand: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, marginHorizontal: 6 },
+    brandCopy: { flexShrink: 1 },
+    brandTitle: { fontSize: 22, fontWeight: "800", color: "#111111" },
+    brandTagline: { fontSize: 11, marginTop: 3, color: "#111111" },
+    menuItem: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 18, paddingVertical: 15 },
     rightContainer: {
-        width: 170,
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
+        justifyContent: 'flex-end',
+        gap: 8,
         position: 'relative',
         overflow: 'visible',
         zIndex: 1200,
         elevation: 1200,
     },
-    rightSpacer: {
-        width: 80,
-    },
     notificationButton: {
-        width: 34,
-        height: 34,
-        borderRadius: 17,
-        marginRight: 10,
+        width: 28,
+        height: 44,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(255,255,255,0.95)',
-        borderWidth: 1,
-        borderColor: 'rgba(0, 0, 0, 0.1)',
         position: 'relative',
-        marginLeft: Platform.OS === 'ios' ? 6 : 12,
     },
     notificationBadge: {
         position: 'absolute',
-        top: -6,
-        right: -8,
+        top: 0,
+        right: -3,
         minWidth: 18,
         height: 18,
         borderRadius: 9,
@@ -434,7 +450,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
-        borderColor: 'goldenrod',
+        borderColor: '#FFDA0A',
     },
     notificationBadgeText: {
         color: '#ffffff',
@@ -445,12 +461,13 @@ const styles = StyleSheet.create({
     countrySelector: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        paddingHorizontal: 10,
+        backgroundColor: 'rgba(255, 255, 255, 0.16)',
+        paddingHorizontal: 8,
         paddingVertical: 6,
-        borderRadius: 20,
+        minHeight: 40,
+        borderRadius: 12,
         borderWidth: 1,
-        borderColor: 'rgba(0, 0, 0, 0.1)',
+        borderColor: '#FFFFFF',
     },
     selectedCountryText: {
         fontSize: 15,

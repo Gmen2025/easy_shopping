@@ -26,11 +26,14 @@ const Main = () => {
       initialRouteName='Home'
       screenOptions={{
         headerShown:false,
-        tabBarShowLabel:false,
-        tabBarActiveTintColor: '#85680ac0',
-        tabBarInactiveTintColor: '#eac749ff',
+        tabBarShowLabel:true,
+        tabBarLabelPosition: 'below-icon',
+        tabBarActiveTintColor: '#D4A900',
+        tabBarInactiveTintColor: '#182033',
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
         tabBarStyle: {
           backgroundColor: 'white',
+          borderTopColor: '#E8ECF2',
         },
       }}
     >
@@ -108,6 +111,7 @@ const Main = () => {
           name='AdminDriver'
           component={CompanyDriverNavigator}
           options={{
+            title: 'Driver',
             tabBarIcon: ({ color }) => (
               <Icon
                 name="truck"
@@ -123,6 +127,7 @@ const Main = () => {
           name='AdminStore'
           component={CompanyStoreNavigator}
           options={{
+            title: 'Store',
             tabBarIcon: ({ color }) => (
               <Icon
                 name="building"
@@ -137,6 +142,7 @@ const Main = () => {
         name='User'
         component={UserNavigator}
         options={{
+          title: 'Account',
           tabBarIcon: ({ color }) => {
             return (
               <Icon

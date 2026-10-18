@@ -1,7 +1,7 @@
 import { StatusBar } from "expo-status-bar";
-import { Text, View, StyleSheet } from "react-native";
+import { Alert, Text, View, StyleSheet } from "react-native";
 import { useEffect, useState, useCallback, useContext, useRef } from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, useNavigationContainerRef } from "@react-navigation/native";
 import Toast from "react-native-toast-message";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
@@ -196,6 +196,14 @@ const NotificationBootstrap = ({ onNotificationReceived, onNotificationOpened })
 
 
 export default function App() {
+  const navigationRef = useNavigationContainerRef();
+  const navigateFromHeader = (name, params) => {
+    if (!navigationRef.isReady() || !navigationRef.getRootState()?.routeNames.includes(name)) {
+      Alert.alert("Navigation unavailable", "Shopping navigation is not ready. Please try again after loading.");
+      return;
+    }
+    navigationRef.navigate(name, params);
+  };
   const [dbRefreshKey, setDbRefreshKey] = useState(0);
   const [notificationItems, setNotificationItems] = useState([]);
   const [notificationsHydrated, setNotificationsHydrated] = useState(false);
@@ -311,8 +319,11 @@ export default function App() {
                 onNotificationOpened={handleNotificationOpened}
               />
               <View style={styles.appContainer}>
+                <StatusBar style="dark" />
                 <View style={styles.headerLayer}>
                   <Header
+                    key={`header-${dbRefreshKey}`}
+                    onNavigate={navigateFromHeader}
                     onDatabaseChanged={handleDatabaseChanged}
                     notificationCount={unreadNotificationCount}
                     notifications={notificationItems}
@@ -322,7 +333,7 @@ export default function App() {
                   />
                 </View>
                 <View style={styles.navLayer}>
-                  <NavigationContainer key={`db-${dbRefreshKey}`}>
+                  <NavigationContainer ref={navigationRef} key={`db-${dbRefreshKey}`}>
                     <MaintenanceWrapper />
                     <Toast />
                   </NavigationContainer>

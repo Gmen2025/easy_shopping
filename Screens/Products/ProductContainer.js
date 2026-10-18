@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -24,6 +24,7 @@ import SearchedProducts from "./SearchedProducts";
 import CategoriesFilter from "./CategoriesFilter";
 import AdvancedFilters from "./AdvancedFilters";
 import getImageUrl from "../../assets/common/getImageUrl";
+import Icon from "react-native-vector-icons/FontAwesome5";
 
 if (Platform.OS === "android" && !global.nativeFabricUIManager && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -31,10 +32,10 @@ if (Platform.OS === "android" && !global.nativeFabricUIManager && UIManager.setL
 
 const ProductContainer = (props) => {
   const { width: screenWidth } = useWindowDimensions();
-  const isTablet = screenWidth >= 768;
-  const topGraphicHeight = isTablet ? Math.min(screenWidth * 0.42, 320) : 170;
-  const featuredSetWidth = screenWidth;
-  const featuredCardWidth = isTablet ? (screenWidth - 54) / 2 : (screenWidth - 34) / 2;
+  const columns = screenWidth >= 700 ? 4 : 2;
+  const listRef = useRef(null);
+  const [productsOffset, setProductsOffset] = useState(0);
+  const [bannerFailed, setBannerFailed] = useState(false);
   const promoGraphicUrl =
     "https://res.cloudinary.com/dvzt34adj/image/upload/v1783614600/addugeneteshopgraphics_egtaee.png";
 
@@ -235,7 +236,7 @@ const ProductContainer = (props) => {
     return currentProducts;
   }, [products, selectedCategoryId, searchKeyword, advancedFilters]);
 
-  const featuredProductSets = useMemo(() => {
+  const featuredProducts = useMemo(() => {
     const rankedProducts = [...products]
       .filter((item) => {
         const featuredValue = item?.isFeatured;
@@ -255,12 +256,7 @@ const ProductContainer = (props) => {
         return Number(b.price || 0) - Number(a.price || 0);
       });
 
-    const sets = [];
-    for (let i = 0; i < rankedProducts.length; i += 4) {
-      sets.push(rankedProducts.slice(i, i + 4));
-    }
-
-    return sets;
+    return rankedProducts;
   }, [products]);
 
   const changeCtg = (ctg) => {
@@ -280,35 +276,17 @@ const ProductContainer = (props) => {
     }
   };
 
+  const showAllProducts = () => {
+    clearSearch();
+    changeCtg("all");
+    resetAdvancedFilters();
+    listRef.current?.scrollToOffset({ offset: productsOffset, animated: true });
+  };
+
   const renderTopContent = (showCategories = false) => (
     <>
-      <Image
-        source={{ uri: promoGraphicUrl }}
-        style={[styles.topGraphic, { width: screenWidth, height: topGraphicHeight }]}
-        resizeMode="contain"
-      />
-      <View style={styles.shoppingActions}>
-      <TouchableOpacity style={styles.serviceAction} accessibilityRole="button"
-        onPress={() => props.navigation.navigate("RideBooking")}>
-        <Text style={styles.serviceActionText}>Ride</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.serviceAction}
-        accessibilityRole="button"
-        onPress={() => props.navigation.navigate("Stores")}
-      >
-        <Text style={styles.serviceActionText}>Stores</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.serviceAction}
-        activeOpacity={0.85}
-        onPress={() => props.navigation.navigate("Service Request")}
-      >
-        <Text style={styles.serviceActionText}>Service Request</Text>
-      </TouchableOpacity>
-      </View>
       <Searchbar
-        placeholder="Search products..."
+        placeholder="Search for products, brands and more..."
         placeholderTextColor="#6B7280"
         value={searchKeyword}
         style={styles.searchbar}
@@ -320,14 +298,54 @@ const ProductContainer = (props) => {
         onFocus={openList}
         onSubmitEditing={openList}
       />
+      <View style={styles.shoppingActions}>
+        {[
+          { title: "Ride", detail: "Book a ride", icon: "car", open: () => props.navigation.navigate("RideBooking") },
+          { title: "Store", detail: "Find nearby stores", icon: "store", open: () => props.navigation.navigate("Stores") },
+          { title: "Service Request", detail: "Book a technician", icon: "wrench", open: () => props.navigation.navigate("Service Request") },
+        ].map((service) => (
+          <TouchableOpacity key={service.title} style={styles.serviceAction} accessibilityRole="button"
+            accessibilityLabel={service.title} onPress={service.open}>
+            <Icon name={service.icon} size={screenWidth >= 700 ? 32 : 22} color="#111111" />
+            <View style={styles.serviceCopy}>
+              <Text style={[styles.serviceActionText, screenWidth < 500 && { fontSize: 12 }]}>{service.title}</Text>
+              <Text style={[styles.serviceDetail, screenWidth < 500 && { fontSize: 9 }]}>{service.detail}</Text>
+            </View>
+            {screenWidth >= 700 ? <Icon name="chevron-right" size={12} color="#111111" /> : null}
+          </TouchableOpacity>
+        ))}
+      </View>
+      {showCategories ? <>
+        <View style={styles.sectionHeading}>
+          <Text style={styles.sectionTitle}>Categories</Text>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="View all categories" onPress={() => changeCtg("all")}>
+            <Text style={styles.viewAll}>View All  &gt;</Text>
+          </TouchableOpacity>
+        </View>
+        <CategoriesFilter categories={categories} products={products} categoryFilter={changeCtg}
+          active={active} setActive={setActive} />
+        <View style={styles.promo}>
+          <View style={styles.promoCopy}>
+            <Text style={[styles.promoTitle, screenWidth < 500 && { fontSize: 18, lineHeight: 22 }]}>Get Your Favorite Products Delivered</Text>
+            <Text style={styles.promoDetail}>Bringing Ethiopia and the USA closer.</Text>
+            <TouchableOpacity style={styles.shopButton} accessibilityRole="button" onPress={showAllProducts}>
+              <Text style={styles.shopButtonText}>Shop Now  &gt;</Text>
+            </TouchableOpacity>
+          </View>
+          {!bannerFailed ? <Image source={{ uri: promoGraphicUrl }} style={[styles.promoImage, screenWidth < 500 && { width: "42%" }]}
+            resizeMode="contain" accessibilityLabel="Addu Genet Ethiopia and USA shopping"
+            onError={() => { setBannerFailed(true); console.warn("Storefront promotional image could not be loaded."); }} />
+            : <Icon name="shopping-bag" size={64} color="#796400" style={styles.promoFallback} />}
+        </View>
+      </> : null}
       <TouchableOpacity
         style={styles.advancedToggle}
         activeOpacity={0.85}
         onPress={toggleAdvancedFilters}
       >
         <View style={styles.advancedToggleInner}>
-          <Text style={styles.advancedToggleText}>Advanced Filters</Text>
-          <Text style={styles.advancedToggleIcon}>{showAdvancedFilters ? "▲" : "▼"}</Text>
+          <Text style={styles.advancedToggleText}>Filter & sort</Text>
+          <Icon name="sliders-h" size={14} color="#111827" />
         </View>
       </TouchableOpacity>
       <AdvancedFilters
@@ -338,37 +356,21 @@ const ProductContainer = (props) => {
         onReset={resetAdvancedFilters}
         onToggle={() => setShowAdvancedFilters(false)}
       />
-      {featuredProductSets.length > 0 ? (
+      {showCategories && featuredProducts.length > 0 ? (
         <View style={styles.featuredSection}>
-          <Text style={styles.featuredTitle}>FEATURED PRODUCTS</Text>
+          <Text style={styles.featuredTitle}>Featured Products</Text>
           <FlatList
             horizontal
-            pagingEnabled
-            data={featuredProductSets}
-            keyExtractor={(_, index) => `featured-set-${index}`}
+            data={featuredProducts}
+            keyExtractor={(item, index) => buildProductKey(item, index, "featured")}
             showsHorizontalScrollIndicator={false}
-            snapToAlignment="start"
-            decelerationRate="fast"
-            renderItem={({ item: setItems, index: setIndex }) => (
-              <View style={[styles.featuredSetScreen, { width: featuredSetWidth }]}>
-                <Text style={styles.featuredSetTitle}>Set {setIndex + 1}</Text>
-                <View style={styles.featuredGrid}>
-                  {setItems.map((item, itemIndex) => (
-                    <TouchableOpacity
-                      key={buildProductKey(item, itemIndex, `featured-${setIndex}`)}
-                      style={[styles.featuredCard, { width: featuredCardWidth, height: isTablet ? 128 : 88 }]}
-                      activeOpacity={0.85}
-                      onPress={() => props.navigation.navigate("Product Detail", { item })}
-                    >
-                      <Image
-                        source={{ uri: item.image || getImageUrl(item) }}
-                        style={styles.featuredImage}
-                        resizeMode="cover"
-                      />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
+            contentContainerStyle={{ paddingHorizontal: 12, gap: 10 }}
+            renderItem={({ item }) => (
+              <TouchableOpacity style={styles.featuredCard} accessibilityRole="button"
+                onPress={() => props.navigation.navigate("Product Detail", { item })}>
+                <Image source={{ uri: item.image }} style={styles.featuredImage} resizeMode="contain" />
+                <Text numberOfLines={2} style={styles.featuredName}>{item.name}</Text>
+              </TouchableOpacity>
             )}
           />
         </View>
@@ -378,24 +380,22 @@ const ProductContainer = (props) => {
           <Text style={styles.errorText}>{loadError}</Text>
         </View>
       ) : null}
-      <Text style={styles.resultMeta}>{filteredProducts.length} products found</Text>
-      {showCategories ? (
-        <View style={styles.categoriesContainer}>
-          <CategoriesFilter
-            categories={categories}
-            categoryFilter={changeCtg}
-            active={active}
-            setActive={setActive}
-          />
+      <View style={styles.sectionHeading} onLayout={(event) => setProductsOffset(event.nativeEvent.layout.y)}>
+        <View>
+          <Text style={styles.sectionTitle}>{selectedCategoryId || searchKeyword || showAdvancedFilters ? "Your Products" : "Popular Products"}</Text>
+          <Text style={styles.resultMeta}>{filteredProducts.length} products found</Text>
         </View>
-      ) : null}
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="View all products" onPress={showAllProducts}>
+          <Text style={styles.viewAll}>View All  &gt;</Text>
+        </TouchableOpacity>
+      </View>
     </>
   );
 
   return (
     <>
       {!loading ? (
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={["left", "right"]}>
           <View style={styles.container}>
             {focus ? (
               <SearchedProducts
@@ -408,20 +408,34 @@ const ProductContainer = (props) => {
             ) : (
               <View style={styles.listContainer}>
                 <FlatList
+                  ref={listRef}
+                  key={`catalog-${columns}`}
                   data={Array.isArray(filteredProducts) ? filteredProducts : []}
                   renderItem={({ item }) => (
                     <ProductList
                       item={item}
                       navigation={props.navigation}
+                      columns={columns}
                     />
                   )}
                   keyExtractor={(item, index) =>
                     buildProductKey(item, index, "catalog")
                   }
-                  numColumns={2}
-                  columnWrapperStyle={{ justifyContent: "space-between", paddingHorizontal: 10 }}
+                  numColumns={columns}
+                  columnWrapperStyle={{ gap: 10, paddingHorizontal: 12 }}
                   contentContainerStyle={styles.flatListContent}
                   ListHeaderComponent={renderTopContent(true)}
+                  ListFooterComponent={<View style={styles.benefits}>
+                    {[
+                      { icon: "shield-alt", title: "Secure Payment", detail: "Shop with confidence" },
+                      { icon: "shipping-fast", title: "Delivery", detail: "Track your order" },
+                      { icon: "headset", title: "Customer Support", detail: "Here to help" },
+                    ].map((benefit) => <View key={benefit.title} style={styles.benefit}>
+                      <Icon name={benefit.icon} size={22} color="#111111" />
+                      <View style={styles.benefitCopy}><Text style={styles.benefitTitle}>{benefit.title}</Text>
+                        <Text style={styles.benefitDetail}>{benefit.detail}</Text></View>
+                    </View>)}
+                  </View>}
                   ListEmptyComponent={(
                     <View style={[styles.center, { height: 180 }]}>
                       <Text style={styles.emptyText}>No products available right now</Text>
@@ -445,28 +459,24 @@ const ProductContainer = (props) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#FAFAFA",
+    backgroundColor: "#FFFFFF",
   },
   container: {
     flex: 1,
-    backgroundColor: "#FAFAFA",
+    backgroundColor: "#FFFFFF",
   },
   searchbar: {
     marginHorizontal: 12,
     marginTop: 10,
-    borderRadius: 8,
+    borderRadius: 14,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#E5E7EB",
-    elevation: 2,
+    elevation: 0,
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
-  },
-  topGraphic: {
-    borderRadius: 8,
-    backgroundColor: "#F3F4F6",
   },
   searchInput: {
     fontSize: 14,
@@ -474,44 +484,59 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     flex: 1,
-    backgroundColor: "#FAFAFA",
+    backgroundColor: "#FFFFFF",
   },
   flatListContent: {
     paddingBottom: 32,
   },
   serviceAction: {
     flex: 1,
-    marginTop: 12,
-    backgroundColor: "#eac749ff",
-    borderRadius: 999,
+    backgroundColor: "#FFDA0A",
+    borderRadius: 10,
     paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
     alignItems: "center",
-    justifyContent: "center",
-    elevation: 2,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    minHeight: 76,
   },
   serviceActionText: {
     color: "#030501",
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
-    letterSpacing: 0.3,
   },
+  serviceCopy: { flexGrow: 1, flexShrink: 1 },
+  serviceDetail: { fontSize: 10, color: "#292400", marginTop: 3 },
   shoppingActions: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 12,
+    gap: 8,
     marginHorizontal: 12,
+    marginTop: 14,
   },
+  sectionHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginHorizontal: 12, marginTop: 18, marginBottom: 8 },
+  sectionTitle: { fontSize: 20, fontWeight: "800", color: "#111111" },
+  viewAll: { fontSize: 12, color: "#111827", paddingVertical: 8 },
+  promo: { marginHorizontal: 12, marginTop: 16, padding: 14, borderRadius: 12, backgroundColor: "#FFDD24", flexDirection: "row", alignItems: "center", overflow: "hidden" },
+  promoCopy: { flex: 1 },
+  promoTitle: { fontSize: 23, lineHeight: 27, fontWeight: "800", color: "#111111" },
+  promoDetail: { fontSize: 12, lineHeight: 17, color: "#292400", marginTop: 8 },
+  shopButton: { alignSelf: "flex-start", borderWidth: 1, borderColor: "#292400", borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, marginTop: 12 },
+  shopButtonText: { fontSize: 12, fontWeight: "700", color: "#111111" },
+  promoImage: { width: "48%", aspectRatio: 1.55, marginLeft: 10, borderRadius: 8 },
+  promoFallback: { marginHorizontal: 20 },
+  benefits: { margin: 12, padding: 14, backgroundColor: "#FFFAEB", borderRadius: 10, flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  benefit: { flex: 1, minWidth: 90, flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8 },
+  benefitCopy: { flexShrink: 1 },
+  benefitTitle: { fontSize: 11, fontWeight: "700", color: "#111827" },
+  benefitDetail: { fontSize: 10, color: "#64748B", marginTop: 3 },
   advancedToggle: {
     marginHorizontal: 12,
     marginTop: 10,
     backgroundColor: "#FFFFFF",
     borderRadius: 8,
-    paddingVertical: 12,
+    paddingVertical: 8,
     paddingHorizontal: 14,
     borderWidth: 1,
     borderColor: "#E5E7EB",
@@ -524,13 +549,8 @@ const styles = StyleSheet.create({
   advancedToggleText: {
     color: "#111827",
     fontWeight: "700",
-    fontSize: 14,
-    letterSpacing: 0.2,
-  },
-  advancedToggleIcon: {
-    color: "#111827",
-    fontWeight: "700",
     fontSize: 12,
+    letterSpacing: 0.2,
   },
   featuredSection: {
     marginTop: 16,
@@ -540,26 +560,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 14,
     marginBottom: 10,
     color: "#000000",
-    fontSize: 13,
+    fontSize: 18,
     fontWeight: "800",
-    letterSpacing: 0.8,
-  },
-  featuredSetScreen: {
-    paddingHorizontal: 12,
-    marginBottom: 8,
-  },
-  featuredSetTitle: {
-    marginBottom: 8,
-    color: "#374151",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  featuredGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
   },
   featuredCard: {
+    width: 125,
+    padding: 8,
     marginBottom: 10,
     borderRadius: 8,
     overflow: "hidden",
@@ -569,18 +575,13 @@ const styles = StyleSheet.create({
   },
   featuredImage: {
     width: "100%",
-    height: "100%",
+    height: 80,
   },
+  featuredName: { fontSize: 12, color: "#111827", marginTop: 6 },
   resultMeta: {
-    marginHorizontal: 14,
-    marginTop: 12,
-    color: "#000000",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  categoriesContainer: {
-    marginTop: 6,
-    marginBottom: 8,
+    marginTop: 3,
+    color: "#64748B",
+    fontSize: 11,
   },
   errorBanner: {
     marginHorizontal: 12,

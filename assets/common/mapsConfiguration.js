@@ -1,7 +1,10 @@
 import { NativeModules, Platform } from "react-native";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 
 export const canRenderNativeMap =
-  Platform.OS !== "android" || NativeModules.MapsConfiguration?.isConfigured === true;
+  Platform.OS !== "android" ||
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient ||
+  NativeModules.MapsConfiguration?.isConfigured === true;
 
 export const MAP_UNAVAILABLE_MESSAGE =
   NativeModules.MapsConfiguration == null

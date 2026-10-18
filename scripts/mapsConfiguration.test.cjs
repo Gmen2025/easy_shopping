@@ -6,7 +6,7 @@ const vm = require("node:vm");
 const babel = require("@babel/core");
 const configureApp = require("../app.config");
 
-function loadConfiguration(os, nativeModule) {
+function loadConfiguration(os, nativeModule, executionEnvironment = "standalone") {
   const filename = path.join(__dirname, "..", "assets", "common", "mapsConfiguration.js");
   const { code } = babel.transformSync(fs.readFileSync(filename, "utf8"), {
     filename, configFile: false, babelrc: false,
@@ -15,7 +15,12 @@ function loadConfiguration(os, nativeModule) {
   const exports = {};
   vm.runInNewContext(code, {
     exports,
-    require: () => ({ Platform: { OS: os }, NativeModules: { MapsConfiguration: nativeModule } }),
+    require: (name) => {
+      if (name === "expo-constants") return { __esModule: true,
+        default: { executionEnvironment }, ExecutionEnvironment: { StoreClient: "storeClient" } };
+      assert.equal(name, "react-native");
+      return { Platform: { OS: os }, NativeModules: { MapsConfiguration: nativeModule } };
+    },
   });
   return exports;
 }
@@ -24,6 +29,14 @@ test("Android maps require native manifest confirmation, not just a JavaScript k
   assert.equal(loadConfiguration("android", undefined).canRenderNativeMap, false);
   assert.equal(loadConfiguration("android", { isConfigured: false }).canRenderNativeMap, false);
   assert.equal(loadConfiguration("android", { isConfigured: true }).canRenderNativeMap, true);
+});
+
+test("Android Expo Go uses its built-in Google Maps without the app's custom native module", () => {
+  assert.equal(loadConfiguration("android", undefined, "storeClient").canRenderNativeMap, true);
+  assert.equal(loadConfiguration("android", { isConfigured: false }, "storeClient").canRenderNativeMap, true);
+  assert.equal(loadConfiguration("android", undefined, "bare").canRenderNativeMap, false);
+  assert.equal(loadConfiguration("android", { isConfigured: false }, "bare").canRenderNativeMap, false);
+  assert.equal(loadConfiguration("android", { isConfigured: true }, "bare").canRenderNativeMap, true);
 });
 
 test("iOS maps are unaffected by the Android manifest requirement", () => {

@@ -5,6 +5,16 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
 ## 📱 Features
 
 ### Customer Features
+- **Reference-style Storefront**: Yellow branded header with a shopping menu,
+  regional country selector, notification inbox and cart shortcut. Home includes
+  search, Ride/Store/Service Request shortcuts, circular catalog categories,
+  the existing promotional artwork, featured products and responsive product
+  cards (two columns on phones, four from 700 logical pixels). Category images
+  use the category's own artwork or a matching catalog product; ratings are
+  shown only when present. Filter/sort, stock counts, regional prices and
+  role-based navigation remain available. Bottom tabs retain their destinations
+  and now show labels. No reference-image products, prices or review counts
+  are used as catalog data.
 - **Product Browsing**: Browse products by category with search and advanced dropdown filters
 - **Shopping Cart**: Add, remove, and manage cart items
 - **Live Stock Visibility**: Product cards and product detail screens show current inventory left
@@ -209,6 +219,14 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   count for that stop, with pickup/drop-off progress totals. Stops remain ordered
   and retain fresh-GPS/300m server checks. After the last drop-off, return to ride
   assignments for payments. Termination and service settings remain there too.
+  Android Expo Go uses its bundled Google Maps support and does not require the
+  app's custom `MapsConfiguration` native module. Installed development/release
+  builds still require their native Google Maps key and module. Map configuration
+  errors appear below the full-screen header rather than behind it. Driving
+  polylines still require the backend Routes API configuration in either runtime.
+  Missing stop coordinates no longer hide the whole ride map: available driver
+  and road-route coordinates remain usable, and a visible warning identifies
+  missing stop pins. The viewport fits after the native map is ready.
   After claiming, the driver sees a Google map of the remaining vehicle route,
   starting at driver GPS and including all pending shared-booking stops in order
   (`GET /rides/me/route`, assigned company driver only). It refreshes when the

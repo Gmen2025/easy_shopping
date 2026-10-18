@@ -680,6 +680,10 @@ test("Admin assigns Economy and Comfort only to cars while verifying vehicle req
 
 test("driver map uses the authorized route endpoint, refreshes on trip version changes and supports retry", async () => {
   const states = [], previousEffects = [], queued = [], calls = [], opened = [];
+  const configuration = { canRenderNativeMap: true, MAP_UNAVAILABLE_MESSAGE: "Native map key missing" };
+  const absoluteFill = { position: "absolute", top: 0, bottom: 0, left: 0, right: 0 };
+  const fitted = [];
+  const mapRef = { current: { fitToCoordinates: (...args) => fitted.push(args) } };
   let cursor = 0, effectIndex = 0, fail = false;
   const useState = (initial) => {
     const index = cursor++;
@@ -688,7 +692,7 @@ test("driver map uses the authorized route endpoint, refreshes on trip version c
   };
   const react = {
     createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
-    useState, useMemo: (compute) => compute(), useRef: () => ({ current: null }),
+    useState, useMemo: (compute) => compute(), useRef: () => mapRef,
     useEffect: (effect, dependencies) => {
       const index = effectIndex++;
       const previous = previousEffects[index];
@@ -703,9 +707,9 @@ test("driver map uses the authorized route endpoint, refreshes on trip version c
   const { default: Map } = load("Shared\\RideRouteMap.js", {
     react,
     "react-native": { ActivityIndicator: "ActivityIndicator", View: "View", Text: "Text", TouchableOpacity: "TouchableOpacity",
-      StyleSheet: { create: (value) => value }, Linking: { openURL: async (url) => opened.push(url) } },
+      StyleSheet: { create: (value) => value, absoluteFillObject: absoluteFill }, Linking: { openURL: async (url) => opened.push(url) } },
     "react-native-maps": { __esModule: true, default: "MapView", Marker: "Marker", Polyline: "Polyline" },
-    "../assets/common/mapsConfiguration": { canRenderNativeMap: true },
+    "../assets/common/mapsConfiguration": configuration,
     "../assets/common/rides": { ...helpers, rideRequest: async (route) => {
       calls.push(route);
       if (fail) throw new Error("Routing unavailable");
@@ -740,6 +744,45 @@ test("driver map uses the authorized route endpoint, refreshes on trip version c
   render(); await flush();
   assert.equal(calls.length, 3);
   assert.ok(nodes(render()).find((node) => node.type === "Polyline"));
+  props = { ...props, fullScreen: true };
+  tree = render();
+  assert.equal(tree.props.style.flex, 1);
+  assert.equal(nodes(tree).find((node) => node.type === "MapView").props.style, absoluteFill);
+  assert.ok(nodes(tree).find((node) => node.type === "Polyline"));
+  assert.equal(fitted.length, 0, "Do not fit before the native map is ready");
+  nodes(tree).find((node) => node.type === "MapView").props.onMapReady();
+  props = { ...props, bottomInset: 300 };
+  render(); await flush();
+  assert.equal(fitted.at(-1)[1].edgePadding.bottom, 320);
+  assert.ok(fitted.at(-1)[0].some((point) => point.latitude === 42));
+  props = { ...props, ride: { _id: "trip", stops: [{ type: "pickup", address: { address1: "Missing coordinates" } }] } };
+  tree = render();
+  assert.ok(nodes(tree).find((node) => node.type === "MapView"), "Missing stop pins must not hide the map");
+  assert.equal(nodes(tree).find((node) => node.type === "MapView").props.initialRegion.latitude, 41.9);
+  assert.match(text(tree), /Some stops have no verified map coordinates/);
+  assert.ok(nodes(tree).find((node) => node.type === "Polyline"), "Keep real backend road geometry without stop pins");
+  props = { ...props, driverLocation: null };
+  tree = render();
+  assert.equal(nodes(tree).find((node) => node.type === "MapView").props.initialRegion.latitude, 41.9,
+    "Use actual road coordinates when neither stop nor driver pins are available");
+  fail = true;
+  props = { ...props, routeVersion: 3 };
+  render(); await flush();
+  tree = render();
+  assert.ok(nodes(tree).find((node) => node.type === "MapView"));
+  assert.equal(nodes(tree).find((node) => node.type === "MapView").props.initialRegion, undefined,
+    "Do not invent a location when all coordinates are missing");
+  assert.match(text(tree), /Routing unavailable/);
+  assert.doesNotMatch(text(tree), /Stop pins are still shown|Available stop pins are still shown/);
+  assert.ok(nodes(tree).find((node) => node.type === "TouchableOpacity" && text(node) === "Retry driving route"));
+  assert.ok(nodes(tree).find((node) => node.type === "TouchableOpacity" && text(node) === "Open route in Google Maps"));
+  configuration.canRenderNativeMap = false;
+  tree = render();
+  assert.equal(nodes(tree).some((node) => node.type === "MapView"), false);
+  const diagnostics = nodes(tree).find((node) => node.type === "View" && node.props.style?.top === 70);
+  assert.match(text(diagnostics), /Native map key missing/);
+  assert.equal(nodes(diagnostics).find((node) => node.type === "Text" && text(node) === "Native map key missing")
+    .props.accessibilityRole, "alert");
 });
 test("ride driver takes a camera photo, uploads it, and saves it to the required profile endpoint", async () => {
   const requests = [];

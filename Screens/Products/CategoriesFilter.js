@@ -4,7 +4,11 @@ import {
   TouchableOpacity,
   ScrollView,
   Text,
+  View,
+  Image,
 } from "react-native";
+import Icon from "react-native-vector-icons/FontAwesome5";
+import getImageUrl from "../../assets/common/getImageUrl";
 
 const CategoriesFilter = (props) => {
   const getCategoryId = (category) => {
@@ -28,7 +32,9 @@ const CategoriesFilter = (props) => {
     <ScrollView
       bounces={true}
       horizontal={true}
+      showsHorizontalScrollIndicator={false}
       style={styles.scrollView}
+      contentContainerStyle={styles.scrollContent}
     >
       {/* "All" Category */}
       <TouchableOpacity
@@ -38,20 +44,22 @@ const CategoriesFilter = (props) => {
           props.setActive(-1);
         }}
         style={styles.touchableOpacity}
+        accessibilityRole="button"
+        accessibilityLabel="All categories"
+        accessibilityState={{ selected: props.active === -1 }}
       >
-        <Text
-          style={[
-            styles.chip,
-            props.active === -1 ? styles.active : styles.inactive,
-            props.active === -1 ? styles.activeText : styles.inactiveText,
-          ]}
-        >
-          All
-        </Text>
+        <View style={[styles.circle, props.active === -1 && styles.active]}>
+          <Icon name="th-large" size={26} color="#111111" />
+        </View>
+        <Text style={styles.label}>All</Text>
       </TouchableOpacity>
 
       {/* Dynamic Categories */}
-      {props.categories.map((item, index) => (
+      {props.categories.map((item, index) => {
+        const product = (props.products || []).find((entry) =>
+          getCategoryId({ _id: entry.category?._id || entry.category }) === getCategoryId(item));
+        const artwork = item.image || product;
+        return (
         <TouchableOpacity
           key={`category-${getCategoryId(item)}-${index}`}
           onPress={() => {
@@ -59,59 +67,51 @@ const CategoriesFilter = (props) => {
             props.setActive(index);
           }}
           style={styles.touchableOpacity}
+          accessibilityRole="button"
+          accessibilityLabel={item.name}
+          accessibilityState={{ selected: props.active === index }}
         >
-          <Text
-            style={[
-              styles.chip,
-              props.active === index
-                ? styles.active
-                : styles.inactive,
-              props.active === index
-                ? styles.activeText
-                : styles.inactiveText,
-            ]}
-          >
-            {item.name}
-          </Text>
+          <View style={[styles.circle, props.active === index && styles.active]}>
+            {artwork ? <Image source={{ uri: getImageUrl(artwork) }} style={styles.image} resizeMode="contain" />
+              : <Icon name="shopping-bag" size={26} color="#111111" />}
+          </View>
+          <Text style={styles.label} numberOfLines={2}>{item.name}</Text>
         </TouchableOpacity>
-      ))}
+      ); })}
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   scrollView: {
-    backgroundColor: "#f3f6fb",
+    backgroundColor: "#FFFFFF",
+    flexGrow: 0,
+  },
+  scrollContent: {
     paddingHorizontal: 10,
-    paddingVertical: 8,
-    flexShrink:1, //Prevents horizontal overflow
+    paddingVertical: 6,
+    gap: 10,
   },
   touchableOpacity: {
-    marginRight: 8,
+    width: 78,
+    alignItems: "center",
   },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 18,
-    fontSize: 13,
-    fontWeight: "700",
+  circle: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    backgroundColor: "#FFF0AD",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "transparent",
     overflow: "hidden",
   },
+  image: { width: 50, height: 50 },
+  label: { fontSize: 11, lineHeight: 15, color: "#111827", textAlign: "center", marginTop: 6 },
   active: {
-    backgroundColor: "goldenrod",
-    borderWidth: 1,
-    borderColor: "#8a6c09",
-  },
-  inactive: {
-    backgroundColor: "#ffffff",
-    borderWidth: 1,
-    borderColor: "#d7dce5",
-  },
-  activeText: {
-    color: "#ffffff",
-  },
-  inactiveText: {
-    color: "#334155",
+    borderColor: "#D5A900",
+    backgroundColor: "#FFE15B",
   },
 });
 

@@ -1,31 +1,25 @@
 import React from "react";
-import { TouchableOpacity, View, Dimensions, StyleSheet } from "react-native";
+import { TouchableOpacity, StyleSheet } from "react-native";
 
 import ProductCard from "./ProductCard";
-
-const { width } = Dimensions.get("window");
 
 const ProductList = (props) => {
   const { item } = props;
   return (
     <TouchableOpacity
-      style={styles.touchable}
+      style={[styles.touchable, { flex: 1 / (props.columns || 2) }]}
+      accessibilityRole="button"
+      accessibilityLabel={`View ${item.name}`}
       onPress={() => props.navigation.navigate("Product Detail", { item: item })}
     >
-      <View style={styles.wrapper}>
-        <ProductCard {...item} />
-      </View>
+      <ProductCard {...item} />
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   touchable: {
-    width: "50%",
-  },
-  wrapper: {
-    width: width / 2,
-    backgroundColor: "transparent",
+    minWidth: 0,
   },
 });
 

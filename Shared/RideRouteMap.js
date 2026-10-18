@@ -12,6 +12,7 @@ const RideRouteMap = ({ ride, driverLocation, distanceUnit = "km", routeEndpoint
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
+  const [mapReady, setMapReady] = useState(false);
   const stops = useMemo(() => (ride?.stops || []).map((stop, index) => ({
     stop, index, point: rideStopPoint(stop),
   })), [ride?.stops]);
@@ -32,12 +33,12 @@ const RideRouteMap = ({ ride, driverLocation, distanceUnit = "km", routeEndpoint
 
   const fit = () => {
     const points = [...(route?.coordinates || []), ...located.map((entry) => entry.point), ...(driverLocation ? [driverLocation] : [])];
-    if (points.length > 1) mapRef.current?.fitToCoordinates(points, {
+    if (mapReady && points.length) mapRef.current?.fitToCoordinates(points, {
       edgePadding: fullScreen ? { ...EDGE_PADDING, top: 190, bottom: Math.max(50, bottomInset + 20) } : EDGE_PADDING,
       animated: false,
     });
   };
-  useEffect(fit, [route, driverLocation, ride?.stops, bottomInset]);
+  useEffect(fit, [mapReady, route, driverLocation, ride?.stops, bottomInset]);
 
   const openDirections = async () => {
     const url = rideDirectionsUrl(startAtDriver && driverLocation ? [
@@ -52,7 +53,8 @@ const RideRouteMap = ({ ride, driverLocation, distanceUnit = "km", routeEndpoint
     catch { setError("Unable to open Google Maps on this device."); }
   };
 
-  if (!located.length) return null;
+  const initialPoint = located[0]?.point || driverLocation || route?.coordinates?.[0];
+  const missingLocations = located.length < stops.length;
   const distance = route ? (distanceUnit === "mile" ? route.distanceKm / 1.609344 : route.distanceKm) : null;
   return (
     <View style={fullScreen ? styles.fullScreen : undefined}>
@@ -60,8 +62,9 @@ const RideRouteMap = ({ ride, driverLocation, distanceUnit = "km", routeEndpoint
         <MapView
           ref={mapRef}
           style={fullScreen ? StyleSheet.absoluteFillObject : styles.map}
-          initialRegion={{ ...located[0].point, latitudeDelta: 0.08, longitudeDelta: 0.08 }}
-          onMapReady={fit}
+          initialRegion={initialPoint ? { ...initialPoint, latitudeDelta: 0.08, longitudeDelta: 0.08 } : undefined}
+          onMapReady={() => setMapReady(true)}
+          onLayout={fit}
         >
           {route?.coordinates?.length > 1 ? (
             <Polyline coordinates={route.coordinates} strokeColor="#2563eb" strokeWidth={5} />
@@ -77,8 +80,12 @@ const RideRouteMap = ({ ride, driverLocation, distanceUnit = "km", routeEndpoint
           ))}
           {driverLocation ? <Marker coordinate={driverLocation} title="Driver" pinColor="blue" /> : null}
         </MapView>
-      ) : <Text style={styles.note}>{MAP_UNAVAILABLE_MESSAGE}</Text>}
+      ) : null}
       <View pointerEvents="box-none" style={fullScreen ? styles.mapControls : undefined}>
+      {!canRenderNativeMap ? <Text accessibilityRole="alert" style={styles.error}>{MAP_UNAVAILABLE_MESSAGE}</Text> : null}
+      {missingLocations ? <Text accessibilityRole="alert" style={styles.error}>
+        Some stops have no verified map coordinates. Their pins cannot be shown. Refresh / GPS to reload trip locations.
+      </Text> : null}
       {loading ? <ActivityIndicator style={styles.spacing} /> : null}
       {route ? (
         <Text style={styles.note}>
@@ -86,7 +93,7 @@ const RideRouteMap = ({ ride, driverLocation, distanceUnit = "km", routeEndpoint
           Green pins are pickups, red pins are drop-offs.
         </Text>
       ) : null}
-      {error ? <Text style={styles.error}>{error} Stop pins are still shown.</Text> : null}
+      {error ? <Text accessibilityRole="alert" style={styles.error}>{error}{canRenderNativeMap && located.length ? " Available stop pins are still shown." : ""}</Text> : null}
       {error ? <TouchableOpacity accessibilityRole="button" onPress={() => setRetry((value) => value + 1)}>
         <Text style={styles.link}>Retry driving route</Text>
       </TouchableOpacity> : null}
