@@ -56,6 +56,10 @@ function harness(file, request, params = {}, auth = { isAuthenticated: true, loa
   };
   const native = new Proxy({ Alert: { alert: (...args) => dialogs.push(args) }, Linking: { openURL: async (url) => calls.push({ url }) } },
     { get: (target, key) => target[key] || key });
+  const pricing = load("Shared\\RideVehiclePricing.js", {
+    react, "react-native": native, "react-native-paper": { Switch: "Switch", TextInput: "TextInput" },
+    "../assets/common/rides": helpers, "./DeliveryCheckout": { styles: {} },
+  });
   const { default: Component } = load(file, {
     react, "react-native": native, "react-native-paper": { Button: "Button", TextInput: "TextInput", Switch: "Switch" },
     "@react-native-picker/picker": { Picker: Object.assign((props) => ({ type: "Picker", props }), { Item: "PickerItem" }) },
@@ -68,6 +72,8 @@ function harness(file, request, params = {}, auth = { isAuthenticated: true, loa
       launchCameraAsync: async () => ({ canceled: false, assets: [{ uri: "file:///driver.jpg", mimeType: "image/jpeg" }] }),
     },
     "@react-native-async-storage/async-storage": { getItem: async () => "test-token" },
+    axios: { __esModule: true, default: { get: async () => ({ data: [] }) } },
+    "../../Shared/RideVehiclePricing": { __esModule: true, ...pricing },
     "../../assets/common/baseUrl": { __esModule: true, default: "https://api.example.com/api/v1/" },
     "../../Shared/CloudinaryUploader": { __esModule: true, default: {
       getSignature: async () => ({ signature: "signature", api_key: "key", timestamp: 1, cloud_name: "demo" }),
@@ -85,9 +91,10 @@ function harness(file, request, params = {}, auth = { isAuthenticated: true, loa
         location: { type: "Point", coordinates: [-87.65, 41.95] } };
       return request(route, options);
     } },
-    "../../assets/common/storefront": { storeRequest: async (route) => route === "delivery-current-address" ? address
+    "../../assets/common/storefront": { storeRequest: async (route, requestOptions) => options.storeRequest
+      ? options.storeRequest(route, requestOptions) : route === "delivery-current-address" ? address
       : route === "delivery-addresses" ? [{ ...address, _id: "saved", label: "Saved home" }] : [{ _id: "bank", bankName: "Bank" }] },
-    "../../assets/common/databaseConfig": { getDatabaseNameFromStorage: async () => "E_ShopUSA" },
+    "../../assets/common/databaseConfig": { getDatabaseNameFromStorage: options.database || (async () => "E_ShopUSA") },
     "../../Shared/CheckoutCardPayment": { __esModule: true, default: "CardPayment", canPayByCard: false },
     "../../Shared/DeliveryCheckout": { styles: {} },
     "../../Context/store/Auth": { AuthContext: {} },
@@ -295,6 +302,67 @@ test("Admin saves separate enabled Economy Comfort and Van rates", async () => {
   assert.deepEqual(Array.from(helpers.rideOptions, ({ key }) => saved.vehicleRates[key].minuteRate), ["0.5", "1", "1.5"]);
   assert.ok(helpers.rideOptions.every(({ key }) => saved.vehicleRates[key].enabled));
   assert.match(ui.dialogs.at(-1)[1], /saved/);
+});
+test("Admin Vehicle Configuration edits passenger car classes without changing product delivery or ride policies", async () => {
+  let saved, writes = 0, deliveryWrites = 0, savedPolicy;
+  let current = { ...policy, driverRadiusKm: 5, vehicleRates: {
+    economy: { enabled: true, baseFare: 2, distanceRate: 1, minuteRate: 0.5 },
+    comfort: { enabled: true, baseFare: 4, distanceRate: 2, minuteRate: 1 },
+    van: { enabled: false },
+  } };
+  const ui = harness("Screens\\Admin\\VehicleDeliverySettings.js", async (route, options) => {
+    assert.equal(route, "config");
+    if (options?.method === "put") { writes++; saved = options.data; current = structuredClone(saved); return current; }
+    return structuredClone(current);
+  }, {}, undefined, { storeRequest: async (route, options) => {
+    assert.equal(route, "delivery-config");
+    if (options?.method === "put") { deliveryWrites++; savedPolicy = options.data; return structuredClone(savedPolicy); }
+    return { enabled: false, vehicles: {} };
+  } });
+  await ui.start();
+  assert.match(text(ui.render()), /Passenger car pricing: Economy & Comfort/);
+  assert.match(text(ui.render()), /Vehicle delivery pricing/);
+  const input = (label) => nodes(ui.render()).find((node) => node.type === "TextInput" && node.props.label === label);
+  assert.equal(input("Economy Base fare").props.value, "2");
+  assert.equal(input("Comfort Base fare").props.value, "4");
+  input("Economy Base fare").props.onChangeText("3");
+  input("Comfort Base fare").props.onChangeText("7");
+  current.sharedDiscountPercent = 30;
+  current.driverRadiusKm = 9;
+  await ui.button("Save passenger vehicle prices").props.onPress();
+  assert.equal(writes, 1);
+  assert.equal(saved.vehicleRates.economy.baseFare, "3");
+  assert.equal(saved.vehicleRates.comfort.baseFare, "7");
+  assert.equal(saved.sharedDiscountPercent, 30, "retain the latest shared discount");
+  assert.equal(saved.driverRadiusKm, 9, "retain the latest route limits");
+  assert.equal(saved.enabled, true);
+  assert.equal(saved.vehicles, undefined, "cargo config must not be sent to the ride API");
+  assert.equal(deliveryWrites, 0);
+  assert.match(text(ui.render()), /Passenger Economy, Comfort and Van prices saved/);
+  await ui.button("Save vehicle configuration").props.onPress();
+  assert.equal(deliveryWrites, 1);
+  assert.equal(savedPolicy.vehicleRates, undefined, "passenger pricing must not be sent to delivery API");
+  assert.equal(writes, 1);
+  await ui.button("Reload configuration").props.onPress();
+  assert.equal(input("Comfort Base fare").props.value, "7");
+  ui.button("Ride settings & driver car classes").props.onPress();
+  assert.equal(ui.navigations.at(-1)[0], "RideSettings");
+});
+
+test("Vehicle Configuration surfaces passenger save errors and blocks cross-region changes", async () => {
+  for (const changedRegion of [false, true]) {
+    let database = "E_ShopUSA", writes = 0;
+    const ui = harness("Screens\\Admin\\VehicleDeliverySettings.js", async (route, options) => {
+      if (options?.method === "put") { writes++; throw new Error("Invalid Comfort fare"); }
+      return policy;
+    }, {}, undefined, { database: async () => database, storeRequest: async () => ({ enabled: false, vehicles: {} }) });
+    await ui.start();
+    if (changedRegion) database = "E_ShopETH";
+    await ui.button("Save passenger vehicle prices").props.onPress();
+    assert.match(text(ui.render()), changedRegion ? /Region changed/ : /Invalid Comfort fare/);
+    assert.equal(writes, changedRegion ? 0 : 1);
+    assert.doesNotMatch(text(ui.render()), /prices saved/);
+  }
 });
 test("regular booking balances passenger edits, added/removed stops and mode changes", async () => {
   let sent;

@@ -222,8 +222,12 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   **Economy**, **Comfort** and **Van** before using the comparison screen. The
   shared discount applies to each option's rates. Existing quotes keep their
   saved rates; Regular final fares use actual elapsed minutes, Shared uses the
-  booking's solo route/time. **Vehicle delivery pricing** links to this passenger
-  configuration; cargo capacities and delivery prices stay separate.
+  booking's solo route/time. **Admin > Vehicles & packaged sizes** also displays
+  these same passenger controls under **Passenger car pricing: Economy & Comfort**,
+  with separate Economy, Comfort and Van rates. **Save passenger vehicle prices**
+  updates the shared ride configuration while retaining current ride activation,
+  discounts and route limits. Its product-delivery pricing section and
+  **Save vehicle configuration** remain separate and do not change passenger rates.
 - Drivers can **Terminate booking** with a reason and fresh GPS without reaching
   the planned destination. Confirm this only after affected passengers have
   safely exited. The booking stays `terminated`, not completed; its unfinished

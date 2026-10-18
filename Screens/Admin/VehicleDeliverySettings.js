@@ -8,6 +8,8 @@ import baseUrl from "../../assets/common/baseUrl";
 import { storeRequest } from "../../assets/common/storefront";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import { styles } from "../../Shared/DeliveryCheckout";
+import { rideRequest } from "../../assets/common/rides";
+import RideVehiclePricing, { normalizeRideRates } from "../../Shared/RideVehiclePricing";
 
 const VEHICLES = ["motorcycle", "car", "van", "truck"];
 const CAPACITIES = [
@@ -21,6 +23,7 @@ const empty = () => ({ enabled: false, vehicles: Object.fromEntries(VEHICLES.map
 
 const VehicleDeliverySettings = ({ route, navigation }) => {
   const [config, setConfig] = useState(empty);
+  const [rideRates, setRideRates] = useState(null);
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
   const [productId, setProductId] = useState(route.params?.productId || "");
@@ -43,13 +46,15 @@ const VehicleDeliverySettings = ({ route, navigation }) => {
   const load = () => run(async () => {
     const db = await getDatabaseNameFromStorage();
     const token = await AsyncStorage.getItem("token");
-    const [settings, response] = await Promise.all([
+    const [settings, response, rides] = await Promise.all([
       storeRequest("delivery-config"),
       axios.get(`${baseUrl}products`, { headers: { Authorization: `Bearer ${token}`, "x-database-name": db } }),
+      rideRequest("config"),
     ]);
     setDatabase(db);
     setConfig({ ...empty(), ...settings, vehicles: { ...empty().vehicles, ...settings.vehicles } });
     setProducts(response.data);
+    setRideRates(normalizeRideRates(rides.vehicleRates));
   });
   useEffect(() => { load(); }, []);
   useEffect(() => {
@@ -61,7 +66,24 @@ const VehicleDeliverySettings = ({ route, navigation }) => {
     {error ? <Text style={styles.error}>{error}</Text> : null}
     {message ? <Text style={styles.success}>{message}</Text> : null}
     <Button disabled={busy} onPress={load}>Reload configuration</Button>
-    <Button disabled={busy} onPress={() => navigation.navigate("RideSettings")}>Passenger vehicles & Economy / Comfort</Button>
+    <Text style={styles.title}>Vehicle configuration</Text>
+    {rideRates ? <View style={styles.card}>
+      <RideVehiclePricing rates={rideRates} onChange={setRideRates} disabled={busy} />
+      <Text>Uses the same passenger rates as Admin Rides. Saving here does not change delivery fees,
+        ride activation, shared discounts or route limits. Configure those and assign driver car classes in Ride settings first.</Text>
+      <Button disabled={busy} onPress={() => navigation.navigate("RideSettings")}>Ride settings & driver car classes</Button>
+      <Button mode="contained" disabled={busy} onPress={() => run(async () => {
+        const ensureRegion = async () => {
+          if (await getDatabaseNameFromStorage() !== database) throw new Error("Region changed. Reload configuration before saving passenger prices.");
+        };
+        await ensureRegion();
+        const current = await rideRequest("config");
+        await ensureRegion();
+        const saved = await rideRequest("config", { method: "put", data: { ...current, vehicleRates: rideRates } });
+        setRideRates(normalizeRideRates(saved.vehicleRates));
+        setMessage("Passenger Economy, Comfort and Van prices saved.");
+      })}>Save passenger vehicle prices</Button>
+    </View> : null}
     <View style={styles.card}>
       <Text style={styles.title}>Vehicle delivery pricing</Text>
       <Text>Fees use this region's currency. Distance rates are per {/usa/i.test(database) ? "mile" : "kilometer"} of the pickup-to-destination driving route.</Text>
