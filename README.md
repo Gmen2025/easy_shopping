@@ -135,6 +135,12 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   booking. Boarding/leaving counts must balance. Shared bookings have one own
   pickup/dropoff and passenger-party count; the backend matches unrelated
   customers only when road-route, wait, detour and seat limits fit.
+- The first stop is always a pickup and the last is always a drop-off. Set the
+  number boarding at each pickup (and leaving at intermediate drop-offs); the
+  final drop-off count automatically includes everyone still onboard. Adding,
+  removing, or changing intermediate stops recalculates that count. Switching
+  between Regular and Shared resets to the first pickup and final drop-off with
+  matching passenger counts.
 - With location permission, the first pickup defaults to the device's current
   GPS position. **Use my current location** refreshes it; search, saved addresses,
   and manual stop details remain available to change pickup. The server reverse

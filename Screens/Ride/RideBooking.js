@@ -6,7 +6,7 @@ import { Button, Switch, TextInput } from "react-native-paper";
 import { Picker } from "@react-native-picker/picker";
 import { FontAwesome5 } from "@expo/vector-icons";
 import * as Location from "expo-location";
-import { rideRequest, newRideStop, rideFare, isEthiopia, addressText } from "../../assets/common/rides";
+import { rideRequest, newRideStop, balanceRideStops, rideFare, isEthiopia, addressText } from "../../assets/common/rides";
 import { storeRequest } from "../../assets/common/storefront";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import { styles } from "../../Shared/DeliveryCheckout";
@@ -146,7 +146,7 @@ export default function RideBooking({ navigation }) {
   }, [focused, isAuthenticated, loading]);
   const update = (index, patch) => {
     setQuote(null);
-    setStops((previous) => previous.map((stop, at) => at === index ? { ...stop, ...patch } : stop));
+    setStops((previous) => balanceRideStops(previous.map((stop, at) => at === index ? { ...stop, ...patch } : stop)));
   };
   const ensureRegion = async () => {
     if (await getDatabaseNameFromStorage() !== database) throw new Error("The region changed. Reload the ride form before requesting.");
@@ -230,18 +230,22 @@ export default function RideBooking({ navigation }) {
               {saved.map((address) => <Picker.Item key={address._id} label={address.label} value={address._id} />)}
             </Picker>
             <TextInput label={stop.type === "pickup" ? "Passengers boarding" : "Passengers leaving"} keyboardType="number-pad"
-              value={stop.passengers} disabled={busy} onChangeText={(passengers) => {
+              value={stop.passengers} disabled={busy || index === stops.length - 1} onChangeText={(passengers) => {
                 if (mode === "shared") {
                   setQuote(null);
                   setStops((previous) => previous.map((entry) => ({ ...entry, passengers })));
                 } else update(index, { passengers });
               }} />
+            {index === stops.length - 1 ? <Text style={ui.smallText}>
+              Everyone still onboard leaves at the final drop-off. This count updates automatically.
+            </Text> : null}
             {mode === "regular" ? <>
-              <Picker selectedValue={stop.type} enabled={!busy} onValueChange={(type) => update(index, { type })}>
+              <Picker selectedValue={stop.type} enabled={!busy && index > 0 && index < stops.length - 1}
+                onValueChange={(type) => update(index, { type })}>
                 <Picker.Item label="Pickup" value="pickup" /><Picker.Item label="Drop-off" value="dropoff" />
               </Picker>
-              {stops.length > 2 ? <Button disabled={busy} onPress={() => {
-                setQuote(null); setStops((previous) => previous.filter((_, at) => at !== index));
+              {index > 0 && index < stops.length - 1 ? <Button disabled={busy} onPress={() => {
+                setQuote(null); setStops((previous) => balanceRideStops(previous.filter((_, at) => at !== index)));
               }}>Remove stop</Button> : null}
             </> : null}
             {fields.filter(([key]) => !(key === "zip" && isEthiopia(stop.address.country))).map(([key, label]) =>
@@ -257,7 +261,7 @@ export default function RideBooking({ navigation }) {
           setQuote(null); setStops((previous) => {
             const stop = newRideStop("pickup", previous[0].address.country);
             stop.address.phone = previous[0].address.phone;
-            return [...previous.slice(0, -1), stop, previous.at(-1)];
+            return balanceRideStops([...previous.slice(0, -1), stop, previous.at(-1)]);
           });
         }}>+ Add another stop</Button> : null}
         <Text style={ui.smallText}>Stops are served in the order shown. Start with a pickup and finish with a drop-off.</Text>
@@ -280,8 +284,7 @@ export default function RideBooking({ navigation }) {
           <Text style={ui.modeTitle}>Shared ride</Text>
           <Switch value={mode === "shared"} disabled={busy} onValueChange={(shared) => {
             setMode(shared ? "shared" : "regular"); setQuote(null);
-            setStops((previous) => [previous[0], { ...previous.at(-1), type: "dropoff",
-              passengers: shared ? previous[0].passengers : previous.at(-1).passengers }]);
+            setStops((previous) => balanceRideStops([previous[0], previous.at(-1)]));
           }} />
         </View>
         <Text style={ui.modeText}>{mode === "regular"

@@ -171,6 +171,7 @@ test("customer UI defaults to regular, submits ordered multi-stops and one fare,
       assert.equal(options.data.mode, "regular");
       assert.equal(options.data.stops.length, 3);
       assert.deepEqual(Array.from(options.data.stops, (stop) => stop.type), ["pickup", "pickup", "dropoff"]);
+      assert.deepEqual(Array.from(options.data.stops, (stop) => stop.passengers), [1, 1, 2]);
       return { _id: "ride", currency: "usd", estimate: 10, seats: 2, baseline: { minutes: 10 }, expiresAt: new Date(Date.now() + 600000) };
     }
     if (route === "ride/request") return { _id: "ride" };
@@ -189,6 +190,53 @@ test("customer UI defaults to regular, submits ordered multi-stops and one fare,
   await ui.button("Request driver (pay after ride)").props.onPress();
   assert.equal(ui.navigations.at(-1)[0], "MyRides");
   assert.equal(ui.calls.some((call) => call.route.includes("payment")), false);
+});
+test("regular booking balances passenger edits, added/removed stops and mode changes", async () => {
+  let sent;
+  const ui = harness("Screens\\Ride\\RideBooking.js", async (route, options) => {
+    if (route === "config") return policy;
+    if (route === "quote") { sent = options.data; return null; }
+  });
+  await ui.start();
+  ui.button("Saved address & passenger details").props.onPress();
+  const input = (label) => nodes(ui.render()).find((node) => node.type === "TextInput" && node.props.label === label);
+  input("Passengers boarding").props.onChangeText("3");
+  await ui.button("Calculate road route & fare").props.onPress();
+  assert.deepEqual(Array.from(sent.stops, (stop) => stop.passengers), [3, 3]);
+  ui.button("+ Add another stop").props.onPress();
+  await ui.button("Calculate road route & fare").props.onPress();
+  assert.deepEqual(Array.from(sent.stops, (stop) => stop.passengers), [3, 1, 4]);
+  let details = nodes(ui.render()).filter((node) => node.type === "Button" && text(node) === "Saved address & passenger details");
+  details[0].props.onPress();
+  const typePickers = () => nodes(ui.render()).filter((node) => node.type === "Picker" &&
+    ["pickup", "dropoff"].includes(node.props.selectedValue));
+  assert.equal(typePickers()[0].props.enabled, false);
+  assert.equal(typePickers()[1].props.enabled, true);
+  typePickers()[1].props.onValueChange("dropoff");
+  await ui.button("Calculate road route & fare").props.onPress();
+  assert.deepEqual(Array.from(sent.stops, (stop) => stop.passengers), [3, 1, 2]);
+  input("Passengers leaving").props.onChangeText("2");
+  await ui.button("Calculate road route & fare").props.onPress();
+  assert.deepEqual(Array.from(sent.stops, (stop) => stop.passengers), [3, 2, 1]);
+  ui.button("Remove stop").props.onPress();
+  await ui.button("Calculate road route & fare").props.onPress();
+  assert.deepEqual(Array.from(sent.stops, (stop) => stop.passengers), [3, 3]);
+  assert.equal(ui.button("Remove stop"), undefined);
+  ui.button("+ Add another stop").props.onPress();
+  ui.switches()[0].props.onValueChange(true);
+  await ui.button("Calculate road route & fare").props.onPress();
+  assert.deepEqual(Array.from(sent.stops, (stop) => stop.passengers), [3, 3]);
+  ui.switches()[0].props.onValueChange(false);
+  details = nodes(ui.render()).filter((node) => node.type === "Button" && text(node) === "Saved address & passenger details");
+  if (details.length) details.at(-1).props.onPress();
+  const leaving = input("Passengers leaving");
+  assert.equal(leaving.props.disabled, true);
+  assert.equal(typePickers().at(-1).props.enabled, false);
+  input("Passengers boarding").props.onChangeText("");
+  assert.equal(input("Passengers leaving").props.value, "");
+  input("Passengers boarding").props.onChangeText("2");
+  await ui.button("Calculate road route & fare").props.onPress();
+  assert.deepEqual(Array.from(sent.stops, (stop) => stop.passengers), [2, 2]);
 });
 test("booking defaults pickup to GPS, prefills editable phone numbers and sends them with the quote", async () => {
   let sent;

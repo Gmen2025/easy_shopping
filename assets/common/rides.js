@@ -9,6 +9,14 @@ export const newRideStop = (type, country = "") => ({
   type, passengers: "1", address: { label: type === "pickup" ? "Pickup" : "Drop-off", address1: "",
     address2: "", city: "", zip: "", country, phone: "" },
 });
+export const balanceRideStops = (stops) => {
+  const remaining = stops.slice(0, -1).reduce((total, stop) =>
+    total + (stop.type === "pickup" ? 1 : -1) * Number(stop.passengers), 0);
+  return stops.map((stop, index) => index === stops.length - 1
+    ? { ...stop, type: "dropoff", passengers: stops.slice(0, -1).some((entry) => entry.passengers === "") ||
+        !Number.isFinite(remaining) ? "" : String(remaining) }
+    : index === 0 ? { ...stop, type: "pickup" } : stop);
+};
 export const rideStopPoint = (stop) => {
   const coordinates = stop?.address?.location?.coordinates;
   if (!Array.isArray(coordinates) || coordinates.length !== 2) return null;
