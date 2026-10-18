@@ -30,7 +30,7 @@ function text(value) {
   if (Array.isArray(value)) return value.map(text).join("");
   return text(value?.props?.children || []);
 }
-function harness(file, request, params = {}, auth = { isAuthenticated: true, loading: false }) {
+function harness(file, request, params = {}, auth = { isAuthenticated: true, loading: false }, options = {}) {
   const states = [], effects = [], timers = [], calls = [], dialogs = [], navigations = [];
   let cursor = 0;
   const react = {
@@ -70,10 +70,17 @@ function harness(file, request, params = {}, auth = { isAuthenticated: true, loa
       getSignature: async () => ({ signature: "signature", api_key: "key", timestamp: 1, cloud_name: "demo" }),
       uploadToCloudinary: async () => ({ secure_url: "https://res.cloudinary.com/demo/image/upload/v1/driver.jpg" }),
     } },
-    "expo-location": { Accuracy: { High: 1 }, requestForegroundPermissionsAsync: async () => ({ status: "granted" }),
-      getForegroundPermissionsAsync: async () => ({ status: "granted" }), getCurrentPositionAsync: async () => ({ coords: { latitude: 0, longitude: 0 } }) },
+    "expo-location": { Accuracy: { High: 1 },
+      requestForegroundPermissionsAsync: async () => ({ status: options.locationPermission || "granted" }),
+      getForegroundPermissionsAsync: async () => ({ status: "granted" }),
+      getCurrentPositionAsync: async () => ({ coords: { latitude: 41.95, longitude: -87.65 } }) },
     "../../assets/common/rides": { ...helpers, rideRequest: async (route = "", options) => {
-      calls.push({ route, options }); return request(route, options);
+      calls.push({ route, options });
+      if (route === "places/current-location") return { address1: "123 Current Street", city: "Chicago", zip: "60613",
+        country: "USA", formattedAddress: "123 Current Street, Chicago, USA",
+        currentLocation: { latitude: 41.95, longitude: -87.65 },
+        location: { type: "Point", coordinates: [-87.65, 41.95] } };
+      return request(route, options);
     } },
     "../../assets/common/storefront": { storeRequest: async (route) => route === "delivery-current-address" ? address
       : route === "delivery-addresses" ? [{ ...address, _id: "saved", label: "Saved home" }] : [{ _id: "bank", bankName: "Bank" }] },
@@ -182,6 +189,59 @@ test("customer UI defaults to regular, submits ordered multi-stops and one fare,
   await ui.button("Request driver (pay after ride)").props.onPress();
   assert.equal(ui.navigations.at(-1)[0], "MyRides");
   assert.equal(ui.calls.some((call) => call.route.includes("payment")), false);
+});
+test("booking defaults pickup to GPS, prefills editable phone numbers and sends them with the quote", async () => {
+  let sent;
+  const ui = harness("Screens\\Ride\\RideBooking.js", async (route, options) => {
+    if (route === "config") return policy;
+    if (route === "quote") {
+      sent = options.data;
+      return { _id: "ride", currency: "usd", estimate: 10, seats: 1, baseline: { minutes: 10 },
+        expiresAt: new Date(Date.now() + 600000) };
+    }
+  });
+  await ui.start();
+  const gps = ui.calls.find((call) => call.route === "places/current-location");
+  assert.equal(gps.options.data.latitude, 41.95);
+  assert.equal(gps.options.data.longitude, -87.65);
+  const phones = nodes(ui.render()).filter((node) => node.type === "TextInput" && node.props.label === "Contact phone");
+  assert.equal(phones.length, 2);
+  assert.equal(phones[0].props.value, address.phone);
+  phones[0].props.onChangeText("+13125550123");
+  await ui.button("Calculate road route & fare").props.onPress();
+  assert.equal(sent.stops[0].address.phone, "+13125550123");
+  assert.equal(sent.stops[1].address.phone, address.phone);
+  assert.equal(sent.stops[0].address.currentLocation.latitude, 41.95);
+  assert.ok(ui.button("Request driver (pay after ride)"));
+  const searches = nodes(ui.render()).filter((node) => node.type === "AddressSearchInput");
+  searches[0].props.onSelect({ placeId: "ChIJnewpickup0001", address1: "Changed pickup", city: "Chicago", country: "USA" });
+  assert.equal(ui.button("Request driver (pay after ride)"), undefined);
+  await ui.button("Calculate road route & fare").props.onPress();
+  assert.equal(sent.stops[0].address.currentLocation, undefined);
+  assert.equal(sent.stops[0].address.phone, "+13125550123");
+  assert.equal(sent.stops[0].address.address1, "Changed pickup");
+  await ui.button("Use my current location").props.onPress();
+  assert.equal(ui.button("Request driver (pay after ride)"), undefined);
+  await ui.button("Calculate road route & fare").props.onPress();
+  assert.equal(sent.stops[0].address.currentLocation.latitude, 41.95);
+  assert.equal(sent.stops[0].address.placeId, undefined);
+  assert.equal(sent.stops[0].address.phone, "+13125550123");
+  ui.button("Saved address & passenger details").props.onPress();
+  nodes(ui.render()).find((node) => node.type === "TextInput" && node.props.label === "Street address / landmark")
+    .props.onChangeText("Manual pickup");
+  await ui.button("Calculate road route & fare").props.onPress();
+  assert.equal(sent.stops[0].address.currentLocation, undefined);
+  assert.equal(sent.stops[0].address.location, undefined);
+  assert.equal(sent.stops[0].address.address1, "Manual pickup");
+});
+test("booking allows manual pickup when location permission is denied", async () => {
+  const ui = harness("Screens\\Ride\\RideBooking.js", async (route) => route === "config" ? policy : null,
+    {}, { isAuthenticated: true, loading: false }, { locationPermission: "denied" });
+  await ui.start();
+  assert.match(text(ui.render()), /Allow location access/);
+  assert.equal(ui.calls.some((call) => call.route === "places/current-location"), false);
+  assert.ok(ui.button("Calculate road route & fare"));
+  assert.ok(nodes(ui.render()).find((node) => node.type === "AddressSearchInput"));
 });
 test("shared form exposes only the booking's pickup/dropoff and synchronizes its own passenger party", async () => {
   const ui = harness("Screens\\Ride\\RideBooking.js", async (route, options) => {

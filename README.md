@@ -135,6 +135,17 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   booking. Boarding/leaving counts must balance. Shared bookings have one own
   pickup/dropoff and passenger-party count; the backend matches unrelated
   customers only when road-route, wait, detour and seat limits fit.
+- With location permission, the first pickup defaults to the device's current
+  GPS position. **Use my current location** refreshes it; search, saved addresses,
+  and manual stop details remain available to change pickup. The server reverse
+  geocodes GPS through `POST /rides/places/current-location`, verifies the shopping
+  country, and rechecks the position when quoting. Enable Geocoding API for
+  `GOOGLE_MAPS_API_KEY`. Permission/lookup failures show a message and allow manual
+  entry. Editing street/city/ZIP/country clears the GPS selection.
+- Each stop has a visible, editable **Contact phone**, prefilled from the current
+  account address or profile. The number is required and saved in the ride's stop
+  address for the driver to contact the passenger; changing it invalidates the
+  quote. This does not change the account's profile phone.
 - After **Calculate road route & fare**, the quote shows a Google map with the
   numbered pickup (green) and drop-off (red) pins and the driving route through
   every stop in order, plus a link that opens the same route in Google Maps. My

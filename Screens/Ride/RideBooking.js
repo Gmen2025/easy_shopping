@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } fr
 import { Button, Switch, TextInput } from "react-native-paper";
 import { Picker } from "@react-native-picker/picker";
 import { FontAwesome5 } from "@expo/vector-icons";
+import * as Location from "expo-location";
 import { rideRequest, newRideStop, rideFare, isEthiopia, addressText } from "../../assets/common/rides";
 import { storeRequest } from "../../assets/common/storefront";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
@@ -13,7 +14,7 @@ import RideRouteMap from "../../Shared/RideRouteMap";
 import AddressSearchInput from "../../Shared/AddressSearchInput";
 
 const fields = [["label", "Stop label"], ["address1", "Street address / landmark"], ["address2", "Apartment / unit (optional)"],
-  ["city", "City"], ["zip", "ZIP code"], ["country", "Country"], ["phone", "Contact phone"]];
+  ["city", "City"], ["zip", "ZIP code"], ["country", "Country"]];
 const locatedFields = ["address1", "city", "zip", "country"];
 const vehicleStyles = [
   { name: "Motorcycle", icon: "motorcycle", detail: "Quick trips" },
@@ -64,7 +65,7 @@ const ui = {
 };
 
 export default function RideBooking({ navigation }) {
-  const { isAuthenticated, loading, logout } = useContext(AuthContext);
+  const { isAuthenticated, loading, logout, user } = useContext(AuthContext);
   const focused = useIsFocused();
   const [needsSignIn, setNeedsSignIn] = useState(false);
   const [mode, setMode] = useState("regular");
@@ -76,6 +77,7 @@ export default function RideBooking({ navigation }) {
   const [database, setDatabase] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [pickupLocationError, setPickupLocationError] = useState("");
   const running = useRef(false);
   const run = async (action) => {
     if (running.current) return;
@@ -91,6 +93,34 @@ export default function RideBooking({ navigation }) {
       setError(message); Alert.alert("Ride needs attention", message);
     } finally { running.current = false; setBusy(false); }
   };
+  const locatePickup = async (db) => {
+    setPickupLocationError("");
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== "granted") {
+        throw new Error("Allow location access to use your current pickup, or enter a pickup address below.");
+      }
+      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      if (await getDatabaseNameFromStorage() !== db) {
+        throw new Error("The region changed. Reload the ride form before choosing your pickup.");
+      }
+      const address = await rideRequest("places/current-location", { method: "post", data: {
+        latitude: position.coords.latitude, longitude: position.coords.longitude,
+      } });
+      if (await getDatabaseNameFromStorage() !== db) {
+        throw new Error("The region changed. Reload the ride form before choosing your pickup.");
+      }
+      setQuote(null);
+      setStops((previous) => previous.map((stop, index) => index === 0 ? {
+        ...stop, address: { ...stop.address, ...address, placeId: undefined, address2: "" },
+      } : stop));
+    } catch (failure) {
+      if (failure.response?.status === 401) throw failure;
+      const message = failure.response?.data?.message || failure.message || "Unable to locate your pickup. Enter it manually.";
+      console.warn("Ride pickup location failed:", message);
+      setPickupLocationError(message);
+    }
+  };
   const load = () => run(async () => {
     const db = await getDatabaseNameFromStorage();
     const [policy, addresses, current] = await Promise.all([
@@ -98,10 +128,15 @@ export default function RideBooking({ navigation }) {
     ]);
     setDatabase(db); setConfig(policy);
     setSaved([{ ...current, _id: "current", label: "Current account address" }, ...addresses]);
-    setStops([newRideStop("pickup", /usa/i.test(db) ? "USA" : "Ethiopia"),
-      newRideStop("dropoff", /usa/i.test(db) ? "USA" : "Ethiopia")]);
+    const phone = current.phone || user?.phone || "";
+    setStops(["pickup", "dropoff"].map((type) => {
+      const stop = newRideStop(type, /usa/i.test(db) ? "USA" : "Ethiopia");
+      return { ...stop, address: { ...stop.address, phone } };
+    }));
     setExpandedStops({});
     setQuote(null);
+    setPickupLocationError("");
+    if (policy.enabled) await locatePickup(db);
   });
   useEffect(() => {
     if (focused && isAuthenticated && !loading) {
@@ -164,12 +199,25 @@ export default function RideBooking({ navigation }) {
               </Text>
             </View>
           </View>
+          {index === 0 && stop.type === "pickup" ? <>
+            <Button disabled={busy} icon="crosshairs-gps" onPress={() => run(async () => {
+              await ensureRegion();
+              await locatePickup(database);
+            })}>Use my current location</Button>
+            {pickupLocationError ? <Text accessibilityRole="alert" style={ui.error}>{pickupLocationError}</Text> : null}
+            <Text style={ui.smallText}>Your current location is the default pickup. Search below to change it, or edit the address in stop details.</Text>
+          </> : null}
           <AddressSearchInput
             label={stop.type === "pickup" ? "Search pickup location" : "Search drop-off location"}
             disabled={busy}
-            selectedText={stop.address.placeId ? stop.address.formattedAddress || addressText(stop.address) : ""}
+            selectedText={stop.address.placeId || stop.address.currentLocation
+              ? stop.address.formattedAddress || addressText(stop.address) : ""}
             onSelect={(place) => update(index, { address: { ...stop.address, ...place,
-              label: stop.address.label, phone: stop.address.phone, address2: stop.address.address2 } })} />
+              currentLocation: undefined, label: stop.address.label, phone: stop.address.phone,
+              address2: stop.address.address2 } })} />
+          <TextInput label="Contact phone" keyboardType="phone-pad" autoComplete="tel" value={stop.address.phone || ""}
+            disabled={busy} onChangeText={(phone) => update(index, { address: { ...stop.address, phone } })}
+            style={styles.input} />
           <Button compact mode="text" disabled={busy} onPress={() => setExpandedStops((previous) => ({
             ...previous, [index]: !previous[index],
           }))}>{expandedStops[index] ? "Hide stop details" : "Saved address & passenger details"}</Button>
@@ -199,13 +247,18 @@ export default function RideBooking({ navigation }) {
             {fields.filter(([key]) => !(key === "zip" && isEthiopia(stop.address.country))).map(([key, label]) =>
               <TextInput key={key} label={label} value={stop.address[key] || ""} disabled={busy}
                 onChangeText={(value) => update(index, { address: { ...stop.address, [key]: value,
-                  ...(locatedFields.includes(key) ? { placeId: undefined, formattedAddress: undefined, location: undefined } : {}) } })}
+                  ...(locatedFields.includes(key) ? {
+                    placeId: undefined, formattedAddress: undefined, location: undefined, currentLocation: undefined,
+                  } : {}) } })}
                 style={styles.input} />)}
           </View> : null}
         </View>)}
         {mode === "regular" ? <Button disabled={busy || stops.length >= 12} onPress={() => {
-          setQuote(null); setStops((previous) => [...previous.slice(0, -1),
-            newRideStop("pickup", previous[0].address.country), previous.at(-1)]);
+          setQuote(null); setStops((previous) => {
+            const stop = newRideStop("pickup", previous[0].address.country);
+            stop.address.phone = previous[0].address.phone;
+            return [...previous.slice(0, -1), stop, previous.at(-1)];
+          });
         }}>+ Add another stop</Button> : null}
         <Text style={ui.smallText}>Stops are served in the order shown. Start with a pickup and finish with a drop-off.</Text>
       </View>
