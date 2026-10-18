@@ -197,6 +197,18 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   same shopping region on both accounts. Dispatch requires GPS updated within
   two minutes and within the region's configured driver search radius.
 - The active ride lists ordered pickups/dropoffs, passenger counts and contacts.
+  Claiming a ride opens **DriverRideTrip**, a full-screen route map with the
+  driver's live pin and remaining pickup/drop-off pins. **Open full-screen ride
+  map** in assignments resumes an existing trip after leaving/restarting the app.
+  The trip-details card can collapse to the side or bottom and expand again.
+  It shows customer names, stop addresses, passenger counts and a call icon;
+  phone numbers are not printed in the card. Calling opens the device dialer
+  (this is UI concealment, not a masked/proxy telephone service).
+  **Start trip to pickup** saves trip start without boarding passengers or
+  starting the fare timer. The next-stop button confirms the complete passenger
+  count for that stop, with pickup/drop-off progress totals. Stops remain ordered
+  and retain fresh-GPS/300m server checks. After the last drop-off, return to ride
+  assignments for payments. Termination and service settings remain there too.
   After claiming, the driver sees a Google map of the remaining vehicle route,
   starting at driver GPS and including all pending shared-booking stops in order
   (`GET /rides/me/route`, assigned company driver only). It refreshes when the

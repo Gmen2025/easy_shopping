@@ -54,14 +54,14 @@ function harness(file, request, params = {}, auth = { isAuthenticated: true, loa
     },
     useEffect: (effect) => effects.push(effect),
   };
-  const native = new Proxy({ Alert: { alert: (...args) => dialogs.push(args) }, Linking: { openURL: async (url) => calls.push({ url }) } },
+  const native = new Proxy({ StyleSheet: { create: (value) => value }, Alert: { alert: (...args) => dialogs.push(args) }, Linking: { openURL: async (url) => calls.push({ url }) } },
     { get: (target, key) => target[key] || key });
   const pricing = load("Shared\\RideVehiclePricing.js", {
     react, "react-native": native, "react-native-paper": { Switch: "Switch", TextInput: "TextInput" },
     "../assets/common/rides": helpers, "./DeliveryCheckout": { styles: {} },
   });
   const { default: Component } = load(file, {
-    react, "react-native": native, "react-native-paper": { Button: "Button", TextInput: "TextInput", Switch: "Switch" },
+    react, "react-native": native, "react-native-paper": { Button: "Button", IconButton: "IconButton", TextInput: "TextInput", Switch: "Switch" },
     "@react-native-picker/picker": { Picker: Object.assign((props) => ({ type: "Picker", props }), { Item: "PickerItem" }) },
     "@expo/vector-icons": { FontAwesome5: "FontAwesome5" },
     "@react-navigation/native": { useIsFocused: () => true },
@@ -513,7 +513,7 @@ test("driver screen separates offers and route, expires claim controls, and warn
   assert.match(text(ui.render()), /Offer expired/);
 });
 
-test("claiming a ride shows the driver's remaining route map and locks vehicle selection", async () => {
+test("claiming a ride opens the dedicated trip page without waiting for another GPS refresh", async () => {
   let claimed = false;
   const located = { ...address, location: { coordinates: [-87.65, 41.95] } };
   const driver = { vehicleType: "car", carClass: "comfort", serviceModes: { delivery: true }, location: located.location };
@@ -529,16 +529,110 @@ test("claiming a ride shows the driver's remaining route map and locks vehicle s
   });
   await ui.start();
   await ui.button("Claim ride").props.onPress();
-  const map = nodes(ui.render()).find((node) => node.type === "RideRouteMap");
-  assert.equal(map.props.routeEndpoint, "me/route");
-  assert.equal(map.props.routeVersion, 2);
-  assert.equal(map.props.ride._id, "trip");
-  assert.equal(map.props.ride.stops.length, 1);
-  assert.equal(map.props.ride.stops[0].type, "dropoff");
-  assert.equal(map.props.driverLocation.latitude, 41.95);
-  assert.equal(map.props.distanceUnit, "mile");
+  assert.equal(ui.navigations.at(-1)[0], "DriverRideTrip");
+  assert.equal(ui.navigations.at(-1)[1].database, "E_ShopUSA");
+  assert.equal(ui.calls.filter((call) => call.route === "me/location").length, 1);
   assert.equal(ui.button("Submit vehicle selection").props.disabled, true);
   assert.match(text(ui.render()), /Car class: comfort/);
+});
+
+test("full-screen passenger trip supports collapse, hidden-number calling and ordered multi-stop confirmation", async () => {
+  const contact = { ...address, phone: "+1 (312) 555-0123", location: { coordinates: [-87.65, 41.95] } };
+  const trip = { _id: "trip", mode: "regular", version: 1, onboardSeats: 0, seatCapacity: 3, stops: [
+    { ride: "ride", key: "0", type: "pickup", passengers: 1, address: contact },
+    { ride: "ride", key: "1", type: "pickup", passengers: 2, address: contact },
+    { ride: "ride", key: "2", type: "dropoff", passengers: 3, address: contact },
+  ] };
+  let active = true;
+  const ui = harness("Screens\\Driver\\DriverRideTrip.js", async (route, options) => {
+    if (route === "me/location") return {};
+    if (route === "me/start-trip") {
+      assert.equal(options.data.tripId, "trip");
+      trip.startedAt = new Date();
+      return {};
+    }
+    if (route === "me/next-stop") {
+      const next = trip.stops.find((stop) => !stop.completedAt);
+      assert.equal(options.data.stopKey, `ride:${next.key}`);
+      next.completedAt = new Date();
+      trip.onboardSeats += next.type === "pickup" ? next.passengers : -next.passengers;
+      trip.version++;
+      active = trip.stops.some((stop) => !stop.completedAt);
+      return {};
+    }
+    return { driver: { location: contact.location }, trip: active ? { ...trip, stops: [...trip.stops] } : null,
+      riders: [{ _id: "ride", customerName: "Rider Name", vehicleOption: "comfort" }] };
+  }, { database: "E_ShopUSA" });
+  await ui.start();
+  const map = nodes(ui.render()).find((node) => node.type === "RideRouteMap");
+  assert.equal(map.props.fullScreen, true);
+  assert.equal(map.props.routeEndpoint, "me/route");
+  assert.match(text(ui.render()), /Rider Name/);
+  assert.doesNotMatch(text(ui.render()), /555-0123/);
+  const icon = (label) => nodes(ui.render()).find((node) => node.props?.accessibilityLabel === label);
+  await icon("Call customer for stop 1").props.onPress();
+  assert.equal(ui.calls.at(-1).url, "tel:+13125550123");
+  for (const side of ["bottom", "side"]) {
+    icon(`Collapse trip details to ${side}`).props.onPress();
+    assert.equal(ui.button("Start trip to pickup"), undefined);
+    icon("Expand trip details").props.onPress();
+    assert.ok(ui.button("Start trip to pickup"));
+  }
+  assert.equal(ui.button("Confirm pickup 1/2 - 1 passengers").props.disabled, true);
+  await ui.button("Start trip to pickup").props.onPress();
+  assert.equal(ui.calls.some((call) => call.route === "me/next-stop"), false);
+  for (const label of ["Confirm pickup 1/2 - 1 passengers", "Confirm pickup 2/2 - 2 passengers", "Confirm drop-off 1/1 - 3 passengers"]) {
+    assert.equal(ui.button(label).props.disabled, false);
+    ui.button(label).props.onPress();
+    assert.equal(ui.dialogs.at(-1)[0], "Confirm next stop?");
+    await ui.dialogs.at(-1)[2].find((button) => button.text === "Confirm").onPress();
+  }
+  assert.match(text(ui.render()), /No active passenger trip/);
+  assert.equal(trip.onboardSeats, 0);
+  assert.equal(ui.calls.filter((call) => call.route === "me/next-stop").length, 3);
+});
+
+test("trip page resumes started pooled trips and blocks confirmation when GPS is denied", async () => {
+  const stops = [{ ride: "rider-a", key: "0", type: "pickup", passengers: 1, address, completedAt: new Date() },
+    { ride: "rider-b", key: "0", type: "pickup", passengers: 2, address },
+    { ride: "rider-a", key: "1", type: "dropoff", passengers: 1, address },
+    { ride: "rider-b", key: "1", type: "dropoff", passengers: 2, address }];
+  const ui = harness("Screens\\Driver\\DriverRideTrip.js", async () => ({
+    driver: {}, trip: { _id: "trip", startedAt: new Date(), mode: "shared", stops, onboardSeats: 1, seatCapacity: 4 },
+    riders: [{ _id: "rider-a", customerName: "Alice" }, { _id: "rider-b", customerName: "Bob" }],
+  }), {}, undefined, { locationPermission: "denied" });
+  await ui.start();
+  assert.match(text(ui.render()), /Alice/);
+  assert.match(text(ui.render()), /Bob/);
+  assert.match(text(ui.render()), /Allow location access/);
+  assert.equal(ui.button("Start trip to pickup"), undefined);
+  assert.equal(ui.button("Confirm pickup 2/2 - 2 passengers").props.disabled, true);
+  assert.equal(nodes(ui.render()).find((node) => node.type === "RideRouteMap").props.ride.stops.length, 3);
+});
+
+test("failed ride claims do not navigate and failed trip starts do not enable boarding", async () => {
+  const ui = harness("Screens\\Driver\\DriverRides.js", async (route) => {
+    if (route === "me/location") return {};
+    if (route.includes("/accept")) throw new Error("Offer already claimed");
+    return { driver: {}, payments: [], offer: { _id: "ride", mode: "regular", currency: "usd",
+      estimate: 8, stops: [], offerDeadline: new Date(Date.now() + 60000) } };
+  });
+  await ui.start();
+  await ui.button("Claim ride").props.onPress();
+  assert.equal(ui.navigations.length, 0);
+  assert.match(ui.dialogs.at(-1)[1], /already claimed/);
+  const page = harness("Screens\\Driver\\DriverRideTrip.js", async (route) => {
+    if (route === "me/location") return {};
+    if (route === "me/start-trip") throw new Error("Unable to save trip start");
+    return { driver: {}, riders: [], trip: { _id: "trip", mode: "regular", stops: [
+      { ride: "ride", key: "0", type: "pickup", passengers: 1, address },
+      { ride: "ride", key: "1", type: "dropoff", passengers: 1, address },
+    ] } };
+  });
+  await page.start();
+  await page.button("Start trip to pickup").props.onPress();
+  assert.match(text(page.render()), /Unable to save trip start/);
+  assert.equal(page.button("Confirm pickup 1/1 - 1 passengers").props.disabled, true);
 });
 
 test("driver submits all supported vehicle types for Admin verification, not self-approval", async () => {

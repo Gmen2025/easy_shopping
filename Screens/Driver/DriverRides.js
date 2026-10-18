@@ -187,18 +187,23 @@ export default function DriverRides({ navigation }) {
             : null}
           {data.offer.stops.map((stop) => <Text key={stop.key}>{stop.type}: {addressText(stop.address)}</Text>)}
           <Button mode="contained" disabled={busy || data.driver.rideProfilePhotoRequired}
-            onPress={() => act(`me/offers/${data.offer._id}/accept`, {})}>Claim ride</Button>
+            onPress={() => run(async () => {
+              await rideRequest(`me/offers/${data.offer._id}/accept`, { method: "post", data: {}, timeout: 120000 });
+              navigation.navigate("DriverRideTrip", { database: region.current });
+            })}>Claim ride</Button>
           <Button disabled={busy} onPress={() => act(`me/offers/${data.offer._id}/reject`, {})}>Reject & reroute</Button>
         </> : <Text>{data.offer ? "Offer expired and is being rerouted." : "No current ride offer. Offers expire after three minutes."}</Text>}
       </View>
       {data.trip ? <View style={styles.card}>
         <Text style={styles.heading}>Active {data.trip.mode} route</Text>
+        <Button mode="contained" disabled={busy}
+          onPress={() => navigation.navigate("DriverRideTrip", { database: region.current })}>Open full-screen ride map</Button>
         <Text>Onboard {data.trip.onboardSeats} / {data.trip.seatCapacity} seats.</Text>
         <RideRouteMap ride={{ _id: data.trip._id, stops: pending }} routeEndpoint="me/route" startAtDriver
           routeVersion={data.trip.version} driverLocation={driverLocation}
           distanceUnit={/usa/i.test(region.current) ? "mile" : "km"} />
         {pending.map((stop, index) => <Text key={`${stop.ride}:${stop.key}`}>
-          {index + 1}. {stop.type} {stop.passengers} passengers - {addressText(stop.address)} - contact {stop.address.phone}</Text>)}
+          {index + 1}. {stop.type} {stop.passengers} passengers - {addressText(stop.address)}</Text>)}
         {next ? <>
           <Button disabled={busy} onPress={() => run(async () => {
             const coordinates = next.address.location.coordinates;
