@@ -19,7 +19,7 @@ const PACKAGE = [["weightKg", "Packaged weight (kg)"], ["lengthCm", "Packaged le
 const empty = () => ({ enabled: false, vehicles: Object.fromEntries(VEHICLES.map((type) =>
   [type, { enabled: false, ...Object.fromEntries(CAPACITIES.map(([field]) => [field, "0"])) }])) });
 
-const VehicleDeliverySettings = ({ route }) => {
+const VehicleDeliverySettings = ({ route, navigation }) => {
   const [config, setConfig] = useState(empty);
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
@@ -61,6 +61,7 @@ const VehicleDeliverySettings = ({ route }) => {
     {error ? <Text style={styles.error}>{error}</Text> : null}
     {message ? <Text style={styles.success}>{message}</Text> : null}
     <Button disabled={busy} onPress={load}>Reload configuration</Button>
+    <Button disabled={busy} onPress={() => navigation.navigate("RideSettings")}>Passenger vehicles & Economy / Comfort</Button>
     <View style={styles.card}>
       <Text style={styles.title}>Vehicle delivery pricing</Text>
       <Text>Fees use this region's currency. Distance rates are per {/usa/i.test(database) ? "mile" : "kilometer"} of the pickup-to-destination driving route.</Text>

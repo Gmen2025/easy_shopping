@@ -509,6 +509,8 @@ const CompanyDriverDashboard = ({ navigation }) => {
             <Text>Approval: {rideOverview.driver.approvalStatus}. {rideOverview.driver.isAvailable ? "Online" : "Offline"}
               {rideOverview.driver.isSuspended ? " - Suspended" : ""}.</Text>
             <Text>Vehicle: {rideOverview.driver.vehicleType}. Passenger seats: {rideOverview.driver.passengerSeats || "Not configured"}.</Text>
+            {rideOverview.driver.carClass ? <Text>Car class: {rideOverview.driver.carClass}.</Text> : null}
+            {rideOverview.driver.pendingVehicleType ? <Text>Vehicle change awaiting Admin verification: {rideOverview.driver.pendingVehicleType}. New passenger offers are paused.</Text> : null}
             <Text>Regular rides: {rideOverview.driver.serviceModes?.regular ? "Enabled" : "Disabled"}.
               Shared rides: {rideOverview.driver.serviceModes?.shared ? "Enabled" : "Disabled"}.</Text>
             {rideOverview.driver.rideProfilePhotoRequired

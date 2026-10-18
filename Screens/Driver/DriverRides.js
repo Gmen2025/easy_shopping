@@ -1,12 +1,14 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Image, Linking, ScrollView, Text, View } from "react-native";
 import { Button, Switch, TextInput } from "react-native-paper";
+import { Picker } from "@react-native-picker/picker";
 import { useIsFocused } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { rideRequest, offerSeconds, rideFare, addressText } from "../../assets/common/rides";
+import { rideRequest, offerSeconds, rideFare, addressText, rideStopPoint } from "../../assets/common/rides";
+import RideRouteMap from "../../Shared/RideRouteMap";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import baseUrl from "../../assets/common/baseUrl";
 import CloudinaryUploader from "../../Shared/CloudinaryUploader";
@@ -21,6 +23,7 @@ export default function DriverRides({ navigation }) {
   const [error, setError] = useState("");
   const [gpsError, setGpsError] = useState("");
   const [terminationReason, setTerminationReason] = useState("");
+  const [vehicleType, setVehicleType] = useState("");
   const [now, setNow] = useState(Date.now());
   const running = useRef(false);
   const region = useRef("");
@@ -53,7 +56,9 @@ export default function DriverRides({ navigation }) {
   };
   const refresh = async (ask = false) => {
     await location(ask);
-    setData(await rideRequest("me/driver"));
+    const updated = await rideRequest("me/driver");
+    setData(updated);
+    setVehicleType((selected) => selected || updated.driver.pendingVehicleType || updated.driver.vehicleType);
     setNow(Date.now());
   };
   useEffect(() => {
@@ -108,7 +113,8 @@ export default function DriverRides({ navigation }) {
     else save();
   };
   const remaining = data?.offer ? offerSeconds(data.offer.offerDeadline, now) : 0;
-  const pending = data?.trip?.stops.filter((stop) => !stop.completedAt) || [];
+  const pending = useMemo(() => data?.trip?.stops.filter((stop) => !stop.completedAt) || [], [data?.trip]);
+  const driverLocation = useMemo(() => rideStopPoint({ address: { location: data?.driver.location } }), [data?.driver.location]);
   const next = pending[0];
   return <SafeAreaView style={styles.screen}><ScrollView style={styles.screen} contentContainerStyle={styles.content}>
     <Button onPress={() => navigation.goBack()}>Back to delivery dashboard</Button>
@@ -132,12 +138,29 @@ export default function DriverRides({ navigation }) {
       <View style={styles.card}>
         <Text style={styles.heading}>Service preferences</Text>
         <Text>{data.driver.vehicleType}: {data.driver.passengerSeats || "Admin must configure"} passenger seats (excluding you).</Text>
+        {data.driver.carClass ? <Text>Car class: {data.driver.carClass}</Text> : null}
+        <Text>Select the vehicle you drive. A different type requires Admin verification; passenger offers pause while it is pending.
+          Motorcycle and truck are delivery-only. Cars and vans require Admin-configured passenger seats.</Text>
+        {data.driver.pendingVehicleType ? <Text style={styles.error}>
+          Awaiting Admin verification: {data.driver.pendingVehicleType}. Registered vehicle remains {data.driver.vehicleType}.
+        </Text> : null}
+        <Picker selectedValue={vehicleType} enabled={!busy && !data.trip && !data.offer} onValueChange={setVehicleType}>
+          <Picker.Item label="Select registered vehicle..." value="" />
+          {[["motorcycle", "Motorcycle"], ["car", "Car"], ["van", "Van"], ["truck", "Truck"]].map(([value, label]) =>
+            <Picker.Item key={value} label={label} value={value} />)}
+        </Picker>
+        <Button disabled={busy || !vehicleType || Boolean(data.trip || data.offer)} onPress={() => run(async () => {
+          await rideRequest("me/vehicle", { method: "put", data: { vehicleType } });
+          await refresh();
+          Alert.alert("Vehicle selection saved", "Admin must verify a changed vehicle before new passenger offers. Select your registered type again to cancel a pending change.");
+        })}>Submit vehicle selection</Button>
         <Text>Approval: {data.driver.approvalStatus}. {data.driver.isAvailable ? "Online" : "Offline"}{data.driver.isSuspended ? " - Suspended" : ""}.</Text>
         {[["delivery", "Store product delivery"], ["regular", "Regular rides"], ["shared", "Shared rides"]].map(([mode, label]) => {
           const enabled = data.driver.serviceModes?.[mode] ?? mode === "delivery";
           const requiresPhoto = mode !== "delivery" && data.driver.rideProfilePhotoRequired && !enabled;
+          const requiresVehicle = mode !== "delivery" && Boolean(data.driver.pendingVehicleType) && !enabled;
           return <View key={mode}>
-            <Text>{label}</Text><Switch value={enabled} disabled={busy || requiresPhoto}
+            <Text>{label}</Text><Switch value={enabled} disabled={busy || requiresPhoto || requiresVehicle}
               onValueChange={(nextEnabled) => setMode(mode, nextEnabled)} />
             {requiresPhoto ? <Text>Update the required driver photo before enabling this ride service.</Text> : null}
           </View>;
@@ -167,6 +190,9 @@ export default function DriverRides({ navigation }) {
       {data.trip ? <View style={styles.card}>
         <Text style={styles.heading}>Active {data.trip.mode} route</Text>
         <Text>Onboard {data.trip.onboardSeats} / {data.trip.seatCapacity} seats.</Text>
+        <RideRouteMap ride={{ _id: data.trip._id, stops: pending }} routeEndpoint="me/route" startAtDriver
+          routeVersion={data.trip.version} driverLocation={driverLocation}
+          distanceUnit={/usa/i.test(region.current) ? "mile" : "km"} />
         {pending.map((stop, index) => <Text key={`${stop.ride}:${stop.key}`}>
           {index + 1}. {stop.type} {stop.passengers} passengers - {addressText(stop.address)} - contact {stop.address.phone}</Text>)}
         {next ? <>

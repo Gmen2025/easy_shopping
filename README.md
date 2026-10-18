@@ -190,11 +190,29 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   same shopping region on both accounts. Dispatch requires GPS updated within
   two minutes and within the region's configured driver search radius.
 - The active ride lists ordered pickups/dropoffs, passenger counts and contacts.
+  After claiming, the driver sees a Google map of the remaining vehicle route,
+  starting at driver GPS and including all pending shared-booking stops in order
+  (`GET /rides/me/route`, assigned company driver only). It refreshes when the
+  trip version changes, including after boarding/drop-off or a shared insertion.
+  Google Maps can open the whole remaining route or just the next stop. Enable
+  Routes API for the server's `GOOGLE_ROUTES_API_KEY`; if route lookup fails,
+  stop pins, a retry action and external navigation remain available.
   Open external Google navigation to the next stop; return to confirm boarding
   or dropoff. The backend requires fresh GPS within 300m of that stop. **Stop
   shared intake** warns before immediately rerouting accepted riders not yet
   onboard; only existing passengers' dropoffs remain. Reopen explicitly to
   resume matching. Disabling shared mode also reroutes waiting riders.
+- In **Ride assignments & route > Service preferences**, drivers select
+  Motorcycle, Car, Van or Truck and submit a vehicle-change request. Their
+  registered type is not changed until Admin verifies it. New passenger offers
+  pause while verification is pending; selecting the current registered type
+  cancels the request. Changes are blocked during rides, offers or deliveries.
+  Motorcycle/truck remain delivery-only; car/van passenger seats require Admin.
+- **Admin > Rides** lists requested/registered vehicles. Admin selects the
+  verified type, configures car/van seats, and may assign **Economy** or
+  **Comfort** to cars only. Classes are labels only: customer class selection,
+  matching and fares are unchanged. **Vehicle delivery pricing** links to this
+  passenger configuration; its cargo capacities and delivery prices stay separate.
 - Drivers can **Terminate booking** with a reason and fresh GPS without reaching
   the planned destination. Confirm this only after affected passengers have
   safely exited. The booking stays `terminated`, not completed; its unfinished

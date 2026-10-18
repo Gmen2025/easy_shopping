@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Alert, ActivityIndicator, ScrollView, Text, View } from "react-native";
 import { Button, Switch, TextInput } from "react-native-paper";
+import { Picker } from "@react-native-picker/picker";
 import { rideRequest, rideFare, addressText } from "../../assets/common/rides";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import { styles } from "../../Shared/DeliveryCheckout";
@@ -13,6 +14,8 @@ export default function RideSettings() {
   const [config, setConfig] = useState(null);
   const [drivers, setDrivers] = useState([]);
   const [seats, setSeats] = useState({});
+  const [vehicles, setVehicles] = useState({});
+  const [carClasses, setCarClasses] = useState({});
   const [payments, setPayments] = useState([]);
   const [reviews, setReviews] = useState({});
   const [database, setDatabase] = useState("");
@@ -37,6 +40,8 @@ export default function RideSettings() {
     setConfig({ ...Object.fromEntries(fields.map(([key]) => [key, ""])), ...policy });
     setDrivers(company); setPayments(paid);
     setSeats(Object.fromEntries(company.map((driver) => [driver._id, String(driver.passengerSeats || "")])));
+    setVehicles(Object.fromEntries(company.map((driver) => [driver._id, driver.pendingVehicleType || driver.vehicleType || driver.vehicle?.type || ""])));
+    setCarClasses(Object.fromEntries(company.map((driver) => [driver._id, driver.carClass || ""])));
   };
   useEffect(() => { run(refresh); }, []);
   const resolveReview = (ride, waive = false) => Alert.alert(
@@ -70,18 +75,38 @@ export default function RideSettings() {
       })}>Save ride configuration</Button>
     </View> : null}
     <View style={styles.card}>
-      <Text style={styles.heading}>Company drivers: passenger seats</Text>
+      <Text style={styles.heading}>Company drivers: vehicles, car classes & passenger seats</Text>
       <Text>Set usable seats excluding the driver, only for car/van vehicles. Drivers independently choose delivery, regular and/or shared service modes.
         Seat capacity cannot be changed while a trip or offer is active.</Text>
       {drivers.map((driver) => <View key={driver._id}>
         <Text>{driver.name} - {driver.vehicleType || driver.vehicle?.type}</Text>
+        {driver.pendingVehicleType ? <Text style={styles.error}>Requested vehicle: {driver.pendingVehicleType}. Verify the registered vehicle before saving.</Text> : null}
+        <Picker selectedValue={vehicles[driver._id]} enabled={!busy} onValueChange={(type) => {
+          setVehicles((previous) => ({ ...previous, [driver._id]: type }));
+          if (type !== "car") setCarClasses((previous) => ({ ...previous, [driver._id]: "" }));
+        }}>
+          <Picker.Item label="Select verified vehicle..." value="" />
+          {["motorcycle", "car", "van", "truck"].map((type) => <Picker.Item key={type} label={type} value={type} />)}
+        </Picker>
+        {vehicles[driver._id] === "car" ? <>
+          <Text>Car class (classification only; no customer selection or fare changes)</Text>
+          <Picker selectedValue={carClasses[driver._id]} enabled={!busy}
+            onValueChange={(value) => setCarClasses((previous) => ({ ...previous, [driver._id]: value }))}>
+            <Picker.Item label="Not classified" value="" />
+            <Picker.Item label="Economy" value="economy" />
+            <Picker.Item label="Comfort" value="comfort" />
+          </Picker>
+        </> : null}
         <Text>Modes: {Object.entries(driver.serviceModes || { delivery: true }).filter(([, enabled]) => enabled).map(([mode]) => mode).join(", ")}</Text>
-        <TextInput disabled={busy} keyboardType="number-pad" label="Passenger seats (1-16)" value={seats[driver._id]}
+        <TextInput disabled={busy || !["car", "van"].includes(vehicles[driver._id])} keyboardType="number-pad" label="Passenger seats (1-16)" value={seats[driver._id]}
           onChangeText={(value) => setSeats((previous) => ({ ...previous, [driver._id]: value }))} />
         <Button disabled={busy} onPress={() => run(async () => {
-          await rideRequest(`admin/drivers/${driver._id}`, { method: "put", data: { passengerSeats: Number(seats[driver._id]) } });
+          await rideRequest(`admin/drivers/${driver._id}`, { method: "put", data: {
+            vehicleType: vehicles[driver._id], carClass: vehicles[driver._id] === "car" ? carClasses[driver._id] : "",
+            passengerSeats: Number(seats[driver._id]),
+          } });
           await refresh();
-        })}>Save seats for {driver.name}</Button>
+        })}>Verify vehicle & save for {driver.name}</Button>
       </View>)}
     </View>
     <View style={styles.card}>

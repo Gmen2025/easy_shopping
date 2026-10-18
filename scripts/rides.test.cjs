@@ -35,6 +35,7 @@ function harness(file, request, params = {}, auth = { isAuthenticated: true, loa
   let cursor = 0;
   const react = {
     useContext: () => auth,
+    useMemo: (compute) => compute(),
     createElement: (type, props, ...children) => {
       const passed = { ...props, children };
       return typeof type === "function" ? type(passed) : { type, props: passed };
@@ -337,6 +338,141 @@ test("driver screen separates offers and route, expires claim controls, and warn
   await ui.button("Refresh / enable GPS").props.onPress();
   assert.equal(ui.button("Claim ride"), undefined);
   assert.match(text(ui.render()), /Offer expired/);
+});
+
+test("claiming a ride shows the driver's remaining route map and locks vehicle selection", async () => {
+  let claimed = false;
+  const located = { ...address, location: { coordinates: [-87.65, 41.95] } };
+  const driver = { vehicleType: "car", carClass: "comfort", serviceModes: { delivery: true }, location: located.location };
+  const offer = { _id: "ride", currency: "usd", estimate: 8, seats: 1, mode: "regular",
+    offerDeadline: new Date(Date.now() + 180000), stops: [{ key: "0", type: "pickup", address: located }] };
+  const trip = { _id: "trip", version: 2, mode: "regular", onboardSeats: 1, seatCapacity: 3,
+    stops: [{ key: "0", ride: "ride", type: "pickup", address: located, completedAt: new Date() },
+      { key: "1", ride: "ride", type: "dropoff", passengers: 1, address: located }] };
+  const ui = harness("Screens\\Driver\\DriverRides.js", async (route) => {
+    if (route === "me/location") return {};
+    if (route === "me/offers/ride/accept") { claimed = true; return {}; }
+    return { driver, offer: claimed ? null : offer, trip: claimed ? trip : null, riders: [], payments: [] };
+  });
+  await ui.start();
+  await ui.button("Claim ride").props.onPress();
+  const map = nodes(ui.render()).find((node) => node.type === "RideRouteMap");
+  assert.equal(map.props.routeEndpoint, "me/route");
+  assert.equal(map.props.routeVersion, 2);
+  assert.equal(map.props.ride._id, "trip");
+  assert.equal(map.props.ride.stops.length, 1);
+  assert.equal(map.props.ride.stops[0].type, "dropoff");
+  assert.equal(map.props.driverLocation.latitude, 41.95);
+  assert.equal(map.props.distanceUnit, "mile");
+  assert.equal(ui.button("Submit vehicle selection").props.disabled, true);
+  assert.match(text(ui.render()), /Car class: comfort/);
+});
+
+test("driver submits all supported vehicle types for Admin verification, not self-approval", async () => {
+  const driver = { vehicleType: "car", serviceModes: { delivery: true } };
+  const ui = harness("Screens\\Driver\\DriverRides.js", async (route, options) => {
+    if (route === "me/location") return {};
+    if (route === "me/vehicle") { driver.pendingVehicleType = options.data.vehicleType; return {}; }
+    return { driver, trip: null, offer: null, riders: [], payments: [] };
+  });
+  await ui.start();
+  const picker = () => nodes(ui.render()).find((node) => node.type === "Picker");
+  assert.deepEqual(Array.from(picker().props.children[1], (node) => node.props.value), ["motorcycle", "car", "van", "truck"]);
+  picker().props.onValueChange("van");
+  await ui.button("Submit vehicle selection").props.onPress();
+  assert.equal(ui.calls.find((call) => call.route === "me/vehicle").options.data.vehicleType, "van");
+  assert.match(text(ui.render()), /Awaiting Admin verification: van/);
+  assert.equal(driver.vehicleType, "car");
+});
+
+test("Admin assigns Economy and Comfort only to cars while verifying vehicle requests", async () => {
+  let saved;
+  const driver = { _id: "driver", name: "Driver", vehicleType: "car", pendingVehicleType: "car", passengerSeats: 3 };
+  const ui = harness("Screens\\Admin\\RideSettings.js", async (route, options) => {
+    if (route === "config") return policy;
+    if (route === "admin/drivers") return [driver];
+    if (route === "admin/payments") return [];
+    if (route === "admin/drivers/driver") { saved = options.data; Object.assign(driver, saved, { pendingVehicleType: "" }); return {}; }
+  });
+  await ui.start();
+  const pickers = () => nodes(ui.render()).filter((node) => node.type === "Picker");
+  assert.equal(pickers().length, 2);
+  for (const carClass of ["economy", "comfort"]) {
+    pickers()[1].props.onValueChange(carClass);
+    await ui.button("Verify vehicle & save for Driver").props.onPress();
+    assert.equal(saved.carClass, carClass);
+    assert.equal(saved.vehicleType, "car");
+    assert.equal(saved.passengerSeats, 3);
+  }
+  pickers()[0].props.onValueChange("van");
+  assert.equal(pickers().length, 1);
+  await ui.button("Verify vehicle & save for Driver").props.onPress();
+  assert.equal(saved.vehicleType, "van");
+  assert.equal(saved.carClass, "");
+});
+
+test("driver map uses the authorized route endpoint, refreshes on trip version changes and supports retry", async () => {
+  const states = [], previousEffects = [], queued = [], calls = [], opened = [];
+  let cursor = 0, effectIndex = 0, fail = false;
+  const useState = (initial) => {
+    const index = cursor++;
+    if (!(index in states)) states[index] = initial;
+    return [states[index], (value) => { states[index] = typeof value === "function" ? value(states[index]) : value; }];
+  };
+  const react = {
+    createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
+    useState, useMemo: (compute) => compute(), useRef: () => ({ current: null }),
+    useEffect: (effect, dependencies) => {
+      const index = effectIndex++;
+      const previous = previousEffects[index];
+      if (!previous || dependencies.some((entry, at) => entry !== previous.dependencies[at])) {
+        queued.push(() => {
+          previous?.cleanup?.();
+          previousEffects[index] = { dependencies, cleanup: effect() };
+        });
+      }
+    },
+  };
+  const { default: Map } = load("Shared\\RideRouteMap.js", {
+    react,
+    "react-native": { ActivityIndicator: "ActivityIndicator", View: "View", Text: "Text", TouchableOpacity: "TouchableOpacity",
+      StyleSheet: { create: (value) => value }, Linking: { openURL: async (url) => opened.push(url) } },
+    "react-native-maps": { __esModule: true, default: "MapView", Marker: "Marker", Polyline: "Polyline" },
+    "../assets/common/mapsConfiguration": { canRenderNativeMap: true },
+    "../assets/common/rides": { ...helpers, rideRequest: async (route) => {
+      calls.push(route);
+      if (fail) throw new Error("Routing unavailable");
+      return { coordinates: [{ latitude: 41.9, longitude: -87.6 }, { latitude: 42, longitude: -87.7 }], distanceKm: 2, minutes: 5 };
+    } },
+  });
+  let props = { ride: { _id: "trip", stops: [{ key: "1", type: "dropoff",
+    address: { ...address, location: { coordinates: [-87.7, 42] } } }] },
+    driverLocation: { latitude: 41.9, longitude: -87.6 }, routeEndpoint: "me/route", routeVersion: 1, startAtDriver: true };
+  const render = () => { cursor = 0; effectIndex = 0; return Map(props); };
+  const flush = async () => {
+    queued.splice(0).forEach((effect) => effect());
+    for (let at = 0; at < 5; at++) await new Promise(setImmediate);
+  };
+  render(); await flush();
+  assert.deepEqual(calls, ["me/route"]);
+  let tree = render();
+  assert.ok(nodes(tree).find((node) => node.type === "Polyline"));
+  assert.equal(nodes(tree).filter((node) => node.type === "Marker").length, 2);
+  await nodes(tree).find((node) => text(node) === "Open route in Google Maps").props.onPress();
+  assert.match(opened[0], /origin=41.9%2C-87.6/);
+  assert.match(opened[0], /destination=42%2C-87.7/);
+  await flush();
+  assert.equal(calls.length, 1, "GPS/map rerenders do not repeatedly bill route lookups");
+  props = { ...props, routeVersion: 2 };
+  fail = true;
+  render(); await flush();
+  tree = render();
+  assert.match(text(tree), /Routing unavailable/);
+  fail = false;
+  nodes(tree).find((node) => node.type === "TouchableOpacity" && text(node) === "Retry driving route").props.onPress();
+  render(); await flush();
+  assert.equal(calls.length, 3);
+  assert.ok(nodes(render()).find((node) => node.type === "Polyline"));
 });
 test("ride driver takes a camera photo, uploads it, and saves it to the required profile endpoint", async () => {
   const requests = [];
