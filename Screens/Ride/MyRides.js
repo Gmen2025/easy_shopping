@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, Image, ScrollView, Text, View } from "react-n
 import { Button, TextInput } from "react-native-paper";
 import { Picker } from "@react-native-picker/picker";
 import { useIsFocused } from "@react-navigation/native";
-import { rideRequest, rideFare, addressText, rideStopPoint } from "../../assets/common/rides";
+import { rideRequest, rideFare, rideOptionName, addressText, rideStopPoint } from "../../assets/common/rides";
 import { storeRequest } from "../../assets/common/storefront";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import CardPayment, { canPayByCard } from "../../Shared/CheckoutCardPayment";
@@ -90,6 +90,7 @@ export default function MyRides({ route, navigation }) {
     {error ? <Text style={styles.error}>{error}</Text> : null}
     {selected ? <View style={styles.card}>
       <Text selectable style={styles.heading}>Ride #{String(selected._id).slice(-6)} - {selected.mode}</Text>
+      {selected.vehicleOption ? <Text>Vehicle: {rideOptionName(selected.vehicleOption)}</Text> : null}
       <Text>Status: {selected.status}</Text><Text>{selected.dispatchMessage}</Text>
       {selected.status === "terminated" ? <>
         <Text>Termination reason: {selected.termination?.reason}</Text>

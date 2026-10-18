@@ -152,7 +152,14 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   account address or profile. The number is required and saved in the ride's stop
   address for the driver to contact the passenger; changing it invalidates the
   quote. This does not change the account's profile phone.
-- After **Calculate road route & fare**, the quote shows a Google map with the
+- **Calculate road route & fare** compares server-priced **Economy**, **Comfort**
+  and **Van** options for both Regular and Shared rides. Choose an option at its
+  displayed price before requesting; Motorcycle and Truck are omitted. Economy
+  and Comfort require a car with the exact Admin-assigned class; Van matches vans.
+  Prices are estimates, not a guarantee of an available driver. Disabled regional
+  options cannot be selected. Address, phone, passenger or mode edits clear all
+  prices; recalculate them. Quotes expire after ten minutes.
+- After selecting a priced option, the quote shows a Google map with the
   numbered pickup (green) and drop-off (red) pins and the driving route through
   every stop in order, plus a link that opens the same route in Google Maps. My
   rides shows the same map with the assigned driver's live pin. The server builds
@@ -210,9 +217,13 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   Motorcycle/truck remain delivery-only; car/van passenger seats require Admin.
 - **Admin > Rides** lists requested/registered vehicles. Admin selects the
   verified type, configures car/van seats, and may assign **Economy** or
-  **Comfort** to cars only. Classes are labels only: customer class selection,
-  matching and fares are unchanged. **Vehicle delivery pricing** links to this
-  passenger configuration; its cargo capacities and delivery prices stay separate.
+  **Comfort** to cars only. Unclassified cars cannot receive new class-selected
+  bookings. Configure separate base/distance/minute rates and availability for
+  **Economy**, **Comfort** and **Van** before using the comparison screen. The
+  shared discount applies to each option's rates. Existing quotes keep their
+  saved rates; Regular final fares use actual elapsed minutes, Shared uses the
+  booking's solo route/time. **Vehicle delivery pricing** links to this passenger
+  configuration; cargo capacities and delivery prices stay separate.
 - Drivers can **Terminate booking** with a reason and fresh GPS without reaching
   the planned destination. Confirm this only after affected passengers have
   safely exited. The booking stays `terminated`, not completed; its unfinished
@@ -236,6 +247,10 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   native payments on staging before activating rides. Interrupted payments must
   resume the same booking; do not create another charge. Ride payments remain
   separate from product orders and delivery-income analytics.
+- Rollout: deploy the backend and updated app, then save per-option rates in
+  **Admin > Rides** and assign each car a class. No class price is auto-filled from
+  legacy rates. Old in-progress bookings and payments remain finishable. Legacy
+  clients cannot create unclassified quotes after class pricing is configured.
 - Tests: `node --test scripts/rides.test.cjs scripts/companyDriverRefresh.test.cjs scripts/multiDeliveryCheckout.test.cjs`.
 
 ### Admin Features

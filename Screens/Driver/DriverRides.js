@@ -7,7 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { rideRequest, offerSeconds, rideFare, addressText, rideStopPoint } from "../../assets/common/rides";
+import { rideRequest, offerSeconds, rideFare, rideOptionName, addressText, rideStopPoint } from "../../assets/common/rides";
 import RideRouteMap from "../../Shared/RideRouteMap";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import baseUrl from "../../assets/common/baseUrl";
@@ -139,6 +139,9 @@ export default function DriverRides({ navigation }) {
         <Text style={styles.heading}>Service preferences</Text>
         <Text>{data.driver.vehicleType}: {data.driver.passengerSeats || "Admin must configure"} passenger seats (excluding you).</Text>
         {data.driver.carClass ? <Text>Car class: {data.driver.carClass}</Text> : null}
+        {data.driver.vehicleType === "car" && !data.driver.carClass ? <Text style={styles.error}>
+          Ask Admin to assign Economy or Comfort before receiving bookings for a selected car class.
+        </Text> : null}
         <Text>Select the vehicle you drive. A different type requires Admin verification; passenger offers pause while it is pending.
           Motorcycle and truck are delivery-only. Cars and vans require Admin-configured passenger seats.</Text>
         {data.driver.pendingVehicleType ? <Text style={styles.error}>
@@ -177,6 +180,7 @@ export default function DriverRides({ navigation }) {
         <Text style={styles.heading}>Separate ride assignment list</Text>
         {data.offer && remaining > 0 ? <>
           <Text>{data.offer.mode} - {data.offer.seats} seats - estimate {rideFare(data.offer, data.offer.estimate)}</Text>
+          {data.offer.vehicleOption ? <Text>Requested vehicle: {rideOptionName(data.offer.vehicleOption)}</Text> : null}
           <Text style={styles.heading}>Claim within {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}</Text>
           {data.driver.rideProfilePhotoRequired
             ? <Text style={styles.error}>Refresh your ride profile photo before accepting this offer.</Text>

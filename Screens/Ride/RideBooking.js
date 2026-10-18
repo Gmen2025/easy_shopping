@@ -4,9 +4,8 @@ import { AuthContext } from "../../Context/store/Auth";
 import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { Button, Switch, TextInput } from "react-native-paper";
 import { Picker } from "@react-native-picker/picker";
-import { FontAwesome5 } from "@expo/vector-icons";
 import * as Location from "expo-location";
-import { rideRequest, newRideStop, balanceRideStops, rideFare, isEthiopia, addressText } from "../../assets/common/rides";
+import { rideRequest, newRideStop, balanceRideStops, rideFare, rideOptions, rideOptionName, isEthiopia, addressText } from "../../assets/common/rides";
 import { storeRequest } from "../../assets/common/storefront";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import { styles } from "../../Shared/DeliveryCheckout";
@@ -16,12 +15,6 @@ import AddressSearchInput from "../../Shared/AddressSearchInput";
 const fields = [["label", "Stop label"], ["address1", "Street address / landmark"], ["address2", "Apartment / unit (optional)"],
   ["city", "City"], ["zip", "ZIP code"], ["country", "Country"]];
 const locatedFields = ["address1", "city", "zip", "country"];
-const vehicleStyles = [
-  { name: "Motorcycle", icon: "motorcycle", detail: "Quick trips" },
-  { name: "Car", icon: "car", detail: "Everyday rides" },
-  { name: "Van", icon: "shuttle-van", detail: "More passengers" },
-  { name: "Truck", icon: "truck", detail: "Larger loads" },
-];
 
 const ui = {
   page: { flexGrow: 1, backgroundColor: "#f5f6f8" },
@@ -47,12 +40,6 @@ const ui = {
   stopTitle: { color: "#171b20", fontSize: 14, fontWeight: "700" },
   stopAddress: { color: "#747d89", fontSize: 11, marginTop: 2 },
   stopDivider: { height: 1, backgroundColor: "#edf0f3", marginVertical: 1 },
-  vehicleRow: { flexDirection: "row", gap: 8 },
-  vehicleItem: { flex: 1, minHeight: 78, alignItems: "center", justifyContent: "center", gap: 4,
-    paddingVertical: 8, paddingHorizontal: 4, backgroundColor: "#fff", borderWidth: 1, borderColor: "#e5e8ec", borderRadius: 11 },
-  vehicleGlyph: { height: 27, alignItems: "center", justifyContent: "center" },
-  vehicleName: { color: "#292f38", fontSize: 11, fontWeight: "700" },
-  vehicleDetail: { color: "#858d98", fontSize: 9, textAlign: "center" },
   modeRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
   modeTitle: { color: "#202630", fontSize: 14, fontWeight: "700" },
   modeText: { color: "#6a7380", fontSize: 12, lineHeight: 18 },
@@ -74,18 +61,20 @@ export default function RideBooking({ navigation }) {
   const [saved, setSaved] = useState([]);
   const [config, setConfig] = useState(null);
   const [quote, setQuote] = useState(null);
+  const [quotes, setQuotes] = useState([]);
   const [database, setDatabase] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [pickupLocationError, setPickupLocationError] = useState("");
   const running = useRef(false);
+  const invalidateQuotes = () => { setQuote(null); setQuotes([]); };
   const run = async (action) => {
     if (running.current) return;
     running.current = true; setBusy(true); setError("");
     try { await action(); }
     catch (failure) {
       if (failure.response?.status === 401) {
-        setNeedsSignIn(true); setConfig(null); setQuote(null);
+        setNeedsSignIn(true); setConfig(null); invalidateQuotes();
         setError("Your session has expired or is no longer valid. Sign in again to use rides.");
         return;
       }
@@ -110,7 +99,7 @@ export default function RideBooking({ navigation }) {
       if (await getDatabaseNameFromStorage() !== db) {
         throw new Error("The region changed. Reload the ride form before choosing your pickup.");
       }
-      setQuote(null);
+      invalidateQuotes();
       setStops((previous) => previous.map((stop, index) => index === 0 ? {
         ...stop, address: { ...stop.address, ...address, placeId: undefined, address2: "" },
       } : stop));
@@ -134,7 +123,7 @@ export default function RideBooking({ navigation }) {
       return { ...stop, address: { ...stop.address, phone } };
     }));
     setExpandedStops({});
-    setQuote(null);
+    invalidateQuotes();
     setPickupLocationError("");
     if (policy.enabled) await locatePickup(db);
   });
@@ -145,7 +134,7 @@ export default function RideBooking({ navigation }) {
     }
   }, [focused, isAuthenticated, loading]);
   const update = (index, patch) => {
-    setQuote(null);
+    invalidateQuotes();
     setStops((previous) => balanceRideStops(previous.map((stop, at) => at === index ? { ...stop, ...patch } : stop)));
   };
   const ensureRegion = async () => {
@@ -232,7 +221,7 @@ export default function RideBooking({ navigation }) {
             <TextInput label={stop.type === "pickup" ? "Passengers boarding" : "Passengers leaving"} keyboardType="number-pad"
               value={stop.passengers} disabled={busy || index === stops.length - 1} onChangeText={(passengers) => {
                 if (mode === "shared") {
-                  setQuote(null);
+                  invalidateQuotes();
                   setStops((previous) => previous.map((entry) => ({ ...entry, passengers })));
                 } else update(index, { passengers });
               }} />
@@ -245,7 +234,7 @@ export default function RideBooking({ navigation }) {
                 <Picker.Item label="Pickup" value="pickup" /><Picker.Item label="Drop-off" value="dropoff" />
               </Picker>
               {index > 0 && index < stops.length - 1 ? <Button disabled={busy} onPress={() => {
-                setQuote(null); setStops((previous) => balanceRideStops(previous.filter((_, at) => at !== index)));
+                invalidateQuotes(); setStops((previous) => balanceRideStops(previous.filter((_, at) => at !== index)));
               }}>Remove stop</Button> : null}
             </> : null}
             {fields.filter(([key]) => !(key === "zip" && isEthiopia(stop.address.country))).map(([key, label]) =>
@@ -258,7 +247,7 @@ export default function RideBooking({ navigation }) {
           </View> : null}
         </View>)}
         {mode === "regular" ? <Button disabled={busy || stops.length >= 12} onPress={() => {
-          setQuote(null); setStops((previous) => {
+          invalidateQuotes(); setStops((previous) => {
             const stop = newRideStop("pickup", previous[0].address.country);
             stop.address.phone = previous[0].address.phone;
             return balanceRideStops([...previous.slice(0, -1), stop, previous.at(-1)]);
@@ -268,29 +257,17 @@ export default function RideBooking({ navigation }) {
       </View>
 
       <View style={ui.card}>
-        <Text style={ui.sectionTitle}>Choose a ride type</Text>
-        <View style={ui.vehicleRow}>
-          {vehicleStyles.map((vehicle) => <View key={vehicle.name} style={ui.vehicleItem}>
-            <View style={ui.vehicleGlyph}><FontAwesome5 name={vehicle.icon} size={19} color="#252b32" /></View>
-            <Text style={ui.vehicleName}>{vehicle.name}</Text>
-            <Text style={ui.vehicleDetail}>{vehicle.detail}</Text>
-          </View>)}
-        </View>
-        <Text style={ui.sectionNote}>Vehicle styles are shown for reference only. Your driver is matched by availability and passenger seats.</Text>
-      </View>
-
-      <View style={ui.card}>
         <View style={ui.modeRow}>
           <Text style={ui.modeTitle}>Shared ride</Text>
           <Switch value={mode === "shared"} disabled={busy} onValueChange={(shared) => {
-            setMode(shared ? "shared" : "regular"); setQuote(null);
+            setMode(shared ? "shared" : "regular"); invalidateQuotes();
             setStops((previous) => balanceRideStops([previous[0], previous.at(-1)]));
           }} />
         </View>
         <Text style={ui.modeText}>{mode === "regular"
           ? "Regular ride: arrange the stops and pay one fare for everyone in your booking."
           : "Shared ride: you may ride with unrelated customers on a compatible route. You pay only your booking's fare, not their detours."}</Text>
-        <Text style={ui.smallText}>Base {config.baseFare}; per {/usa/i.test(database) ? "mile" : "km"} {config.distanceRate}; per minute {config.minuteRate}.
+        <Text style={ui.smallText}>Compare Economy, Comfort and Van prices for this route below.
           Shared discount {config.sharedDiscountPercent}%. Maximum pickup wait {config.maxPickupMinutes} min; shared extra travel {config.maxDetourMinutes} min.</Text>
         <Text style={ui.smallText}>Pay only after your ride is complete. Your final fare may be based on the actual route and travel time.</Text>
       </View>
@@ -298,12 +275,37 @@ export default function RideBooking({ navigation }) {
       <Button mode="contained" disabled={busy} style={ui.primaryButton} labelStyle={{ color: "#171717", fontWeight: "800" }}
         onPress={() => run(async () => {
           await ensureRegion();
-          setQuote(await rideRequest("quote", { method: "post", timeout: 120000,
-            data: { mode, stops: stops.map((stop) => ({ ...stop, passengers: Number(stop.passengers) })) } }));
+          invalidateQuotes();
+          const result = await rideRequest("quote-options", { method: "post", timeout: 120000,
+            data: { mode, stops: stops.map((stop) => ({ ...stop, passengers: Number(stop.passengers) })) } });
+          await ensureRegion();
+          if (!Array.isArray(result?.quotes) || !result.quotes.length || result.quotes.some((entry) =>
+            !entry?._id || !rideOptions.some((option) => option.key === entry.vehicleOption) ||
+            !Number.isFinite(entry.estimate) || entry.estimate <= 0 ||
+            !Number.isFinite(entry.baseline?.minutes) || entry.baseline.minutes < 0 ||
+            !Number.isSafeInteger(entry.seats) || entry.seats < 1 ||
+            !["usd", "etb"].includes(entry.currency) || !Number.isFinite(new Date(entry.expiresAt).getTime()))) {
+            throw new Error("No valid priced ride options were returned. Reload and calculate again.");
+          }
+          setQuotes(result.quotes);
         })}>Calculate road route & fare</Button>
       <Button disabled={busy} onPress={load}>Reload region & addresses</Button>
+      <View style={ui.card}>
+        <Text style={ui.sectionTitle}>Choose your vehicle & price</Text>
+        <Text style={ui.sectionNote}>Economy and Comfort are car options. Calculate the route to compare prices, then select a vehicle. Driver availability is confirmed after requesting.</Text>
+        {rideOptions.map((option) => {
+          const priced = quotes.find((entry) => entry.vehicleOption === option.key);
+          return <Button key={option.key} icon={option.icon} disabled={busy || !priced}
+            mode={quote?.vehicleOption === option.key ? "contained" : "outlined"}
+            onPress={() => setQuote(priced)}>
+            {option.name}{priced ? ` - ${rideFare(priced, priced.estimate)}` :
+              config.vehicleRates?.[option.key]?.enabled ? " - Calculate price" : " - Unavailable"}
+          </Button>;
+        })}
+      </View>
       {quote ? <View style={ui.quoteCard}>
         <Text style={ui.sectionTitle}>Trip summary</Text>
+        <Text>Selected vehicle: {rideOptionName(quote.vehicleOption)}</Text>
         <Text>{addressText(quote.stops?.[0]?.address || stops[0].address)} → {addressText(quote.stops?.at(-1)?.address || stops.at(-1).address)}</Text>
         <Text style={ui.fare}>Estimated fare: {rideFare(quote, quote.estimate)}</Text>
         <RideRouteMap ride={quote} distanceUnit={/usa/i.test(database) ? "mile" : "km"} />
@@ -312,6 +314,10 @@ export default function RideBooking({ navigation }) {
         <Button mode="contained" disabled={busy} style={ui.primaryButton} labelStyle={{ color: "#171717", fontWeight: "800" }}
           onPress={() => run(async () => {
             await ensureRegion();
+            if (new Date(quote.expiresAt).getTime() <= Date.now()) {
+              invalidateQuotes();
+              throw new Error("Ride prices expired. Calculate again before requesting.");
+            }
             const ride = await rideRequest(`${quote._id}/request`, { method: "post", timeout: 120000 });
             navigation.navigate("MyRides", { rideId: ride._id, database });
           })}>Request driver (pay after ride)</Button>

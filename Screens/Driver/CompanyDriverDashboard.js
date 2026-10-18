@@ -510,6 +510,8 @@ const CompanyDriverDashboard = ({ navigation }) => {
               {rideOverview.driver.isSuspended ? " - Suspended" : ""}.</Text>
             <Text>Vehicle: {rideOverview.driver.vehicleType}. Passenger seats: {rideOverview.driver.passengerSeats || "Not configured"}.</Text>
             {rideOverview.driver.carClass ? <Text>Car class: {rideOverview.driver.carClass}.</Text> : null}
+            {rideOverview.driver.vehicleType === "car" && !rideOverview.driver.carClass
+              ? <Text>Ask Admin to assign Economy or Comfort for customer class-selected bookings.</Text> : null}
             {rideOverview.driver.pendingVehicleType ? <Text>Vehicle change awaiting Admin verification: {rideOverview.driver.pendingVehicleType}. New passenger offers are paused.</Text> : null}
             <Text>Regular rides: {rideOverview.driver.serviceModes?.regular ? "Enabled" : "Disabled"}.
               Shared rides: {rideOverview.driver.serviceModes?.shared ? "Enabled" : "Disabled"}.</Text>

@@ -2,13 +2,16 @@ import React, { useEffect, useRef, useState } from "react";
 import { Alert, ActivityIndicator, ScrollView, Text, View } from "react-native";
 import { Button, Switch, TextInput } from "react-native-paper";
 import { Picker } from "@react-native-picker/picker";
-import { rideRequest, rideFare, addressText } from "../../assets/common/rides";
+import { rideRequest, rideFare, rideOptions, addressText } from "../../assets/common/rides";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import { styles } from "../../Shared/DeliveryCheckout";
 
-const fields = [["baseFare", "Base fare"], ["distanceRate", "Rate per mile (USA) / km (Ethiopia)"], ["minuteRate", "Rate per minute"],
-  ["sharedDiscountPercent", "Shared discount (%)"], ["maxPickupMinutes", "Maximum pickup wait (minutes)"],
+const rateFields = [["baseFare", "Base fare"], ["distanceRate", "Rate per mile (USA) / km (Ethiopia)"], ["minuteRate", "Rate per minute"]];
+const fields = [["sharedDiscountPercent", "Shared discount (%)"], ["maxPickupMinutes", "Maximum pickup wait (minutes)"],
   ["maxDetourMinutes", "Maximum shared extra travel (minutes)"], ["driverRadiusKm", "Driver search radius (km)"]];
+const vehicleRates = (rates = {}) => Object.fromEntries(rideOptions.map(({ key }) => [key, {
+  enabled: false, ...Object.fromEntries(rateFields.map(([field]) => [field, ""])), ...rates[key],
+}]));
 
 export default function RideSettings() {
   const [config, setConfig] = useState(null);
@@ -37,7 +40,7 @@ export default function RideSettings() {
   };
   const refresh = async () => {
     const [policy, company, paid] = await Promise.all([rideRequest("config"), rideRequest("admin/drivers"), rideRequest("admin/payments")]);
-    setConfig({ ...Object.fromEntries(fields.map(([key]) => [key, ""])), ...policy });
+    setConfig({ ...Object.fromEntries(fields.map(([key]) => [key, ""])), ...policy, vehicleRates: vehicleRates(policy.vehicleRates) });
     setDrivers(company); setPayments(paid);
     setSeats(Object.fromEntries(company.map((driver) => [driver._id, String(driver.passengerSeats || "")])));
     setVehicles(Object.fromEntries(company.map((driver) => [driver._id, driver.pendingVehicleType || driver.vehicleType || driver.vehicle?.type || ""])));
@@ -67,10 +70,25 @@ export default function RideSettings() {
       <Switch disabled={busy} value={config.enabled} onValueChange={(enabled) => setConfig((previous) => ({ ...previous, enabled }))} />
       {fields.map(([key, label]) => <TextInput key={key} label={label} keyboardType="decimal-pad" disabled={busy}
         value={String(config[key])} onChangeText={(value) => setConfig((previous) => ({ ...previous, [key]: value }))} style={styles.input} />)}
+      <Text>Set separate rates for each passenger vehicle. Disabled options cannot be newly requested.
+        Classify cars as Economy or Comfort below; unclassified cars cannot receive class-selected bookings.</Text>
+      {rideOptions.map((option) => <View key={option.key} style={styles.card}>
+        <Text style={styles.heading}>{option.name} pricing</Text>
+        <Switch disabled={busy} value={config.vehicleRates[option.key].enabled} onValueChange={(enabled) => setConfig((previous) => ({
+          ...previous, vehicleRates: { ...previous.vehicleRates, [option.key]: { ...previous.vehicleRates[option.key], enabled } },
+        }))} />
+        {rateFields.map(([field, label]) => <TextInput key={field} label={`${option.name} ${label}`}
+          keyboardType="decimal-pad" disabled={busy || !config.vehicleRates[option.key].enabled}
+          value={String(config.vehicleRates[option.key][field] ?? "")}
+          onChangeText={(value) => setConfig((previous) => ({
+            ...previous, vehicleRates: { ...previous.vehicleRates, [option.key]: { ...previous.vehicleRates[option.key], [field]: value } },
+          }))} />)}
+      </View>)}
       <Text>Existing bookings retain their agreed tariff. Shared riders pay their solo route/time fare minus the discount, not other riders' detours.
         Regular riders pay one fare based on planned distance and actual elapsed ride time.</Text>
       <Button mode="contained" disabled={busy} onPress={() => run(async () => {
-        setConfig(await rideRequest("config", { method: "put", data: config }));
+        const saved = await rideRequest("config", { method: "put", data: config });
+        setConfig({ ...saved, vehicleRates: vehicleRates(saved.vehicleRates) });
         Alert.alert("Saved", "Ride configuration saved for this region.");
       })}>Save ride configuration</Button>
     </View> : null}
@@ -89,7 +107,7 @@ export default function RideSettings() {
           {["motorcycle", "car", "van", "truck"].map((type) => <Picker.Item key={type} label={type} value={type} />)}
         </Picker>
         {vehicles[driver._id] === "car" ? <>
-          <Text>Car class (classification only; no customer selection or fare changes)</Text>
+          <Text>Car class for customer selection, pricing and driver matching</Text>
           <Picker selectedValue={carClasses[driver._id]} enabled={!busy}
             onValueChange={(value) => setCarClasses((previous) => ({ ...previous, [driver._id]: value }))}>
             <Picker.Item label="Not classified" value="" />

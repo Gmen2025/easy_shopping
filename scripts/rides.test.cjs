@@ -20,6 +20,8 @@ function load(relative, dependencies, globals = {}) {
 const helpers = load("assets\\common\\rides.js", { "./storefront": { apiRequest: async (...args) => args } });
 const address = { label: "Home", address1: "123 Street", address2: "", city: "City", zip: "12345", country: "USA", phone: "12345678" };
 const policy = { enabled: true, baseFare: 2, distanceRate: 1, minuteRate: 0.5, sharedDiscountPercent: 25, maxPickupMinutes: 20, maxDetourMinutes: 5 };
+const pricedOptions = (patch = {}) => ({ quotes: [{ _id: "ride", vehicleOption: "economy", currency: "usd",
+  estimate: 10, seats: 1, baseline: { minutes: 10 }, expiresAt: new Date(Date.now() + 600000), ...patch }] });
 function nodes(value) {
   if (!value || typeof value !== "object") return [];
   if (Array.isArray(value)) return value.flatMap(nodes);
@@ -168,12 +170,12 @@ test("booking reloads after sign-in and still reports non-authentication errors"
 test("customer UI defaults to regular, submits ordered multi-stops and one fare, then navigates without pre-charging", async () => {
   const ui = harness("Screens\\Ride\\RideBooking.js", async (route, options) => {
     if (route === "config") return policy;
-    if (route === "quote") {
+    if (route === "quote-options") {
       assert.equal(options.data.mode, "regular");
       assert.equal(options.data.stops.length, 3);
       assert.deepEqual(Array.from(options.data.stops, (stop) => stop.type), ["pickup", "pickup", "dropoff"]);
       assert.deepEqual(Array.from(options.data.stops, (stop) => stop.passengers), [1, 1, 2]);
-      return { _id: "ride", currency: "usd", estimate: 10, seats: 2, baseline: { minutes: 10 }, expiresAt: new Date(Date.now() + 600000) };
+      return pricedOptions({ seats: 2 });
     }
     if (route === "ride/request") return { _id: "ride" };
     throw new Error(`Unexpected ride request ${route}`);
@@ -181,10 +183,13 @@ test("customer UI defaults to regular, submits ordered multi-stops and one fare,
   await ui.start();
   assert.equal(ui.switches()[0].props.value, false);
   assert.match(text(ui.render()), /one fare for everyone/);
-  assert.match(text(ui.render()), /shown for reference only/);
-  assert.doesNotMatch(text(ui.render()), /\bEconomy\b|\bComfort\b/);
+  assert.match(text(ui.render()), /Economy/);
+  assert.match(text(ui.render()), /Comfort/);
+  assert.doesNotMatch(text(ui.render()), /\bMotorcycle\b|\bTruck\b/);
   ui.button("+ Add another stop").props.onPress();
   await ui.button("Calculate road route & fare").props.onPress();
+  assert.equal(ui.button("Request driver (pay after ride)"), undefined);
+  ui.button("Economy - USD 10.00").props.onPress();
   const routeMap = nodes(ui.render()).find((node) => node.type === "RideRouteMap");
   assert.equal(routeMap.props.ride._id, "ride");
   assert.equal(routeMap.props.distanceUnit, "mile");
@@ -192,11 +197,110 @@ test("customer UI defaults to regular, submits ordered multi-stops and one fare,
   assert.equal(ui.navigations.at(-1)[0], "MyRides");
   assert.equal(ui.calls.some((call) => call.route.includes("payment")), false);
 });
+test("customers compare all vehicle prices and request only the selected quote in Regular and Shared", async () => {
+  for (const shared of [false, true]) {
+    let requested;
+    const ui = harness("Screens\\Ride\\RideBooking.js", async (route, options) => {
+      if (route === "config") return { ...policy, vehicleRates: {
+        economy: { enabled: true }, comfort: { enabled: true }, van: { enabled: true },
+      } };
+      if (route === "quote-options") {
+        assert.equal(options.data.mode, shared ? "shared" : "regular");
+        return { quotes: ["economy", "comfort", "van"].map((vehicleOption, index) =>
+          pricedOptions({ _id: `${vehicleOption}-ride`, vehicleOption, estimate: [8, 16, 24][index] }).quotes[0]) };
+      }
+      if (route.endsWith("/request")) { requested = route; return { _id: route.split("/")[0] }; }
+      throw new Error(`Unexpected route ${route}`);
+    });
+    await ui.start();
+    if (shared) ui.switches()[0].props.onValueChange(true);
+    assert.equal(ui.button("Economy - Calculate price").props.disabled, true);
+    await ui.button("Calculate road route & fare").props.onPress();
+    assert.equal(ui.button("Request driver (pay after ride)"), undefined, "customers must select a priced option");
+    for (const label of ["Economy - USD 8.00", "Comfort - USD 16.00", "Van - USD 24.00"]) {
+      assert.equal(ui.button(label).props.disabled, false);
+    }
+    ui.button("Economy - USD 8.00").props.onPress();
+    assert.match(text(ui.render()), /Selected vehicle: Economy/);
+    ui.button("Van - USD 24.00").props.onPress();
+    assert.match(text(ui.render()), /Selected vehicle: Van/);
+    ui.button("Comfort - USD 16.00").props.onPress();
+    const map = nodes(ui.render()).find((node) => node.type === "RideRouteMap");
+    assert.equal(map.props.ride._id, "comfort-ride");
+    assert.match(text(ui.render()), /Estimated fare: USD 16.00/);
+    await ui.button("Request driver (pay after ride)").props.onPress();
+    assert.equal(requested, "comfort-ride/request");
+    assert.equal(ui.navigations.at(-1)[1].rideId, "comfort-ride");
+    assert.doesNotMatch(text(ui.render()), /Motorcycle|Truck/);
+  }
+});
+
+test("vehicle prices clear on contact or mode edits and unavailable choices cannot be selected", async () => {
+  const ui = harness("Screens\\Ride\\RideBooking.js", async (route) => {
+    if (route === "config") return policy;
+    if (route === "quote-options") return pricedOptions();
+  });
+  await ui.start();
+  await ui.button("Calculate road route & fare").props.onPress();
+  assert.equal(ui.button("Comfort - Unavailable").props.disabled, true);
+  assert.equal(ui.button("Van - Unavailable").props.disabled, true);
+  ui.button("Economy - USD 10.00").props.onPress();
+  nodes(ui.render()).find((node) => node.type === "TextInput" && node.props.label === "Contact phone")
+    .props.onChangeText("123456789");
+  assert.equal(ui.button("Request driver (pay after ride)"), undefined);
+  assert.equal(ui.button("Economy - USD 10.00"), undefined);
+  await ui.button("Calculate road route & fare").props.onPress();
+  ui.button("Economy - USD 10.00").props.onPress();
+  ui.switches()[0].props.onValueChange(true);
+  assert.equal(ui.button("Request driver (pay after ride)"), undefined);
+  assert.equal(ui.button("Economy - USD 10.00"), undefined);
+});
+
+test("expired or malformed vehicle quotes show an error instead of submitting a request", async () => {
+  for (const result of [pricedOptions({ expiresAt: new Date(0) }), { quotes: [] }, null,
+    pricedOptions({ vehicleOption: "truck" }), pricedOptions({ estimate: -1 }), pricedOptions({ expiresAt: "invalid" })]) {
+    const ui = harness("Screens\\Ride\\RideBooking.js", async (route) => {
+      if (route === "config") return policy;
+      if (route === "quote-options") return result;
+    });
+    await ui.start();
+    await ui.button("Calculate road route & fare").props.onPress();
+    if (ui.button("Economy - USD 10.00")) {
+      ui.button("Economy - USD 10.00").props.onPress();
+      await ui.button("Request driver (pay after ride)").props.onPress();
+      assert.match(ui.dialogs.at(-1)[1], /expired/);
+    } else assert.match(ui.dialogs.at(-1)[1], /No valid priced ride options/);
+    assert.equal(ui.calls.some((call) => call.route.endsWith("/request")), false);
+    assert.equal(ui.button("Request driver (pay after ride)"), undefined);
+  }
+});
+
+test("Admin saves separate enabled Economy Comfort and Van rates", async () => {
+  let saved;
+  const ui = harness("Screens\\Admin\\RideSettings.js", async (route, options) => {
+    if (route === "config" && options?.method === "put") { saved = options.data; return saved; }
+    if (route === "config") return policy;
+    if (route === "admin/drivers" || route === "admin/payments") return [];
+  });
+  await ui.start();
+  for (const [index, option] of ["Economy", "Comfort", "Van"].entries()) {
+    ui.switches()[index + 1].props.onValueChange(true);
+    for (const [field, value] of [["Base fare", index + 2], ["Rate per mile (USA) / km (Ethiopia)", index + 1], ["Rate per minute", (index + 1) / 2]]) {
+      nodes(ui.render()).find((node) => node.type === "TextInput" && node.props.label === `${option} ${field}`)
+        .props.onChangeText(String(value));
+    }
+  }
+  await ui.button("Save ride configuration").props.onPress();
+  assert.deepEqual(Array.from(helpers.rideOptions, ({ key }) => saved.vehicleRates[key].baseFare), ["2", "3", "4"]);
+  assert.deepEqual(Array.from(helpers.rideOptions, ({ key }) => saved.vehicleRates[key].minuteRate), ["0.5", "1", "1.5"]);
+  assert.ok(helpers.rideOptions.every(({ key }) => saved.vehicleRates[key].enabled));
+  assert.match(ui.dialogs.at(-1)[1], /saved/);
+});
 test("regular booking balances passenger edits, added/removed stops and mode changes", async () => {
   let sent;
   const ui = harness("Screens\\Ride\\RideBooking.js", async (route, options) => {
     if (route === "config") return policy;
-    if (route === "quote") { sent = options.data; return null; }
+    if (route === "quote-options") { sent = options.data; return pricedOptions(); }
   });
   await ui.start();
   ui.button("Saved address & passenger details").props.onPress();
@@ -243,10 +347,9 @@ test("booking defaults pickup to GPS, prefills editable phone numbers and sends 
   let sent;
   const ui = harness("Screens\\Ride\\RideBooking.js", async (route, options) => {
     if (route === "config") return policy;
-    if (route === "quote") {
+    if (route === "quote-options") {
       sent = options.data;
-      return { _id: "ride", currency: "usd", estimate: 10, seats: 1, baseline: { minutes: 10 },
-        expiresAt: new Date(Date.now() + 600000) };
+      return pricedOptions();
     }
   });
   await ui.start();
@@ -261,11 +364,13 @@ test("booking defaults pickup to GPS, prefills editable phone numbers and sends 
   assert.equal(sent.stops[0].address.phone, "+13125550123");
   assert.equal(sent.stops[1].address.phone, address.phone);
   assert.equal(sent.stops[0].address.currentLocation.latitude, 41.95);
+  ui.button("Economy - USD 10.00").props.onPress();
   assert.ok(ui.button("Request driver (pay after ride)"));
   const searches = nodes(ui.render()).filter((node) => node.type === "AddressSearchInput");
   searches[0].props.onSelect({ placeId: "ChIJnewpickup0001", address1: "Changed pickup", city: "Chicago", country: "USA" });
   assert.equal(ui.button("Request driver (pay after ride)"), undefined);
   await ui.button("Calculate road route & fare").props.onPress();
+  ui.button("Economy - USD 10.00").props.onPress();
   assert.equal(sent.stops[0].address.currentLocation, undefined);
   assert.equal(sent.stops[0].address.phone, "+13125550123");
   assert.equal(sent.stops[0].address.address1, "Changed pickup");
@@ -295,10 +400,10 @@ test("booking allows manual pickup when location permission is denied", async ()
 test("shared form exposes only the booking's pickup/dropoff and synchronizes its own passenger party", async () => {
   const ui = harness("Screens\\Ride\\RideBooking.js", async (route, options) => {
     if (route === "config") return policy;
-    if (route === "quote") {
+    if (route === "quote-options") {
       assert.equal(options.data.mode, "shared");
       assert.deepEqual(Array.from(options.data.stops, (entry) => entry.passengers), [2, 2]);
-      return { _id: "shared", currency: "usd", estimate: 8, seats: 2, baseline: { minutes: 10 }, expiresAt: new Date() };
+      return pricedOptions({ _id: "shared", estimate: 8, seats: 2 });
     }
   });
   await ui.start();
@@ -656,7 +761,7 @@ test("ride form uses selected places, hides ZIP for Ethiopia and drops stale pla
   let sent;
   const ui = harness("Screens\\Ride\\RideBooking.js", async (route, options) => {
     if (route === "config") return policy;
-    if (route === "quote") { sent = options.data; return { _id: "ride", currency: "usd", estimate: 10, seats: 1, baseline: { minutes: 5 }, expiresAt: new Date(Date.now() + 600000) }; }
+    if (route === "quote-options") { sent = options.data; return pricedOptions({ baseline: { minutes: 5 } }); }
     throw new Error(`Unexpected ride request ${route}`);
   });
   await ui.start();
