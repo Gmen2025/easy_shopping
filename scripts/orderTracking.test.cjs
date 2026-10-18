@@ -470,7 +470,7 @@ test(`driver routing uses ${liveDriver ? "live GPS" : "the registered store with
 }
 }
 
-function loadDelivery(distanceResponse, { storedToken = "stored-test-token", post } = {}) {
+function loadDelivery(distanceResponse, { storedToken = "stored-test-token", post, get } = {}) {
   const filename = path.join(__dirname, "..", "assets", "common", "delivery.js");
   const { code } = babel.transformSync(fs.readFileSync(filename, "utf8"), {
     filename, configFile: false, babelrc: false,
@@ -490,8 +490,9 @@ function loadDelivery(distanceResponse, { storedToken = "stored-test-token", pos
         assert.equal(key, "token");
         return storedToken;
       },
+      setItem: async () => {},
     },
-    axios: { post: post || (async () => ({ data: distanceResponse })) },
+    axios: { post: post || (async () => ({ data: distanceResponse })), get },
     "./baseUrl": "https://example.invalid/api/",
     "./databaseConfig": databaseExports,
   };
@@ -504,6 +505,24 @@ function loadDelivery(distanceResponse, { storedToken = "stored-test-token", pos
   });
   return exports;
 }
+
+test("delivery settings authenticate checkout with the saved session and prefer an explicit token", async () => {
+  for (const token of [undefined, "explicit-test-token"]) {
+    const delivery = loadDelivery(null, { get: async (url, options) => {
+      assert.equal(url, "https://example.invalid/api/settings/delivery");
+      assert.equal(options.headers.Authorization, `Bearer ${token || "stored-test-token"}`);
+      return { data: { deliveryConfig: { standardMinBusinessDays: 2 } } };
+    } });
+    const settings = await delivery.getDeliverySettings({ token, allowCached: false });
+    assert.equal(settings.deliveryConfig.standardMinBusinessDays, 2);
+  }
+});
+
+test("delivery settings keep authorization failures visible when checkout disallows cached policy", async () => {
+  const failure = new Error("The user is not authorized");
+  const delivery = loadDelivery(null, { get: async () => { throw failure; } });
+  await assert.rejects(delivery.getDeliverySettings({ allowCached: false }), (error) => error === failure);
+});
 
 test("mobile checkout charges USA per mile for all modes while preserving non-USA per-km fees", () => {
   const delivery = loadDelivery({});

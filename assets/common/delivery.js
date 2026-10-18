@@ -111,8 +111,9 @@ export const updateDeliveryStatus = async (order, deliveryStatus) => {
 // AdduGenetE_Shop admin dashboard writes to.
 export const getDeliverySettings = async ({ token, allowCached = true } = {}) => {
   try {
+    const sessionToken = token || await AsyncStorage.getItem("token");
     const response = await axios.get(`${baseUrl}settings/delivery`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      headers: sessionToken ? { Authorization: `Bearer ${sessionToken}` } : undefined,
       timeout: 10000,
     });
     await cacheDeliverySettings(response.data?.deliveryConfig);
