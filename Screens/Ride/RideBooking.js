@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import { useIsFocused } from "@react-navigation/native";
 import { AuthContext } from "../../Context/store/Auth";
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Keyboard, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button, Switch, TextInput } from "react-native-paper";
 import { Picker } from "@react-native-picker/picker";
@@ -26,6 +26,7 @@ const ui = {
   panel: { maxHeight: "55%", backgroundColor: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24,
     shadowColor: "#111827", shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.12, shadowRadius: 12, elevation: 8 },
   panelScroll: { flexShrink: 1 },
+  keyboardPanel: { maxHeight: "100%" },
   panelHandle: { alignItems: "center", paddingTop: 10, paddingBottom: 8, gap: 5 },
   handleBar: { width: 40, height: 4, borderRadius: 2, backgroundColor: "#d5dae1" },
   handleText: { color: "#374151", fontSize: 12, fontWeight: "700" },
@@ -101,7 +102,30 @@ export default function RideBooking({ navigation }) {
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const [panelHeight, setPanelHeight] = useState(0);
   const [mapTopInset, setMapTopInset] = useState(120);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [userLocation, setUserLocation] = useState(null);
+  const bookingScroll = useRef(null);
+  const focusedInput = useRef(null);
   const running = useRef(false);
+  const revealFocusedInput = () => {
+    if (focusedInput.current != null) {
+      bookingScroll.current?.getScrollResponder()?.scrollResponderScrollNativeHandleToKeyboard(
+        focusedInput.current, 160, true
+      );
+    }
+  };
+  useEffect(() => {
+    const show = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", () => {
+      setKeyboardVisible(true);
+      setPanelCollapsed(false);
+      revealFocusedInput();
+    });
+    const hide = Keyboard.addListener("keyboardDidHide", () => {
+      setKeyboardVisible(false);
+      focusedInput.current = null;
+    });
+    return () => { show.remove(); hide.remove(); };
+  }, []);
   const invalidateQuotes = () => { setQuote(null); setQuotes([]); };
   const run = async (action) => {
     if (running.current) return;
@@ -128,6 +152,11 @@ export default function RideBooking({ navigation }) {
       if (await getDatabaseNameFromStorage() !== db) {
         throw new Error("The region changed. Reload the ride form before choosing your pickup.");
       }
+      const point = rideStopPoint({ address: { location: {
+        coordinates: [position.coords.longitude, position.coords.latitude],
+      } } });
+      if (!point) throw new Error("Your device did not return a valid GPS location. Try again or enter your pickup.");
+      setUserLocation(point);
       const address = await rideRequest("places/current-location", { method: "post", data: {
         latitude: position.coords.latitude, longitude: position.coords.longitude,
       } });
@@ -151,6 +180,7 @@ export default function RideBooking({ navigation }) {
       rideRequest("config"), storeRequest("delivery-addresses"), storeRequest("delivery-current-address"),
     ]);
     setDatabase(db); setConfig(policy);
+    setUserLocation(null);
     setSaved([{ ...current, _id: "current", label: "Current account address" }, ...addresses]);
     const phone = current.phone || user?.phone || "";
     setStops(["pickup", "dropoff"].map((type) => {
@@ -210,6 +240,7 @@ export default function RideBooking({ navigation }) {
     {config?.enabled ? <View style={ui.mapBackground}>
       <RideRouteMap fullScreen
         ride={step >= 2 ? quote || quotes[0] || { stops } : { stops }}
+        userLocation={userLocation}
         topInset={mapTopInset}
         bottomInset={panelHeight}
         onSelectLocation={step === 1 ? selectMapLocation : undefined}
@@ -230,18 +261,25 @@ export default function RideBooking({ navigation }) {
         <Text style={ui.myRidesText}>My rides</Text>
       </TouchableOpacity>
     </View>
-    <KeyboardAvoidingView style={ui.panelPosition} pointerEvents="box-none"
-      behavior={Platform.OS === "ios" ? "padding" : "height"}>
-    <View style={ui.panel} onLayout={(event) => setPanelHeight(event.nativeEvent.layout.height)}>
+    <View style={ui.panelPosition} pointerEvents="box-none">
+    <View style={keyboardVisible ? [ui.panel, ui.keyboardPanel] : ui.panel} onLayout={(event) => {
+      setPanelHeight(event.nativeEvent.layout.height);
+      if (keyboardVisible) revealFocusedInput();
+    }}>
       <TouchableOpacity accessibilityRole="button" accessibilityLabel={panelCollapsed ? "Show booking details" : "Show more map"}
         accessibilityState={{ expanded: !panelCollapsed }} style={ui.panelHandle}
-        onPress={() => setPanelCollapsed((previous) => !previous)}>
+        onPress={() => {
+          Keyboard.dismiss();
+          setPanelCollapsed((previous) => !previous);
+        }}>
         <View style={ui.handleBar} />
         <Text style={ui.handleText}>{panelCollapsed ? "Show booking details" : "Show more map"}</Text>
       </TouchableOpacity>
     {busy ? <ActivityIndicator /> : null}
     {error ? <Text accessibilityRole="alert" style={ui.error}>{error}</Text> : null}
-    {!panelCollapsed ? <ScrollView style={ui.panelScroll} contentContainerStyle={ui.content}
+    {!panelCollapsed ? <ScrollView ref={bookingScroll} style={ui.panelScroll} contentContainerStyle={ui.content}
+      automaticallyAdjustKeyboardInsets
+      onLayout={() => { if (keyboardVisible) revealFocusedInput(); }}
       keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
     {!config?.enabled ? <View style={ui.intro}>
       <Text style={ui.title}>Ride service unavailable</Text>
@@ -308,6 +346,11 @@ export default function RideBooking({ navigation }) {
           <AddressSearchInput
             label={stop.type === "pickup" ? "Search pickup location" : "Search drop-off location"}
             disabled={busy}
+            onFocus={(event) => {
+              focusedInput.current = event.target ?? event.nativeEvent.target;
+              setPanelCollapsed(false);
+              revealFocusedInput();
+            }}
             selectedText={stop.address.placeId || stop.address.currentLocation
               ? stop.address.formattedAddress || addressText(stop.address) : ""}
             onSelect={(place) => update(index, { address: { ...stop.address, ...place,
@@ -478,7 +521,7 @@ export default function RideBooking({ navigation }) {
     </>}
     </ScrollView> : null}
     </View>
-    </KeyboardAvoidingView>
+    </View>
     </SafeAreaView>
   </View>;
 }

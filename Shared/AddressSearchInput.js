@@ -6,7 +6,7 @@ import { newPlacesSession, placeAddress, searchPlaces } from "../assets/common/r
 const MIN_CHARS = 3;
 const DEBOUNCE_MS = 350;
 
-const AddressSearchInput = ({ label, disabled, selectedText, onSelect }) => {
+const AddressSearchInput = ({ label, disabled, selectedText, onSelect, onFocus }) => {
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -53,6 +53,7 @@ const AddressSearchInput = ({ label, disabled, selectedText, onSelect }) => {
         label={label}
         value={query}
         disabled={disabled}
+        onFocus={onFocus}
         onChangeText={(text) => { setQuery(text); setError(""); }}
         placeholder="Type a street, building or landmark"
         autoCorrect={false}

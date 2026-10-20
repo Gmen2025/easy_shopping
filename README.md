@@ -81,7 +81,11 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   reopen it. In **Map & stops**, choose a stop before tapping the map; locations
   are verified before being applied. Saved account addresses appear as selectable
   badges under each stop's search field. Fare calculation and payment-after-ride
-  behavior are unchanged.
+  behavior are unchanged. While searching, the panel expands and scrolls the
+  focused search field above the keyboard. The map uses the device GPS location
+  immediately, even if address verification fails; a single location uses a
+  neighborhood zoom rather than a zero-length route fit. Location permission
+  and a correctly configured native map build are required.
 - **Password Recovery**: Forgot password functionality
 
 ### US Products to Ethiopia, Paid in Birr

@@ -34,6 +34,7 @@ function text(value) {
 }
 function harness(file, request, params = {}, auth = { isAuthenticated: true, loading: false }, options = {}) {
   const states = [], effects = [], timers = [], timerDelays = [], calls = [], dialogs = [], navigations = [];
+  const keyboardListeners = new Map();
   let cursor = 0;
   const react = {
     useContext: () => auth,
@@ -56,6 +57,11 @@ function harness(file, request, params = {}, auth = { isAuthenticated: true, loa
   };
   const native = new Proxy({ StyleSheet: { create: (value) => value,
     absoluteFillObject: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 } }, Alert: { alert: (...args) => dialogs.push(args) },
+    Platform: { OS: options.platform || "android" },
+    Keyboard: { addListener: (name, callback) => {
+      keyboardListeners.set(name, callback);
+      return { remove: () => keyboardListeners.delete(name) };
+    }, dismiss: () => keyboardListeners.get("keyboardDidHide")?.() },
     Share: { share: async (payload) => calls.push({ share: payload }) }, Linking: { openURL: async (url) => calls.push({ url }) } },
     { get: (target, key) => target[key] || key });
   const pricing = load("Shared\\RideVehiclePricing.js", {
@@ -122,7 +128,7 @@ function harness(file, request, params = {}, auth = { isAuthenticated: true, loa
     await button("Calculate road route & fare").props.onPress();
     if (returnToForm && button("Continue")) button("Back").props.onPress();
   };
-  return { render, start, button, calculate, calls, dialogs, navigations, timers, timerDelays,
+  return { render, start, button, calculate, calls, dialogs, navigations, timers, timerDelays, keyboardListeners,
     runLastEffect: () => { render(); return effects.at(-1)(); },
     switches: () => nodes(render()).filter((node) => node.type === "Switch") };
 }
@@ -251,6 +257,42 @@ test("booking keeps one full-screen background map with a collapsible, measured 
   ui.button("Economy - USD 10.00").props.onPress();
   ui.button("Continue").props.onPress();
   assert.equal(maps().length, 1, "Summary reuses the background map, not an embedded second map");
+});
+
+test("pickup and drop-off search expand the booking panel and scroll above the keyboard", async () => {
+  for (const platform of ["android", "ios"]) {
+    const ui = harness("Screens\\Ride\\RideBooking.js", async (route) => route === "config" ? policy : {},
+      {}, undefined, { platform });
+    await ui.start();
+    const scrollCalls = [];
+    const scroll = nodes(ui.render()).find((node) => node.type === "ScrollView" && node.props.automaticallyAdjustKeyboardInsets);
+    scroll.props.ref.current = { getScrollResponder: () => ({
+      scrollResponderScrollNativeHandleToKeyboard: (...args) => scrollCalls.push(args),
+    }) };
+    const searches = nodes(ui.render()).filter((node) => node.type === "AddressSearchInput");
+    searches[0].props.onFocus({ target: 101 });
+    ui.keyboardListeners.get(platform === "ios" ? "keyboardWillShow" : "keyboardDidShow")();
+    const panel = nodes(ui.render()).find((node) => Array.isArray(node.props.style) &&
+      node.props.style[1]?.maxHeight === "100%");
+    assert.ok(panel, `${platform} expands the panel when the keyboard opens`);
+    panel.props.onLayout({ nativeEvent: { layout: { height: 280 } } });
+    assert.deepEqual(scrollCalls.at(-1), [101, 160, true]);
+    searches[1].props.onFocus({ nativeEvent: { target: 202 } });
+    assert.deepEqual(scrollCalls.at(-1), [202, 160, true]);
+    ui.keyboardListeners.get("keyboardDidHide")();
+    assert.ok(nodes(ui.render()).find((node) => node.props.style?.maxHeight === "55%"));
+  }
+});
+
+test("booking shows GPS on the map even when pickup address verification fails", async () => {
+  const ui = harness("Screens\\Ride\\RideBooking.js", async (route) => route === "config" ? policy : {},
+    {}, undefined, { currentLocation: async () => { throw new Error("Address verification unavailable"); } });
+  await ui.start();
+  const map = nodes(ui.render()).find((node) => node.type === "RideRouteMap");
+  assert.equal(map.props.userLocation.latitude, 41.95);
+  assert.equal(map.props.userLocation.longitude, -87.65);
+  assert.equal(map.props.ride.stops[0].address.address1, "");
+  assert.match(text(ui.render()), /Address verification unavailable/);
 });
 
 test("saved address badges select each stop, preserve its role and invalidate quoted fares", async () => {
@@ -984,7 +1026,9 @@ test("driver map uses the authorized route endpoint, refreshes on trip version c
   const configuration = { canRenderNativeMap: true, MAP_UNAVAILABLE_MESSAGE: "Native map key missing" };
   const absoluteFill = { position: "absolute", top: 0, bottom: 0, left: 0, right: 0 };
   const fitted = [];
-  const mapRef = { current: { fitToCoordinates: (...args) => fitted.push(args) } };
+  const centered = [];
+  const mapRef = { current: { fitToCoordinates: (...args) => fitted.push(args),
+    animateToRegion: (...args) => centered.push(args) } };
   let cursor = 0, effectIndex = 0, fail = false;
   const useState = (initial) => {
     const index = cursor++;
@@ -1096,6 +1140,18 @@ test("driver map uses the authorized route endpoint, refreshes on trip version c
   assert.equal(nodes(render()).find((node) => node.type === "MapView").props.onPress, undefined);
   props = { ...props, onSelectLocation: undefined, selectionDisabled: false };
   assert.equal(nodes(render()).find((node) => node.type === "MapView").props.onPress, undefined, "Tracking maps remain read-only");
+  props = { ...props, ride: { stops: [] }, driverLocation: null, userLocation: { latitude: 41.95, longitude: -87.65 } };
+  render(); await flush();
+  tree = render();
+  assert.equal(nodes(tree).find((node) => node.type === "MapView").props.initialRegion.latitude, 41.95);
+  assert.equal(centered.at(-1)[0].latitude, 41.95);
+  assert.equal(centered.at(-1)[0].latitudeDelta, 0.025);
+  assert.equal(nodes(tree).find((node) => node.type === "MapView").props.mapPadding.bottom, 300,
+    "A single GPS point is centered above the bottom panel");
+  assert.ok(nodes(tree).find((node) => node.type === "Marker" && node.props.title === "Your current location"));
+  props = { ...props, ride: { stops: [{ type: "pickup", address: { location: { coordinates: [-87.7, 42] } } }] } };
+  render(); await flush();
+  assert.equal(centered.at(-1)[0].latitude, 42, "Late pickup coordinates update the camera after map readiness");
   configuration.canRenderNativeMap = false;
   tree = render();
   assert.equal(nodes(tree).some((node) => node.type === "MapView"), false);
@@ -1325,7 +1381,7 @@ test("address search debounces typing, ignores short input and fills the stop fr
     useEffect: (effect) => effects.push(effect),
     createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
   };
-  let selected;
+  let selected, focused;
   const { default: Search } = load("Shared\\AddressSearchInput.js", {
     react, "react-native": new Proxy({ StyleSheet: { create: (value) => value, hairlineWidth: 1 } }, { get: (target, key) => target[key] || key }),
     "react-native-paper": { TextInput: "TextInput" },
@@ -1336,9 +1392,12 @@ test("address search debounces typing, ignores short input and fills the stop fr
       placeAddress: async (placeId, session) => { calls.push(["details", placeId, session]); return { placeId, address1: "Edna Mall" }; },
     },
   }, { setTimeout: (callback) => { timers.push(callback); return timers.length; }, clearTimeout: () => {} });
-  const render = () => { cursor = 0; effects.length = 0; return Search({ label: "Search pickup", onSelect: (value) => { selected = value; } }); };
+  const render = () => { cursor = 0; effects.length = 0; return Search({ label: "Search pickup",
+    onFocus: (event) => { focused = event.target; }, onSelect: (value) => { selected = value; } }); };
   const runEffects = () => effects.splice(0).forEach((effect) => effect());
   const field = () => nodes(render()).find((node) => node.type === "TextInput");
+  field().props.onFocus({ target: 101 });
+  assert.equal(focused, 101, "Search forwards focus so the booking panel can reveal its input");
   field().props.onChangeText("Ed"); render(); runEffects();
   assert.equal(timers.length, 0, "fewer than three characters never searches");
   field().props.onChangeText("Edna"); render(); runEffects();
