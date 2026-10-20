@@ -217,7 +217,7 @@ export default function DriverRides({ navigation }) {
                 <Text style={s.bodyText} numberOfLines={1}>{ride.stops?.[0]?.address?.address1 || "Ride"} → {ride.stops?.at(-1)?.address?.address1 || "Destination"}</Text>
                 <Text style={s.mutedText}>{ride.status === "terminated" ? "Ended early" : "Completed"} · {ride.paymentStatus || "Payment pending"}</Text>
               </View>
-              <Text style={s.fareText}>{rideFare(ride)}</Text>
+              <Text style={s.fareText} numberOfLines={1} adjustsFontSizeToFit>{rideFare(ride)}</Text>
             </View>
           )) : <Text style={s.mutedText}>Completed ride history will appear here.</Text>}
         </View>
@@ -287,7 +287,7 @@ export default function DriverRides({ navigation }) {
         {data.offer && remaining > 0 ? <>
           <Text style={s.bodyText}>{rideOptionName(data.offer.vehicleOption) || data.offer.mode} · {data.offer.seats} passenger{data.offer.seats === 1 ? "" : "s"}</Text>
           {data.offer.vehicleOption ? <Text style={s.mutedText}>Requested vehicle: {rideOptionName(data.offer.vehicleOption)}</Text> : null}
-          <View style={s.fareBox}><Text style={s.mutedText}>Estimated fare</Text><Text style={s.fareLarge}>{rideFare(data.offer, data.offer.estimate)}</Text></View>
+          <View style={s.fareBox}><Text style={s.mutedText}>Estimated fare</Text><Text style={s.fareLarge} numberOfLines={1} adjustsFontSizeToFit>{rideFare(data.offer, data.offer.estimate)}</Text></View>
           {data.driver.rideProfilePhotoRequired
             ? <Text style={s.error}>Refresh your ride profile photo before accepting this offer.</Text>
             : null}
@@ -354,14 +354,14 @@ export default function DriverRides({ navigation }) {
       {selectedTab === "earnings" ? <View style={s.card}>
         <Text style={s.heading}>Completed ride fares</Text>
         <Text style={s.mutedText}>Fare total from the 20 most recent ended rides. Payment status is shown for each ride below.</Text>
-        <Text style={s.fareLarge}>{rideFare({ currency: payments[0]?.currency || (region.current.toLowerCase().includes("usa") ? "usd" : "etb") }, recentCompletedFares)}</Text>
+        <Text style={s.fareLarge} numberOfLines={1} adjustsFontSizeToFit>{rideFare({ currency: payments[0]?.currency || (region.current.toLowerCase().includes("usa") ? "usd" : "etb") }, recentCompletedFares)}</Text>
         <Text style={s.mutedText}>{completedRides.length} completed ride{completedRides.length === 1 ? "" : "s"} in recent history</Text>
         <View style={s.divider} />
         <Text style={s.heading}>Ride history</Text>
         {payments.length ? payments.map((ride) => <View key={ride._id} style={s.historyCard}>
           <View style={s.sectionHeadingRow}>
-            <Text style={s.bodyText}>{ride.stops?.[0]?.address?.address1 || "Pickup"} → {ride.stops?.at(-1)?.address?.address1 || "Drop-off"}</Text>
-            <Text style={s.fareText}>{rideFare(ride)}</Text>
+            <Text style={[s.bodyText, s.historyRoute]}>{ride.stops?.[0]?.address?.address1 || "Pickup"} → {ride.stops?.at(-1)?.address?.address1 || "Drop-off"}</Text>
+            <Text style={s.fareText} numberOfLines={1} adjustsFontSizeToFit>{rideFare(ride)}</Text>
           </View>
           <Text style={s.mutedText}>#{String(ride._id).slice(-6)} · {ride.status === "terminated" ? "Terminated" : "Completed"} · {ride.paymentMethod || "Payment method not selected"} · {ride.paymentStatus || "Payment pending"}</Text>
           {ride.status === "terminated" ? <Text style={s.mutedText}>Ended without completion. {ride.paymentStatus === "review_required" ? "Payment is on hold for Admin review." : ""}</Text> : null}
@@ -429,8 +429,9 @@ const s = StyleSheet.create({
   preferenceRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 46, borderTopWidth: 1, borderTopColor: "#f1f5f9" },
   countdown: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, backgroundColor: "#fff4cc", color: "#8a5b00", fontSize: 13, fontWeight: "800" },
   fareBox: { padding: 12, borderRadius: 12, backgroundColor: "#fff9dc" },
-  fareLarge: { fontSize: 22, fontWeight: "800", color: "#111827" },
-  fareText: { fontSize: 14, fontWeight: "800", color: "#111827" },
+  fareLarge: { width: "100%", fontSize: 22, fontWeight: "800", color: "#111827" },
+  fareText: { maxWidth: "45%", flexShrink: 1, textAlign: "right", fontSize: 14, fontWeight: "800", color: "#111827" },
+  historyRoute: { flex: 1, minWidth: 0 },
   stopRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: 4 },
   stopDot: { width: 12, height: 12, borderRadius: 6, marginTop: 4 },
   pickupDot: { backgroundColor: "#16a34a" },
@@ -441,7 +442,7 @@ const s = StyleSheet.create({
   dropoffText: { color: "#dc2626" },
   actionsRow: { flexDirection: "row", justifyContent: "space-between", gap: 10, marginTop: 4 },
   paymentRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, paddingVertical: 10, borderTopWidth: 1, borderTopColor: "#f1f5f9" },
-  paymentDetails: { flex: 1, gap: 3 },
+  paymentDetails: { flex: 1, minWidth: 0, gap: 3 },
   historyCard: { paddingVertical: 10, borderTopWidth: 1, borderTopColor: "#f1f5f9", gap: 5 },
   divider: { height: 1, backgroundColor: "#e2e8f0", marginVertical: 4 },
   error: { color: "#b91c1c", fontSize: 12, lineHeight: 18, padding: 10, backgroundColor: "#fef2f2", borderRadius: 8 },

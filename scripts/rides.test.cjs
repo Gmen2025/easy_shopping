@@ -54,7 +54,8 @@ function harness(file, request, params = {}, auth = { isAuthenticated: true, loa
     },
     useEffect: (effect) => effects.push(effect),
   };
-  const native = new Proxy({ StyleSheet: { create: (value) => value }, Alert: { alert: (...args) => dialogs.push(args) },
+  const native = new Proxy({ StyleSheet: { create: (value) => value,
+    absoluteFillObject: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 } }, Alert: { alert: (...args) => dialogs.push(args) },
     Share: { share: async (payload) => calls.push({ share: payload }) }, Linking: { openURL: async (url) => calls.push({ url }) } },
     { get: (target, key) => target[key] || key });
   const pricing = load("Shared\\RideVehiclePricing.js", {
@@ -218,6 +219,68 @@ test("customer UI defaults to regular, submits ordered multi-stops and one fare,
   assert.equal(ui.navigations.at(-1)[0], "MyRides");
   assert.equal(ui.calls.some((call) => call.route.includes("payment")), false);
 });
+test("booking keeps one full-screen background map with a collapsible, measured details panel", async () => {
+  const ui = harness("Screens\\Ride\\RideBooking.js", async (route) => {
+    if (route === "config") return policy;
+    if (route === "quote-options") return pricedOptions();
+  });
+  await ui.start();
+  const maps = () => nodes(ui.render()).filter((node) => node.type === "RideRouteMap");
+  assert.equal(maps().length, 1);
+  assert.equal(maps()[0].props.fullScreen, true);
+  const tree = ui.render();
+  const background = nodes(tree).find((node) => node.type === "View" &&
+    node.props.children?.some((child) => child?.type === "RideRouteMap"));
+  assert.equal(background.props.style.position, "absolute");
+  assert.equal(background.props.style.bottom, 0);
+  const panel = nodes(tree).find((node) => node.type === "View" && node.props.style?.maxHeight === "55%");
+  panel.props.onLayout({ nativeEvent: { layout: { height: 320 } } });
+  assert.equal(maps()[0].props.bottomInset, 320);
+  const header = nodes(tree).find((node) => node.type === "View" && node.props.style?.backgroundColor === "#ffd400");
+  header.props.onLayout({ nativeEvent: { layout: { y: 30, height: 60 } } });
+  assert.equal(maps()[0].props.topInset, 102);
+  ui.button("Show more map").props.onPress();
+  assert.equal(maps().length, 1);
+  assert.equal(ui.button("Review map & stops"), undefined);
+  ui.button("Show booking details").props.onPress();
+  assert.ok(ui.button("Review map & stops"));
+  await ui.calculate();
+  assert.equal(maps().length, 1);
+  assert.equal(maps()[0].props.ride._id, "ride");
+  assert.equal(maps()[0].props.onSelectLocation, undefined);
+  ui.button("Economy - USD 10.00").props.onPress();
+  ui.button("Continue").props.onPress();
+  assert.equal(maps().length, 1, "Summary reuses the background map, not an embedded second map");
+});
+
+test("saved address badges select each stop, preserve its role and invalidate quoted fares", async () => {
+  const savedAddress = { ...address, _id: "home", label: "Home", address1: "456 Saved Street",
+    location: { coordinates: [-87.7, 42] } };
+  const ui = harness("Screens\\Ride\\RideBooking.js", async (route) => {
+    if (route === "config") return policy;
+    if (route === "quote-options") return pricedOptions();
+  }, {}, undefined, { storeRequest: async (route) => route === "delivery-addresses" ? [savedAddress] : address });
+  await ui.start();
+  const badge = (index) => ui.button(`Use Home for stop ${index}: ${helpers.addressText(savedAddress)}`);
+  assert.ok(badge(1), "Saved addresses are visible without expanding stop details");
+  assert.ok(badge(2));
+  badge(2).props.onPress();
+  assert.equal(badge(2).props.accessibilityState.selected, true);
+  let map = nodes(ui.render()).find((node) => node.type === "RideRouteMap");
+  assert.equal(map.props.ride.stops[1].address.address1, savedAddress.address1);
+  assert.equal(map.props.ride.stops[1].address.label, "Drop-off");
+  assert.equal(map.props.ride.stops[1].address.location.coordinates[0], -87.7);
+  await ui.calculate();
+  ui.button("Economy - USD 10.00").props.onPress();
+  ui.button("Back").props.onPress();
+  badge(2).props.onPress();
+  map = nodes(ui.render()).find((node) => node.type === "RideRouteMap");
+  assert.equal(map.props.ride._id, undefined, "Picking a saved address clears the old priced route");
+  const searches = nodes(ui.render()).filter((node) => node.type === "AddressSearchInput");
+  searches[1].props.onSelect({ address1: "Another destination", placeId: "another" });
+  assert.equal(badge(2).props.accessibilityState.selected, false);
+});
+
 test("customers compare all vehicle prices and request only the selected quote in Regular and Shared", async () => {
   for (const shared of [false, true]) {
     let requested;
@@ -519,7 +582,9 @@ test("map selection verifies the selected stop, retains contacts, and submits it
     location: { type: "Point", coordinates: [data.longitude, data.latitude] },
   }) });
   await ui.start();
-  assert.equal(nodes(ui.render()).some((node) => node.type === "RideRouteMap"), false);
+  const initialMap = nodes(ui.render()).find((node) => node.type === "RideRouteMap");
+  assert.equal(initialMap.props.fullScreen, true);
+  assert.equal(initialMap.props.onSelectLocation, undefined, "Map taps only edit stops during map review");
   ui.button("Review map & stops").props.onPress();
   ui.button("2. Drop-off").props.onPress();
   const map = () => nodes(ui.render()).find((node) => node.type === "RideRouteMap");
@@ -714,6 +779,35 @@ test("ride driver earnings tab only totals completed fares and lists ended rides
   assert.match(view, /USD 3\.00/);
   assert.match(view, /Terminated/);
   assert.match(view, /20 most recent ended rides/);
+});
+
+test("ride earnings constrain long addresses and large fare amounts to their available width", async () => {
+  const pickup = "A very long airport pickup address with terminal and entrance details";
+  const dropoff = "A very long destination address with building and street details";
+  const ride = { _id: "large-fare", currency: "usd", status: "completed", finalFare: 123456789.99,
+    stops: [{ address: { address1: pickup } }, { address: { address1: dropoff } }] };
+  const ui = harness("Screens\\Driver\\DriverRides.js", async (route) =>
+    route === "me/location" ? {} : { driver: {}, offer: null, trip: null, riders: [], payments: [ride] });
+  await ui.start();
+  const homeFare = nodes(ui.render()).find((node) => node.type === "Text" && text(node) === "USD 123456789.99");
+  assert.equal(homeFare.props.style.maxWidth, "45%");
+  assert.equal(homeFare.props.style.flexShrink, 1);
+  assert.equal(homeFare.props.numberOfLines, 1);
+  assert.equal(homeFare.props.adjustsFontSizeToFit, true);
+
+  ui.button("Earnings").props.onPress();
+  const tree = ui.render();
+  const amounts = nodes(tree).filter((node) => node.type === "Text" && text(node) === "USD 123456789.99");
+  assert.equal(amounts.length, 2, "The total and history amount retain the full fare");
+  assert.equal(amounts[0].props.style.width, "100%");
+  assert.equal(amounts[1].props.style.maxWidth, "45%");
+  for (const amount of amounts) {
+    assert.equal(amount.props.numberOfLines, 1);
+    assert.equal(amount.props.adjustsFontSizeToFit, true);
+  }
+  const route = nodes(tree).find((node) => node.type === "Text" && text(node) === `${pickup} → ${dropoff}`);
+  assert.equal(route.props.style[1].flex, 1);
+  assert.equal(route.props.style[1].minWidth, 0);
 });
 
 test("claiming a ride opens the dedicated trip page without waiting for another GPS refresh", async () => {
@@ -962,6 +1056,12 @@ test("driver map uses the authorized route endpoint, refreshes on trip version c
   render(); await flush();
   assert.equal(fitted.at(-1)[1].edgePadding.bottom, 320);
   assert.ok(fitted.at(-1)[0].some((point) => point.latitude === 42));
+  props = { ...props, topInset: 110 };
+  render(); await flush();
+  assert.equal(fitted.at(-1)[1].edgePadding.top, 230);
+  assert.ok(nodes(render()).find((node) => node.type === "View" && node.props.style?.top === 110),
+    "Map diagnostics move below the booking header");
+  props = { ...props, topInset: 70 };
   props = { ...props, ride: { _id: "trip", stops: [{ type: "pickup", address: { address1: "Missing coordinates" } }] } };
   tree = render();
   assert.ok(nodes(tree).find((node) => node.type === "MapView"), "Missing stop pins must not hide the map");

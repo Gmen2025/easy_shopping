@@ -75,6 +75,13 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   identifier. Saved duplicates are removed on startup, read status is preserved,
   and the inbox retains the latest 20 unique entries.
 - **Profile Management**: Edit profile and manage addresses
+- **Map-first Ride Booking**: A full-screen background map stays visible through
+  pickup/drop-off editing, vehicle selection and trip summary. Use **Show more
+  map** to collapse the scrollable booking panel and **Show booking details** to
+  reopen it. In **Map & stops**, choose a stop before tapping the map; locations
+  are verified before being applied. Saved account addresses appear as selectable
+  badges under each stop's search field. Fare calculation and payment-after-ride
+  behavior are unchanged.
 - **Password Recovery**: Forgot password functionality
 
 ### US Products to Ethiopia, Paid in Birr

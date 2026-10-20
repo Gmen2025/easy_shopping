@@ -6,7 +6,7 @@ import { rideRequest, rideStopPoint, rideDirectionsUrl } from "../assets/common/
 
 const EDGE_PADDING = { top: 50, right: 40, bottom: 40, left: 40 };
 
-const RideRouteMap = ({ ride, driverLocation, distanceUnit = "km", routeEndpoint, routeVersion, startAtDriver = false, fullScreen = false, bottomInset = 0, onSelectLocation, selectionDisabled = false }) => {
+const RideRouteMap = ({ ride, driverLocation, distanceUnit = "km", routeEndpoint, routeVersion, startAtDriver = false, fullScreen = false, topInset = 70, bottomInset = 0, onSelectLocation, selectionDisabled = false }) => {
   const mapRef = useRef(null);
   const [route, setRoute] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -35,11 +35,11 @@ const RideRouteMap = ({ ride, driverLocation, distanceUnit = "km", routeEndpoint
   const fit = () => {
     const points = [...(route?.coordinates || []), ...located.map((entry) => entry.point), ...(driverLocation ? [driverLocation] : [])];
     if (mapReady && points.length) mapRef.current?.fitToCoordinates(points, {
-      edgePadding: fullScreen ? { ...EDGE_PADDING, top: 190, bottom: Math.max(50, bottomInset + 20) } : EDGE_PADDING,
+      edgePadding: fullScreen ? { ...EDGE_PADDING, top: Math.max(190, topInset + 120), bottom: Math.max(50, bottomInset + 20) } : EDGE_PADDING,
       animated: false,
     });
   };
-  useEffect(fit, [mapReady, route, driverLocation, ride?.stops, bottomInset]);
+  useEffect(fit, [mapReady, route, driverLocation, ride?.stops, topInset, bottomInset]);
 
   const openDirections = async () => {
     const url = rideDirectionsUrl(startAtDriver && driverLocation ? [
@@ -83,7 +83,7 @@ const RideRouteMap = ({ ride, driverLocation, distanceUnit = "km", routeEndpoint
           {driverLocation ? <Marker coordinate={driverLocation} title="Driver" pinColor="blue" /> : null}
         </MapView>
       ) : null}
-      <View pointerEvents="box-none" style={fullScreen ? styles.mapControls : undefined}>
+      <View pointerEvents="box-none" style={fullScreen ? { ...styles.mapControls, top: topInset } : undefined}>
       {onSelectLocation ? <Text style={styles.note}>Tap the map to choose the selected stop. The address is verified before saving.</Text> : null}
       {!canRenderNativeMap ? <Text accessibilityRole="alert" style={styles.error}>{MAP_UNAVAILABLE_MESSAGE}</Text> : null}
       {missingLocations ? <Text accessibilityRole="alert" style={styles.error}>

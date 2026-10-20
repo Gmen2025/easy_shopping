@@ -1,7 +1,8 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import { useIsFocused } from "@react-navigation/native";
 import { AuthContext } from "../../Context/store/Auth";
-import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Button, Switch, TextInput } from "react-native-paper";
 import { Picker } from "@react-native-picker/picker";
 import { FontAwesome5 } from "@expo/vector-icons";
@@ -18,9 +19,19 @@ const fields = [["label", "Stop label"], ["address1", "Street address / landmark
 const locatedFields = ["address1", "city", "zip", "country"];
 
 const ui = {
-  page: { flex: 1, backgroundColor: "#fff" },
+  page: { flex: 1, backgroundColor: "#eef2f6" },
+  mapBackground: { ...StyleSheet.absoluteFillObject },
+  overlay: { flex: 1 },
+  panelPosition: { flex: 1, justifyContent: "flex-end" },
+  panel: { maxHeight: "55%", backgroundColor: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    shadowColor: "#111827", shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.12, shadowRadius: 12, elevation: 8 },
+  panelScroll: { flexShrink: 1 },
+  panelHandle: { alignItems: "center", paddingTop: 10, paddingBottom: 8, gap: 5 },
+  handleBar: { width: 40, height: 4, borderRadius: 2, backgroundColor: "#d5dae1" },
+  handleText: { color: "#374151", fontSize: 12, fontWeight: "700" },
   content: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 32, gap: 14 },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 2 },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", margin: 12,
+    padding: 12, borderRadius: 16, backgroundColor: "#ffd400", gap: 8, elevation: 3 },
   brand: { color: "#131923", fontSize: 20, fontWeight: "800" },
   tagline: { color: "#68717e", fontSize: 12, marginTop: 2 },
   myRides: { borderWidth: 1, borderColor: "#d8dce2", borderRadius: 20, paddingVertical: 8, paddingHorizontal: 12 },
@@ -54,12 +65,19 @@ const ui = {
   steps: { flexDirection: "row", gap: 6 },
   step: { flex: 1, height: 4, borderRadius: 2, backgroundColor: "#edf0f3" },
   activeStep: { backgroundColor: "#ffd400" },
-  vehicle: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16, borderWidth: 1, borderColor: "#e8eaed", borderRadius: 14 },
+  vehicle: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16, backgroundColor: "#fff", borderWidth: 1, borderColor: "#e8eaed", borderRadius: 14 },
   selectedVehicle: { borderColor: "#e8b900", backgroundColor: "#fff9df" },
   vehicleText: { flex: 1, gap: 4 },
   vehicleName: { fontSize: 16, fontWeight: "800", color: "#171b20" },
   vehiclePrice: { fontSize: 16, fontWeight: "800", color: "#171b20" },
   disabledVehicle: { opacity: 0.5 },
+  badgeList: { gap: 8, paddingVertical: 4 },
+  addressBadge: { maxWidth: 210, minHeight: 44, flexDirection: "row", alignItems: "center", gap: 8,
+    paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: "#dce2ea", borderRadius: 22, backgroundColor: "#f8fafc" },
+  selectedBadge: { borderColor: "#d5a900", backgroundColor: "#fff7cf" },
+  badgeDetails: { flexShrink: 1 },
+  badgeLabel: { fontSize: 12, fontWeight: "700", color: "#1f2937" },
+  badgeAddress: { fontSize: 10, color: "#64748b", marginTop: 2 },
 };
 const steps = ["Your trip", "Map & stops", "Select ride", "Trip summary"];
 
@@ -80,6 +98,9 @@ export default function RideBooking({ navigation }) {
   const [pickupLocationError, setPickupLocationError] = useState("");
   const [step, setStep] = useState(0);
   const [mapStop, setMapStop] = useState(0);
+  const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const [panelHeight, setPanelHeight] = useState(0);
+  const [mapTopInset, setMapTopInset] = useState(120);
   const running = useRef(false);
   const invalidateQuotes = () => { setQuote(null); setQuotes([]); };
   const run = async (action) => {
@@ -115,7 +136,7 @@ export default function RideBooking({ navigation }) {
       }
       invalidateQuotes();
       setStops((previous) => previous.map((stop, index) => index === 0 ? {
-        ...stop, address: { ...stop.address, ...address, placeId: undefined, address2: "" },
+        ...stop, address: { ...stop.address, ...address, _id: undefined, placeId: undefined, address2: "" },
       } : stop));
     } catch (failure) {
       if (failure.response?.status === 401) throw failure;
@@ -172,6 +193,7 @@ export default function RideBooking({ navigation }) {
     await ensureRegion();
     if (!rideStopPoint({ address })) throw new Error("That map location could not be verified. Search for an address or try another point.");
     update(mapStop, { address: { ...stops[mapStop].address, ...address,
+      _id: undefined,
       currentLocation: { latitude: coordinate.latitude, longitude: coordinate.longitude }, placeId: undefined, address2: "",
       label: stops[mapStop].address.label, phone: stops[mapStop].address.phone } });
   });
@@ -184,8 +206,21 @@ export default function RideBooking({ navigation }) {
       navigation.navigate("User", { screen: "Login" });
     })}>Sign in</Button>
   </View>;
-  return <ScrollView style={ui.page} contentContainerStyle={ui.content} keyboardShouldPersistTaps="handled">
-    <View style={ui.header}>
+  return <View style={ui.page}>
+    {config?.enabled ? <View style={ui.mapBackground}>
+      <RideRouteMap fullScreen
+        ride={step >= 2 ? quote || quotes[0] || { stops } : { stops }}
+        topInset={mapTopInset}
+        bottomInset={panelHeight}
+        onSelectLocation={step === 1 ? selectMapLocation : undefined}
+        selectionDisabled={busy}
+        distanceUnit={/usa/i.test(database) ? "mile" : "km"} />
+    </View> : null}
+    <SafeAreaView style={ui.overlay} pointerEvents="box-none">
+    <View style={ui.header} onLayout={(event) => {
+      const { y, height } = event.nativeEvent.layout;
+      setMapTopInset(y + height + 12);
+    }}>
       <View>
         <Text style={ui.brand}>Addu Genet Ride</Text>
         <Text style={ui.tagline}>Safe  •  Fast  •  Reliable</Text>
@@ -195,8 +230,19 @@ export default function RideBooking({ navigation }) {
         <Text style={ui.myRidesText}>My rides</Text>
       </TouchableOpacity>
     </View>
+    <KeyboardAvoidingView style={ui.panelPosition} pointerEvents="box-none"
+      behavior={Platform.OS === "ios" ? "padding" : "height"}>
+    <View style={ui.panel} onLayout={(event) => setPanelHeight(event.nativeEvent.layout.height)}>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel={panelCollapsed ? "Show booking details" : "Show more map"}
+        accessibilityState={{ expanded: !panelCollapsed }} style={ui.panelHandle}
+        onPress={() => setPanelCollapsed((previous) => !previous)}>
+        <View style={ui.handleBar} />
+        <Text style={ui.handleText}>{panelCollapsed ? "Show booking details" : "Show more map"}</Text>
+      </TouchableOpacity>
     {busy ? <ActivityIndicator /> : null}
-    {error ? <Text style={ui.error}>{error}</Text> : null}
+    {error ? <Text accessibilityRole="alert" style={ui.error}>{error}</Text> : null}
+    {!panelCollapsed ? <ScrollView style={ui.panelScroll} contentContainerStyle={ui.content}
+      keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
     {!config?.enabled ? <View style={ui.intro}>
       <Text style={ui.title}>Ride service unavailable</Text>
       <Text style={ui.subtitle}>Ride service is not enabled in this region. Sign in and reload, or contact Admin.</Text>
@@ -223,8 +269,6 @@ export default function RideBooking({ navigation }) {
         </Button>)}
         </ScrollView>
         <Text style={ui.stopTitle}>{addressText(stops[mapStop].address) || "No address selected for this stop"}</Text>
-        <RideRouteMap ride={{ stops }} onSelectLocation={selectMapLocation} selectionDisabled={busy}
-          distanceUnit={/usa/i.test(database) ? "mile" : "km"} />
         <Text style={ui.smallText}>Location pins only. Calculate below to get the verified road route and prices.</Text>
       </View> : null}
       <View style={ui.card}>
@@ -267,8 +311,28 @@ export default function RideBooking({ navigation }) {
             selectedText={stop.address.placeId || stop.address.currentLocation
               ? stop.address.formattedAddress || addressText(stop.address) : ""}
             onSelect={(place) => update(index, { address: { ...stop.address, ...place,
-              currentLocation: undefined, label: stop.address.label, phone: stop.address.phone,
+              _id: undefined, currentLocation: undefined, label: stop.address.label, phone: stop.address.phone,
               address2: stop.address.address2 } })} />
+          {saved.length ? <>
+            <Text style={ui.smallText}>Saved addresses</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={ui.badgeList}
+              keyboardShouldPersistTaps="handled">
+              {saved.map((address) => {
+                const selected = stop.address._id === address._id;
+                return <TouchableOpacity key={address._id} accessibilityRole="button"
+                  accessibilityLabel={`Use ${address.label || "saved address"} for stop ${index + 1}: ${addressText(address)}`}
+                  accessibilityState={{ selected, disabled: busy }} disabled={busy}
+                  style={[ui.addressBadge, selected && ui.selectedBadge]}
+                  onPress={() => update(index, { address: { ...address, label: stop.address.label } })}>
+                  <FontAwesome5 name="map-marker-alt" size={14} color={selected ? "#8a6c09" : "#64748b"} />
+                  <View style={ui.badgeDetails}>
+                    <Text style={ui.badgeLabel} numberOfLines={1}>{address.label || "Saved address"}</Text>
+                    <Text style={ui.badgeAddress} numberOfLines={1}>{addressText(address)}</Text>
+                  </View>
+                </TouchableOpacity>;
+              })}
+            </ScrollView>
+          </> : null}
           <TextInput label="Contact phone" keyboardType="phone-pad" autoComplete="tel" value={stop.address.phone || ""}
             disabled={busy} onChangeText={(phone) => update(index, { address: { ...stop.address, phone } })}
             style={styles.input} />
@@ -276,13 +340,6 @@ export default function RideBooking({ navigation }) {
             ...previous, [index]: !previous[index],
           }))}>{expandedStops[index] ? "Hide stop details" : "Saved address & passenger details"}</Button>
           {expandedStops[index] ? <View style={ui.details}>
-            <Picker selectedValue="" enabled={!busy} onValueChange={(value) => {
-              const address = saved.find((entry) => entry._id === value);
-              if (address) update(index, { address: { ...address, label: stop.address.label } });
-            }}>
-              <Picker.Item label="Choose a saved address..." value="" />
-              {saved.map((address) => <Picker.Item key={address._id} label={address.label} value={address._id} />)}
-            </Picker>
             <TextInput label={stop.type === "pickup" ? "Passengers boarding" : "Passengers leaving"} keyboardType="number-pad"
               value={stop.passengers} disabled={busy || index === stops.length - 1} onChangeText={(passengers) => {
                 if (mode === "shared") {
@@ -302,6 +359,7 @@ export default function RideBooking({ navigation }) {
             {fields.filter(([key]) => !(key === "zip" && isEthiopia(stop.address.country))).map(([key, label]) =>
               <TextInput key={key} label={label} value={stop.address[key] || ""} disabled={busy}
                 onChangeText={(value) => update(index, { address: { ...stop.address, [key]: value,
+                  ...(key !== "label" ? { _id: undefined } : {}),
                   ...(locatedFields.includes(key) ? {
                     placeId: undefined, formattedAddress: undefined, location: undefined, currentLocation: undefined,
                   } : {}) } })}
@@ -396,7 +454,6 @@ export default function RideBooking({ navigation }) {
         </View>)}
         <Text style={ui.sectionNote}>{mode === "shared" ? "Shared ride" : "Regular ride"} • Stops are served in the order shown.</Text>
         <Text style={ui.fare}>Estimated fare: {rideFare(quote, quote.estimate)}</Text>
-        <RideRouteMap ride={quote} distanceUnit={/usa/i.test(database) ? "mile" : "km"} />
         <Text style={ui.smallText}>{quote.seats} passenger seats needed. Solo/planned travel {quote.baseline.minutes.toFixed(1)} minutes.
           Quote expires {new Date(quote.expiresAt).toLocaleTimeString()}.</Text>
         <View style={ui.card}>
@@ -419,5 +476,9 @@ export default function RideBooking({ navigation }) {
           })}>Request driver (pay after ride)</Button>
       </View> : null}
     </>}
-  </ScrollView>;
+    </ScrollView> : null}
+    </View>
+    </KeyboardAvoidingView>
+    </SafeAreaView>
+  </View>;
 }
