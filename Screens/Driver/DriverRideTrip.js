@@ -97,8 +97,11 @@ export default function DriverRideTrip({ navigation, route }) {
       {data ? <Text>Your trip has ended or is no longer assigned. Check ride assignments for payments and new offers.</Text> : null}
     </View>}
     <View style={s.header}>
-      <Button mode="contained" onPress={() => navigation.goBack()}>Ride assignments</Button>
-      <Button mode="contained" disabled={busy} onPress={() => run(() => refresh(true))}>Refresh / GPS</Button>
+      <Text style={s.liveTitle}>Ride in Progress</Text>
+      <View style={s.headerActions}>
+        <Button mode="contained" buttonColor="#ffffff" textColor="#111827" onPress={() => navigation.goBack()}>Rides</Button>
+        <Button mode="contained" buttonColor="#ffffff" textColor="#111827" disabled={busy} onPress={() => run(() => refresh(true))}>Refresh / GPS</Button>
+      </View>
     </View>
     {busy ? <ActivityIndicator style={s.loading} /> : null}
     {error || gpsError ? <View style={s.errorBox}>
@@ -117,7 +120,7 @@ export default function DriverRideTrip({ navigation, route }) {
       <ScrollView style={s.scroll} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
         <Text>Pickups {completedPickups}/{pickups.length} confirmed. Drop-offs {completedDropoffs}/{dropoffs.length} confirmed.</Text>
         <Text>Onboard {trip.onboardSeats} / {trip.seatCapacity} passenger seats.</Text>
-        {!started ? <Button mode="contained" disabled={busy} onPress={() => run(async () => {
+        {!started ? <Button mode="contained" buttonColor="#ffd400" textColor="#111827" disabled={busy} onPress={() => run(async () => {
           await rideRequest("me/start-trip", { method: "post", data: { tripId: trip._id } });
           await refresh();
         })}>Start trip to pickup</Button> : <Text>Trip started. Confirm stops only when passengers board or leave.</Text>}
@@ -130,7 +133,7 @@ export default function DriverRideTrip({ navigation, route }) {
             if (!point) throw new Error("The next stop has no verified map location.");
             await Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${point.latitude},${point.longitude}&travelmode=driving`);
           })}>Navigate to next stop</Button>
-          <Button mode="contained" disabled={busy || !started || Boolean(gpsError)} onPress={confirmNext}>
+          <Button mode="contained" buttonColor="#ffd400" textColor="#111827" disabled={busy || !started || Boolean(gpsError)} onPress={confirmNext}>
             {next.type === "pickup"
               ? `Confirm pickup ${completedPickups + 1}/${pickups.length} - ${next.passengers} passengers`
               : `Confirm drop-off ${completedDropoffs + 1}/${dropoffs.length} - ${next.passengers} passengers`}
@@ -159,16 +162,18 @@ export default function DriverRideTrip({ navigation, route }) {
 }
 
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#e8eef4" },
-  header: { position: "absolute", top: 14, left: 12, right: 12, flexDirection: "row", justifyContent: "space-between" },
-  panel: { position: "absolute", bottom: 12, left: 12, right: 12, maxHeight: "52%", backgroundColor: "#fff", borderRadius: 18, elevation: 8 },
+  screen: { flex: 1, backgroundColor: "#f3f6fb" },
+  header: { position: "absolute", top: 0, left: 0, right: 0, minHeight: 56, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#ffd400" },
+  liveTitle: { color: "#111827", fontSize: 15, fontWeight: "800" },
+  headerActions: { flexDirection: "row", alignItems: "center" },
+  panel: { position: "absolute", bottom: 12, left: 12, right: 12, maxHeight: "52%", backgroundColor: "#fff", borderRadius: 18, borderWidth: 1, borderColor: "#e5eaf1", elevation: 8 },
   panelHeader: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8 },
   content: { padding: 14, gap: 10 },
   scroll: { flexShrink: 1 },
   customer: { flex: 1 },
   title: { flexShrink: 1, fontSize: 17, fontWeight: "700", color: "#111827" },
   note: { fontSize: 12, color: "#4b5563" },
-  stop: { backgroundColor: "#f3f6fb", padding: 10, borderRadius: 10, gap: 5 },
+  stop: { backgroundColor: "#f8fafc", padding: 10, borderRadius: 12, borderWidth: 1, borderColor: "#e5eaf1", gap: 5 },
   sideTab: { position: "absolute", right: 0, top: "48%" },
   bottomTab: { position: "absolute", left: 12, right: 12, bottom: 12 },
   errorBox: { position: "absolute", top: 190, left: 12, right: 12, backgroundColor: "#fff", padding: 10, borderRadius: 10 },

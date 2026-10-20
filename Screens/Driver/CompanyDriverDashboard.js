@@ -501,8 +501,8 @@ const CompanyDriverDashboard = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
       >
         {/* Header Block */}
-        <View style={styles.headerCard}>
-          <Text style={styles.headerTitle}>Ride service</Text>
+        <View style={[styles.headerCard, styles.rideServiceCard]}>
+          <Text style={styles.headerTitle}>RIDE SERVICE</Text>
           <Text>Separate ride offers, passenger route and service preferences</Text>
           {rideError ? <Text>Ride service: {rideError}</Text> : null}
           {rideOverview ? <>
@@ -730,6 +730,11 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
     marginBottom: 20,
+  },
+  rideServiceCard: {
+    backgroundColor: "#fff9dc",
+    borderColor: "#f4d34f",
+    borderWidth: 1,
   },
   headerRow: {
     flexDirection: "row",

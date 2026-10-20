@@ -682,14 +682,38 @@ test("driver screen separates offers and route, expires claim controls, and warn
     stops: [{ key: "0", type: "pickup", address }, { key: "1", type: "dropoff", address }] };
   const ui = harness("Screens\\Driver\\DriverRides.js", async (route) => route === "me/location" ? {} : { driver, offer, payments: [] });
   await ui.start();
-  assert.ok(ui.button("Claim ride"));
-  assert.ok(ui.button("Reject & reroute"));
+  ui.button("My Rides").props.onPress();
+  assert.ok(ui.button("Accept Ride"));
+  assert.ok(ui.button("Decline"));
+  ui.button("Profile").props.onPress();
   ui.button("Stop shared intake").props.onPress();
   assert.match(ui.dialogs.at(-1)[1], /Only onboard riders remain/);
   offer.offerDeadline = new Date(Date.now() - 1);
-  await ui.button("Refresh / enable GPS").props.onPress();
-  assert.equal(ui.button("Claim ride"), undefined);
+  await ui.button("Refresh ride status").props.onPress();
+  ui.button("My Rides").props.onPress();
+  assert.equal(ui.button("Accept Ride"), undefined);
   assert.match(text(ui.render()), /Offer expired/);
+});
+
+test("ride driver earnings tab only totals completed fares and lists ended rides", async () => {
+  const payments = [
+    { _id: "completed-a", currency: "usd", status: "completed", finalFare: 8, paymentStatus: "completed",
+      stops: [{ address: { address1: "Airport" } }, { address: { address1: "Square" } }] },
+    { _id: "terminated", currency: "usd", status: "terminated", finalFare: 3, paymentStatus: "review_required",
+      stops: [{ address: { address1: "Market" } }, { address: { address1: "Road" } }] },
+    { _id: "completed-b", currency: "usd", status: "completed", finalFare: 5, paymentStatus: "pending",
+      stops: [{ address: { address1: "Station" } }, { address: { address1: "Home" } }] },
+  ];
+  const ui = harness("Screens\\Driver\\DriverRides.js", async (route) =>
+    route === "me/location" ? {} : { driver: {}, offer: null, trip: null, riders: [], payments });
+  await ui.start();
+  ui.button("Earnings").props.onPress();
+  const view = text(ui.render());
+  assert.match(view, /USD 13\.00/);
+  assert.match(view, /USD 8\.00/);
+  assert.match(view, /USD 3\.00/);
+  assert.match(view, /Terminated/);
+  assert.match(view, /20 most recent ended rides/);
 });
 
 test("claiming a ride opens the dedicated trip page without waiting for another GPS refresh", async () => {
@@ -707,10 +731,12 @@ test("claiming a ride opens the dedicated trip page without waiting for another 
     return { driver, offer: claimed ? null : offer, trip: claimed ? trip : null, riders: [], payments: [] };
   });
   await ui.start();
-  await ui.button("Claim ride").props.onPress();
+  ui.button("My Rides").props.onPress();
+  await ui.button("Accept Ride").props.onPress();
   assert.equal(ui.navigations.at(-1)[0], "DriverRideTrip");
   assert.equal(ui.navigations.at(-1)[1].database, "E_ShopUSA");
   assert.equal(ui.calls.filter((call) => call.route === "me/location").length, 1);
+  ui.button("Profile").props.onPress();
   assert.equal(ui.button("Submit vehicle selection").props.disabled, true);
   assert.match(text(ui.render()), /Car class: comfort/);
 });
@@ -797,7 +823,8 @@ test("failed ride claims do not navigate and failed trip starts do not enable bo
       estimate: 8, stops: [], offerDeadline: new Date(Date.now() + 60000) } };
   });
   await ui.start();
-  await ui.button("Claim ride").props.onPress();
+  ui.button("My Rides").props.onPress();
+  await ui.button("Accept Ride").props.onPress();
   assert.equal(ui.navigations.length, 0);
   assert.match(ui.dialogs.at(-1)[1], /already claimed/);
   const page = harness("Screens\\Driver\\DriverRideTrip.js", async (route) => {
@@ -822,6 +849,7 @@ test("driver submits all supported vehicle types for Admin verification, not sel
     return { driver, trip: null, offer: null, riders: [], payments: [] };
   });
   await ui.start();
+  ui.button("Profile").props.onPress();
   const picker = () => nodes(ui.render()).find((node) => node.type === "Picker");
   assert.deepEqual(Array.from(picker().props.children[1], (node) => node.props.value), ["motorcycle", "car", "van", "truck"]);
   picker().props.onValueChange("van");
@@ -985,6 +1013,7 @@ test("ride driver takes a camera photo, uploads it, and saves it to the required
     return {};
   });
   await ui.start();
+  ui.button("Profile").props.onPress();
   assert.match(text(ui.render()), /Take a current photo/);
   const capture = ui.button("Take profile photo");
   assert.ok(capture);
@@ -1011,6 +1040,7 @@ test("driver termination sends a reason and fresh GPS without confirming destina
       riders: ended ? [] : [{ _id: "ride" }], payments: [] };
   });
   await ui.start();
+  ui.button("My Rides").props.onPress();
   assert.equal(ui.button("Terminate booking #ride").props.disabled, true);
   nodes(ui.render()).find((node) => node.type === "TextInput" &&
     node.props.label === "Termination reason").props.onChangeText("Passenger requested an early stop");
