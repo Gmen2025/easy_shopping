@@ -6,13 +6,15 @@ import { rideRequest, rideStopPoint, rideDirectionsUrl } from "../assets/common/
 
 const EDGE_PADDING = { top: 50, right: 40, bottom: 40, left: 40 };
 
-const RideRouteMap = ({ ride, driverLocation, userLocation, distanceUnit = "km", routeEndpoint, routeVersion, startAtDriver = false, fullScreen = false, topInset = 70, bottomInset = 0, onSelectLocation, selectionDisabled = false }) => {
+const RideRouteMap = ({ ride, driverLocation, userLocation, distanceUnit = "km", routeEndpoint, routeVersion, startAtDriver = false, fullScreen = false, topInset = 70, bottomInset = 0, waitForLocation = false, compact = false, onSelectLocation, selectionDisabled = false }) => {
   const mapRef = useRef(null);
   const [route, setRoute] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
   const [mapReady, setMapReady] = useState(false);
+  const [mapHeight, setMapHeight] = useState(0);
+  const [mapWidth, setMapWidth] = useState(0);
   const stops = useMemo(() => (ride?.stops || []).map((stop, index) => ({
     stop, index, point: rideStopPoint(stop),
   })), [ride?.stops]);
@@ -21,6 +23,11 @@ const RideRouteMap = ({ ride, driverLocation, userLocation, distanceUnit = "km",
   if (!cameraPoints.length && userLocation) cameraPoints.push(userLocation);
   const singleLocation = cameraPoints.length > 0 && cameraPoints.every((point) =>
     point.latitude === cameraPoints[0].latitude && point.longitude === cameraPoints[0].longitude);
+  const requestedTop = Math.max(190, topInset + (compact ? 20 : 120));
+  const requestedBottom = Math.max(50, bottomInset + 20);
+  const paddingScale = mapHeight > 0 ? Math.min(1, Math.max(0, mapHeight - 120) / (requestedTop + requestedBottom)) : 1;
+  const edgePadding = fullScreen ? { ...EDGE_PADDING,
+    top: requestedTop * paddingScale, bottom: requestedBottom * paddingScale } : EDGE_PADDING;
 
   useEffect(() => {
     setRoute(null); setError(""); setLoading(false);
@@ -38,18 +45,18 @@ const RideRouteMap = ({ ride, driverLocation, userLocation, distanceUnit = "km",
 
   const fit = () => {
     const points = cameraPoints;
-    if (!mapReady || !points.length) return;
+    if (!mapReady || mapWidth <= 0 || mapHeight <= 0 || !points.length) return;
     const first = points[0];
     if (singleLocation) {
       mapRef.current?.animateToRegion({ ...first, latitudeDelta: 0.025, longitudeDelta: 0.025 }, 300);
       return;
     }
     mapRef.current?.fitToCoordinates(points, {
-      edgePadding: fullScreen ? { ...EDGE_PADDING, top: Math.max(190, topInset + 120), bottom: Math.max(50, bottomInset + 20) } : EDGE_PADDING,
+      edgePadding,
       animated: false,
     });
   };
-  useEffect(fit, [mapReady, route, driverLocation, userLocation, ride?.stops, topInset, bottomInset]);
+  useEffect(fit, [mapReady, route, driverLocation, userLocation, ride?.stops, topInset, bottomInset, mapHeight, mapWidth]);
 
   const openDirections = async () => {
     const url = rideDirectionsUrl(startAtDriver && driverLocation ? [
@@ -69,14 +76,19 @@ const RideRouteMap = ({ ride, driverLocation, userLocation, distanceUnit = "km",
   const distance = route ? (distanceUnit === "mile" ? route.distanceKm / 1.609344 : route.distanceKm) : null;
   return (
     <View style={fullScreen ? styles.fullScreen : undefined}>
-      {canRenderNativeMap ? (
+      {canRenderNativeMap && (!waitForLocation || initialPoint) ? (
         <MapView
           ref={mapRef}
-          style={fullScreen ? StyleSheet.absoluteFillObject : styles.map}
-          initialRegion={initialPoint ? { ...initialPoint, latitudeDelta: 0.08, longitudeDelta: 0.08 } : undefined}
-          mapPadding={fullScreen && singleLocation ? { top: topInset, bottom: bottomInset, left: 0, right: 0 } : undefined}
+          googleRenderer="LATEST"
+          style={fullScreen ? StyleSheet.absoluteFill : styles.map}
+          initialRegion={initialPoint ? { ...initialPoint, latitudeDelta: 0.025, longitudeDelta: 0.025 } : undefined}
+          mapPadding={fullScreen && singleLocation ? edgePadding : undefined}
           onMapReady={() => setMapReady(true)}
-          onLayout={fit}
+          onLayout={(event) => {
+            const { width, height } = event.nativeEvent.layout;
+            setMapWidth(width);
+            setMapHeight(height);
+          }}
           onPress={onSelectLocation && !selectionDisabled ? (event) => onSelectLocation(event.nativeEvent.coordinate) : undefined}
         >
           {route?.coordinates?.length > 1 ? (
@@ -95,15 +107,15 @@ const RideRouteMap = ({ ride, driverLocation, userLocation, distanceUnit = "km",
           {userLocation ? <Marker coordinate={userLocation} title="Your current location" pinColor="blue" /> : null}
         </MapView>
       ) : null}
-      <View pointerEvents="box-none" style={fullScreen ? { ...styles.mapControls, top: topInset } : undefined}>
-      {onSelectLocation ? <Text style={styles.note}>Tap the map to choose the selected stop. The address is verified before saving.</Text> : null}
+      {!compact || !canRenderNativeMap || !initialPoint || loading || error ? <View pointerEvents="box-none" style={fullScreen ? { ...styles.mapControls, top: topInset } : undefined}>
+      {onSelectLocation && !compact ? <Text style={styles.note}>Tap the map to choose the selected stop. The address is verified before saving.</Text> : null}
       {!canRenderNativeMap ? <Text accessibilityRole="alert" style={styles.error}>{MAP_UNAVAILABLE_MESSAGE}</Text> : null}
       {!initialPoint ? <Text style={styles.note}>Waiting for a map location. Enable location access or select a pickup address.</Text> : null}
-      {missingLocations ? <Text accessibilityRole="alert" style={styles.error}>
+      {missingLocations && !compact ? <Text accessibilityRole="alert" style={styles.error}>
         Some stops have no verified map coordinates. Their pins cannot be shown. Refresh / GPS to reload trip locations.
       </Text> : null}
       {loading ? <ActivityIndicator style={styles.spacing} /> : null}
-      {route ? (
+      {route && !compact ? (
         <Text style={styles.note}>
           Driving route: {distance.toFixed(1)} {distanceUnit === "mile" ? "mi" : "km"}, about {Math.round(route.minutes)} min.
           Green pins are pickups, red pins are drop-offs.
@@ -113,16 +125,16 @@ const RideRouteMap = ({ ride, driverLocation, userLocation, distanceUnit = "km",
       {error ? <TouchableOpacity accessibilityRole="button" onPress={() => setRetry((value) => value + 1)}>
         <Text style={styles.link}>Retry driving route</Text>
       </TouchableOpacity> : null}
-      <TouchableOpacity accessibilityRole="link" onPress={openDirections}>
+      {!compact ? <TouchableOpacity accessibilityRole="link" onPress={openDirections}>
         <Text style={styles.link}>Open route in Google Maps</Text>
-      </TouchableOpacity>
-      </View>
+      </TouchableOpacity> : null}
+      </View> : null}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  fullScreen: { flex: 1 },
+  fullScreen: { flex: 1, width: "100%", height: "100%" },
   mapControls: { position: "absolute", top: 70, left: 12, right: 12, padding: 10, borderRadius: 12, backgroundColor: "#ffffffee" },
   map: { width: "100%", height: 260, marginTop: 8, borderRadius: 8 },
   note: { fontSize: 12, color: "#4b5563", marginTop: 6 },

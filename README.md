@@ -79,12 +79,16 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   pickup/drop-off editing, vehicle selection and trip summary. Use **Show more
   map** to collapse the scrollable booking panel and **Show booking details** to
   reopen it. In **Map & stops**, choose a stop before tapping the map; locations
-  are verified before being applied. Saved account addresses appear as selectable
-  badges under each stop's search field. Fare calculation and payment-after-ride
-  behavior are unchanged. While searching, the panel expands and scrolls the
-  focused search field above the keyboard. The map uses the device GPS location
-  immediately, even if address verification fails; a single location uses a
-  neighborhood zoom rather than a zero-length route fit. Location permission
+  are verified before being applied. A single search at the top edits the selected
+  pickup or drop-off; use the stop selectors to switch and **+ Add** to insert
+  another stop. Saved-address badges apply to the selected stop. While typing,
+  the lower details panel and brand header hide, leaving the search and its
+  scrollable suggestions at the top; **Done** restores the normal layout.
+  Shared-ride rules are available through **Info** beside the shared-ride switch.
+  Fare calculation and payment-after-ride behavior are unchanged. The booking map
+  waits for real coordinates before mounting, uses neighborhood zoom for a single
+  location and limits overlay padding to leave a usable map viewport.
+  GPS remains available if address verification fails. Location permission
   and a correctly configured native map build are required.
 - **Password Recovery**: Forgot password functionality
 
@@ -242,7 +246,12 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   `/rides/places/details/:placeId`) using `GOOGLE_PLACES_API_KEY` (or
   `GOOGLE_MAPS_API_KEY`); enable **Places API (New)** for that key.
 - **My rides & post-ride payments** shows only the customer's own booking,
-  driver/contact/GPS, status and fare. GPS stops being shared after their ride
+  driver/contact/GPS, status and fare. Waiting/offered rides explain that driver
+  tracking starts after acceptance, rather than reporting missing GPS as an error.
+  For assigned/onboard rides without valid driver coordinates, the screen explains
+  that the driver must allow location access and keep Ride service or the active
+  trip open in the foreground. Customer-phone location permission does not supply
+  the driver's pin. GPS stops being shared after their ride
   completes; driver contact remains for payment. Quotes are estimates: regular final fares
   use planned road distance and actual elapsed ride time; shared fares use the
   customer's solo route/time refreshed at pickup, excluding others' detours,
@@ -277,9 +286,14 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   count for that stop, with pickup/drop-off progress totals. Stops remain ordered
   and retain fresh-GPS/300m server checks. After the last drop-off, return to ride
   assignments for payments. Termination and service settings remain there too.
-  Android Expo Go uses its bundled Google Maps support and does not require the
-  app's custom `MapsConfiguration` native module. Installed development/release
-  builds still require their native Google Maps key and module. Map configuration
+  Android Expo Go uses its bundled Google Maps key and does not require the
+  app's custom `MapsConfiguration` native module. Some SDK 57 Expo Go versions
+  show a blank map with the Google logo because their bundled key fails
+  authorization; see [expo/expo#49323](https://github.com/expo/expo/issues/49323).
+  Changing this project's key or camera cannot repair Expo Go's native key.
+  Use an installed development build to test with this project's key.
+  Installed development/release builds require their native Google Maps key and
+  module. Map configuration
   errors appear below the full-screen header rather than behind it. Driving
   polylines still require the backend Routes API configuration in either runtime.
   Missing stop coordinates no longer hide the whole ride map: available driver
@@ -629,6 +643,21 @@ If the map is blank with only the Google logo, JavaScript key presence and live
 GPS do not confirm SDK authorization. Check billing, Maps SDK for Android, and
 the installed APK's package/signing SHA-1 restriction. Driving directions are a
 separate web-service request: this library uses the Directions API endpoint.
+For Android Expo Go, check the bundled-key issue above before changing your
+project's credentials. To test locally with your own configured key, enable USB
+debugging, connect the phone, confirm it appears as authorized in `adb devices`,
+and run `npm run android`. Open the installed AdduGenet EShop development app,
+not Expo Go. For later JavaScript sessions, use `npm run start:dev-client`.
+The debug certificate must be authorized for `com.addugenet.eshop` in the Android
+Maps key restrictions. A local native build must finish successfully before a
+Metro reload can use this configuration.
+Ride map backgrounds use `StyleSheet.absoluteFill`, supported by this React
+Native version; the removed `absoluteFillObject` leaves the background without
+absolute positioning and can collapse the native map to zero height. Ride camera
+commands wait for both native map readiness and a nonzero width/height.
+A visible Google logo after this layout fix
+does not prove tile authorization; check native logs for `Authorization failure`
+and authorize the exact package/certificate pair printed there.
 Both maps request the latest Google renderer and fit driving-route geometry after
 native map readiness. Customer camera bounds exclude unrelated nearby drivers and
 the driver's current position after delivery. Driver maps omit unavailable markers.

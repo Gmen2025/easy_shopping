@@ -98,7 +98,8 @@ export default function MyRides({ route, navigation }) {
     await update("payment-confirm", {});
   });
   const active = selected && !["completed", "cancelled", "terminated", "quote"].includes(selected.status);
-  const driverLocation = active ? rideStopPoint({ address: { location: selected.assignedDriver?.location } }) : null;
+  const trackingDriver = selected && ["assigned", "onboard"].includes(selected.status);
+  const driverLocation = trackingDriver ? rideStopPoint({ address: { location: selected.assignedDriver?.location } }) : null;
   const callDriver = () => run(async () => {
     const phone = selected.assignedDriver?.phone;
     if (!phone) throw new Error("The driver's contact number is not available. Refresh this ride.");
@@ -129,13 +130,14 @@ export default function MyRides({ route, navigation }) {
           ? "Follow your trip to the next stop." : selected.status === "assigned"
             ? "Your driver is heading to your pickup." : "Your latest booking status is shown below.")}</Text>
         {active ? <Text style={ui.note}>Updates every 10 seconds while this screen is open.</Text> : null}
+        {active && !trackingDriver ? <Text style={ui.note}>Your driver's location will appear after a driver accepts your ride.</Text> : null}
       </View>
       <RideRouteMap ride={selected} distanceUnit={selected.currency === "usd" ? "mile" : "km"}
         driverLocation={driverLocation} />
-      {active ? <View style={ui.status}>
+      {trackingDriver ? <View style={ui.status}>
         <Text style={styles.heading}>{selected.status === "onboard" ? "Live trip location" : "Pickup arrival time"}</Text>
         <Text style={ui.note} accessibilityLiveRegion="polite">{selected.status === "onboard"
-          ? "The blue pin shows the driver's latest reported location."
+          ? driverLocation ? "The blue pin shows the driver's latest reported location." : "Waiting for the driver's first GPS update."
           : pickupArrivalText(selected, Math.max(etaNow, Date.now()))}</Text>
         {selected.status === "assigned" && selected.pickupEta?.status === "available" ? <>
           <Text style={ui.note}>Traffic-aware driving estimate{selected.pickupEta.stopsBeforePickup > 0
@@ -143,7 +145,7 @@ export default function MyRides({ route, navigation }) {
             Boarding time and changing traffic may affect arrival.</Text>
           <Text style={ui.note}>ETA updated: {new Date(selected.pickupEta.computedAt).toLocaleTimeString()}</Text>
         </> : null}
-        {!driverLocation ? <Text accessibilityRole="alert" style={styles.error}>Driver location is not available yet.</Text> : null}
+        {!driverLocation ? <Text accessibilityRole="alert" style={styles.error}>Your driver has not reported a valid GPS location yet. The driver needs to open Ride service or the active trip, allow location access, and keep the app in the foreground. Your phone's location permission does not control the driver's pin.</Text> : null}
         {driverLocation && (!selected.assignedDriver?.locationUpdatedAt ||
           Date.now() - new Date(selected.assignedDriver.locationUpdatedAt).getTime() > 60000 ||
           !Number.isFinite(new Date(selected.assignedDriver.locationUpdatedAt).getTime()))
@@ -180,7 +182,7 @@ export default function MyRides({ route, navigation }) {
           <Button icon="phone" mode="outlined" disabled={busy || !selected.assignedDriver.phone} onPress={callDriver}>Call driver</Button>
           <Button icon="share-variant" disabled={busy} onPress={shareRide}>Share ride</Button>
         </View>
-        {active ? <Text>Driver GPS: {selected.assignedDriver.location?.coordinates?.slice().reverse().join(", ") || "Unavailable"}.
+        {trackingDriver ? <Text>Driver GPS: {driverLocation ? `${driverLocation.latitude}, ${driverLocation.longitude}` : "Waiting for driver GPS"}.
           Updated: {selected.assignedDriver.locationUpdatedAt ? new Date(selected.assignedDriver.locationUpdatedAt).toLocaleTimeString() : "No current GPS"}</Text> : null}
       </> : null}
       {["waiting", "offered", "assigned", "quote"].includes(selected.status) ? <Button disabled={busy}

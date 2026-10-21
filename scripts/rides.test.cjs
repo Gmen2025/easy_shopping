@@ -56,7 +56,7 @@ function harness(file, request, params = {}, auth = { isAuthenticated: true, loa
     useEffect: (effect) => effects.push(effect),
   };
   const native = new Proxy({ StyleSheet: { create: (value) => value,
-    absoluteFillObject: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 } }, Alert: { alert: (...args) => dialogs.push(args) },
+    absoluteFill: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 } }, Alert: { alert: (...args) => dialogs.push(args) },
     Platform: { OS: options.platform || "android" },
     Keyboard: { addListener: (name, callback) => {
       keyboardListeners.set(name, callback);
@@ -128,7 +128,11 @@ function harness(file, request, params = {}, auth = { isAuthenticated: true, loa
     await button("Calculate road route & fare").props.onPress();
     if (returnToForm && button("Continue")) button("Back").props.onPress();
   };
-  return { render, start, button, calculate, calls, dialogs, navigations, timers, timerDelays, keyboardListeners,
+  const searchStop = (index) => {
+    button(`Edit stop ${index + 1}`).props.onPress();
+    return nodes(render()).find((node) => node.type === "AddressSearchInput");
+  };
+  return { render, start, button, calculate, searchStop, calls, dialogs, navigations, timers, timerDelays, keyboardListeners,
     runLastEffect: () => { render(); return effects.at(-1)(); },
     switches: () => nodes(render()).filter((node) => node.type === "Switch") };
 }
@@ -208,11 +212,11 @@ test("customer UI defaults to regular, submits ordered multi-stops and one fare,
   });
   await ui.start();
   assert.equal(ui.switches()[0].props.value, false);
-  assert.match(text(ui.render()), /one fare for everyone/);
-  assert.match(text(ui.render()), /Economy/);
-  assert.match(text(ui.render()), /Comfort/);
+  assert.doesNotMatch(text(ui.render()), /one fare for everyone/);
+  ui.button("About shared rides").props.onPress();
+  assert.match(ui.dialogs.at(-1)[1], /one fare for everyone/);
   assert.doesNotMatch(text(ui.render()), /\bMotorcycle\b|\bTruck\b/);
-  ui.button("+ Add another stop").props.onPress();
+  ui.button("Add stop").props.onPress();
   await ui.calculate();
   assert.equal(ui.button("Request driver (pay after ride)"), undefined);
   ui.button("Economy - USD 10.00").props.onPress();
@@ -238,13 +242,21 @@ test("booking keeps one full-screen background map with a collapsible, measured 
   const background = nodes(tree).find((node) => node.type === "View" &&
     node.props.children?.some((child) => child?.type === "RideRouteMap"));
   assert.equal(background.props.style.position, "absolute");
+  assert.equal(background.props.style.top, 0);
+  assert.equal(background.props.style.left, 0);
+  assert.equal(background.props.style.right, 0);
   assert.equal(background.props.style.bottom, 0);
-  const panel = nodes(tree).find((node) => node.type === "View" && node.props.style?.maxHeight === "55%");
+  const panel = nodes(tree).find((node) => node.type === "View" && node.props.style?.maxHeight === "40%");
   panel.props.onLayout({ nativeEvent: { layout: { height: 320 } } });
   assert.equal(maps()[0].props.bottomInset, 320);
-  const header = nodes(tree).find((node) => node.type === "View" && node.props.style?.backgroundColor === "#ffd400");
-  header.props.onLayout({ nativeEvent: { layout: { y: 30, height: 60 } } });
-  assert.equal(maps()[0].props.topInset, 102);
+  const searchPanel = nodes(tree).find((node) => node.type === "View" && node.props.style?.elevation === 4);
+  assert.equal(nodes(searchPanel).filter((node) => node.type === "AddressSearchInput").length, 1);
+  assert.equal(nodes(panel).some((node) => node.type === "AddressSearchInput"), false,
+    "Address search is outside the lower booking panel");
+  assert.ok(nodes(searchPanel).find((node) => node.props.accessibilityLabel === "Add stop"),
+    "The plus/add control stays beside the top stop selectors");
+  searchPanel.props.onLayout({ nativeEvent: { layout: { y: 80, height: 180 } } });
+  assert.equal(maps()[0].props.topInset, 272);
   ui.button("Show more map").props.onPress();
   assert.equal(maps().length, 1);
   assert.equal(ui.button("Review map & stops"), undefined);
@@ -259,28 +271,26 @@ test("booking keeps one full-screen background map with a collapsible, measured 
   assert.equal(maps().length, 1, "Summary reuses the background map, not an embedded second map");
 });
 
-test("pickup and drop-off search expand the booking panel and scroll above the keyboard", async () => {
+test("one top search switches between stops and hides bottom details while the keyboard is open", async () => {
   for (const platform of ["android", "ios"]) {
     const ui = harness("Screens\\Ride\\RideBooking.js", async (route) => route === "config" ? policy : {},
       {}, undefined, { platform });
     await ui.start();
-    const scrollCalls = [];
-    const scroll = nodes(ui.render()).find((node) => node.type === "ScrollView" && node.props.automaticallyAdjustKeyboardInsets);
-    scroll.props.ref.current = { getScrollResponder: () => ({
-      scrollResponderScrollNativeHandleToKeyboard: (...args) => scrollCalls.push(args),
-    }) };
     const searches = nodes(ui.render()).filter((node) => node.type === "AddressSearchInput");
-    searches[0].props.onFocus({ target: 101 });
+    assert.equal(searches.length, 1);
+    assert.equal(searches[0].props.label, "Search pickup location");
+    searches[0].props.onFocus();
     ui.keyboardListeners.get(platform === "ios" ? "keyboardWillShow" : "keyboardDidShow")();
     const panel = nodes(ui.render()).find((node) => Array.isArray(node.props.style) &&
-      node.props.style[1]?.maxHeight === "100%");
-    assert.ok(panel, `${platform} expands the panel when the keyboard opens`);
-    panel.props.onLayout({ nativeEvent: { layout: { height: 280 } } });
-    assert.deepEqual(scrollCalls.at(-1), [101, 160, true]);
-    searches[1].props.onFocus({ nativeEvent: { target: 202 } });
-    assert.deepEqual(scrollCalls.at(-1), [202, 160, true]);
+      node.props.style[1]?.display === "none");
+    assert.ok(panel, `${platform} hides lower details, leaving room for the top search`);
+    assert.equal(ui.searchStop(1).props.label, "Search drop-off location");
+    assert.equal(nodes(ui.render()).filter((node) => node.type === "AddressSearchInput").length, 1);
+    assert.equal(nodes(ui.render()).find((node) => node.type === "RideRouteMap").props.bottomInset, 0);
+    ui.button("Done").props.onPress();
+    assert.ok(nodes(ui.render()).find((node) => node.props.style?.maxHeight === "40%"));
     ui.keyboardListeners.get("keyboardDidHide")();
-    assert.ok(nodes(ui.render()).find((node) => node.props.style?.maxHeight === "55%"));
+    assert.ok(nodes(ui.render()).find((node) => node.props.style?.maxHeight === "40%"));
   }
 });
 
@@ -305,6 +315,7 @@ test("saved address badges select each stop, preserve its role and invalidate qu
   await ui.start();
   const badge = (index) => ui.button(`Use Home for stop ${index}: ${helpers.addressText(savedAddress)}`);
   assert.ok(badge(1), "Saved addresses are visible without expanding stop details");
+  ui.searchStop(1);
   assert.ok(badge(2));
   badge(2).props.onPress();
   assert.equal(badge(2).props.accessibilityState.selected, true);
@@ -318,8 +329,7 @@ test("saved address badges select each stop, preserve its role and invalidate qu
   badge(2).props.onPress();
   map = nodes(ui.render()).find((node) => node.type === "RideRouteMap");
   assert.equal(map.props.ride._id, undefined, "Picking a saved address clears the old priced route");
-  const searches = nodes(ui.render()).filter((node) => node.type === "AddressSearchInput");
-  searches[1].props.onSelect({ address1: "Another destination", placeId: "another" });
+  ui.searchStop(1).props.onSelect({ address1: "Another destination", placeId: "another" });
   assert.equal(badge(2).props.accessibilityState.selected, false);
 });
 
@@ -500,7 +510,7 @@ test("regular booking balances passenger edits, added/removed stops and mode cha
   input("Passengers boarding").props.onChangeText("3");
   await ui.calculate({ returnToForm: true });
   assert.deepEqual(Array.from(sent.stops, (stop) => stop.passengers), [3, 3]);
-  ui.button("+ Add another stop").props.onPress();
+  ui.button("Add stop").props.onPress();
   await ui.calculate({ returnToForm: true });
   assert.deepEqual(Array.from(sent.stops, (stop) => stop.passengers), [3, 1, 4]);
   let details = nodes(ui.render()).filter((node) => node.type === "Button" && text(node) === "Saved address & passenger details");
@@ -520,7 +530,7 @@ test("regular booking balances passenger edits, added/removed stops and mode cha
   await ui.calculate({ returnToForm: true });
   assert.deepEqual(Array.from(sent.stops, (stop) => stop.passengers), [3, 3]);
   assert.equal(ui.button("Remove stop"), undefined);
-  ui.button("+ Add another stop").props.onPress();
+  ui.button("Add stop").props.onPress();
   ui.switches()[0].props.onValueChange(true);
   await ui.calculate({ returnToForm: true });
   assert.deepEqual(Array.from(sent.stops, (stop) => stop.passengers), [3, 3]);
@@ -605,13 +615,15 @@ test("shared form exposes only the booking's pickup/dropoff and synchronizes its
   });
   await ui.start();
   ui.switches()[0].props.onValueChange(true);
-  assert.equal(ui.button("+ Add another stop"), undefined);
+  assert.equal(ui.button("Add stop"), undefined);
   ui.button("Saved address & passenger details").props.onPress();
   const input = nodes(ui.render()).find((node) => node.type === "TextInput" && node.props.label === "Passengers boarding");
   input.props.onChangeText("2");
-  assert.match(text(ui.render()), /unrelated customers/);
+  assert.doesNotMatch(text(ui.render()), /unrelated customers/);
+  ui.button("About shared rides").props.onPress();
+  assert.match(ui.dialogs.at(-1)[1], /unrelated customers/);
   await ui.calculate();
-  assert.equal(ui.dialogs.length, 0);
+  assert.equal(ui.dialogs.length, 1, "Only the requested information dialog is shown");
 });
 test("map selection verifies the selected stop, retains contacts, and submits its coordinates without a new API", async () => {
   let sent;
@@ -672,11 +684,10 @@ test("regular stop ordering keeps endpoints fixed, enforces 12 stops and resets 
     if (route === "quote-options") { sent = options.data; return pricedOptions(); }
   });
   await ui.start();
-  ui.button("+ Add another stop").props.onPress();
-  ui.button("+ Add another stop").props.onPress();
-  const searches = () => nodes(ui.render()).filter((node) => node.type === "AddressSearchInput");
-  searches()[1].props.onSelect({ address1: "Second pickup", country: "USA" });
-  searches()[2].props.onSelect({ address1: "Third pickup", country: "USA" });
+  ui.button("Add stop").props.onPress();
+  ui.button("Add stop").props.onPress();
+  ui.searchStop(1).props.onSelect({ address1: "Second pickup", country: "USA" });
+  ui.searchStop(2).props.onSelect({ address1: "Third pickup", country: "USA" });
   assert.equal(ui.button("Move stop 2 earlier").props.disabled, true);
   assert.equal(ui.button("Move stop 3 later").props.disabled, true);
   ui.button("Move stop 2 later").props.onPress();
@@ -687,16 +698,42 @@ test("regular stop ordering keeps endpoints fixed, enforces 12 stops and resets 
   assert.equal(ui.button("Economy - USD 10.00"), undefined, "Editing surface is separate from vehicle selection");
   ui.button("Move stop 3 earlier").props.onPress();
   assert.equal(ui.button("Request driver (pay after ride)"), undefined);
-  for (let at = 0; at < 8; at++) ui.button("+ Add another stop").props.onPress();
-  assert.equal(searches().length, 12);
-  assert.equal(ui.button("+ Add another stop").props.disabled, true);
+  for (let at = 0; at < 8; at++) ui.button("Add stop").props.onPress();
+  const stopSelectors = () => nodes(ui.render()).filter((node) => /^Edit stop \d+$/.test(node.props.accessibilityLabel || ""));
+  assert.equal(stopSelectors().length, 12);
+  assert.equal(ui.button("Add stop").props.disabled, true);
   ui.switches()[0].props.onValueChange(true);
-  assert.equal(searches().length, 2);
-  assert.equal(ui.button("+ Add another stop"), undefined);
+  assert.equal(stopSelectors().length, 2);
+  assert.equal(ui.button("Add stop"), undefined);
   assert.equal(ui.button("Move stop 2 earlier"), undefined);
   await ui.calculate();
   assert.equal(sent.mode, "shared");
   assert.deepEqual(Array.from(sent.stops, (stop) => stop.passengers), [1, 1]);
+});
+test("tracking distinguishes driver matching from missing assigned-driver GPS", async () => {
+  let ride = { _id: "ride", mode: "regular", currency: "usd", estimate: 8, status: "waiting",
+    stops: [{ key: "0", type: "pickup", passengers: 1, address }, { key: "1", type: "dropoff", passengers: 1, address }] };
+  const ui = harness("Screens\\Ride\\MyRides.js", async (route) => route ? ride : [ride],
+    { rideId: "ride", database: "E_ShopUSA" });
+  await ui.start();
+  for (const status of ["waiting", "offered"]) {
+    ride = { ...ride, status };
+    await ui.button("Refresh this ride").props.onPress();
+    const tree = ui.render();
+    assert.match(text(tree), /location will appear after a driver accepts/);
+    assert.doesNotMatch(text(tree), /Driver location is not available|has not reported a valid GPS|Pickup arrival time/);
+    assert.equal(nodes(tree).find((node) => node.type === "RideRouteMap").props.driverLocation, null);
+  }
+  for (const status of ["assigned", "onboard"]) {
+    ride = { ...ride, status, assignedDriver: { name: "Driver", location: { coordinates: [0, 0] } } };
+    await ui.button("Refresh this ride").props.onPress();
+    const tree = ui.render();
+    assert.match(text(tree), /driver has not reported a valid GPS/);
+    assert.match(text(tree), /keep the app in the foreground/);
+    assert.match(text(tree), /Your phone's location permission does not control/);
+    assert.doesNotMatch(text(tree), /The blue pin shows|Driver GPS: 0, 0|location will appear after a driver accepts/);
+    assert.equal(nodes(tree).find((node) => node.type === "RideRouteMap").props.driverLocation, null);
+  }
 });
 test("tracking shows real GPS, explicit unavailable ETA, call/share actions and no live pin after termination", async () => {
   let ride = { _id: "ride", mode: "regular", currency: "usd", estimate: 8, status: "assigned",
@@ -1052,7 +1089,7 @@ test("driver map uses the authorized route endpoint, refreshes on trip version c
   const { default: Map } = load("Shared\\RideRouteMap.js", {
     react,
     "react-native": { ActivityIndicator: "ActivityIndicator", View: "View", Text: "Text", TouchableOpacity: "TouchableOpacity",
-      StyleSheet: { create: (value) => value, absoluteFillObject: absoluteFill }, Linking: { openURL: async (url) => opened.push(url) } },
+      StyleSheet: { create: (value) => value, absoluteFill }, Linking: { openURL: async (url) => opened.push(url) } },
     "react-native-maps": { __esModule: true, default: "MapView", Marker: "Marker", Polyline: "Polyline" },
     "../assets/common/mapsConfiguration": configuration,
     "../assets/common/rides": { ...helpers, rideRequest: async (route) => {
@@ -1093,9 +1130,25 @@ test("driver map uses the authorized route endpoint, refreshes on trip version c
   tree = render();
   assert.equal(tree.props.style.flex, 1);
   assert.equal(nodes(tree).find((node) => node.type === "MapView").props.style, absoluteFill);
+  assert.equal(nodes(tree).find((node) => node.type === "MapView").props.googleRenderer, "LATEST");
   assert.ok(nodes(tree).find((node) => node.type === "Polyline"));
   assert.equal(fitted.length, 0, "Do not fit before the native map is ready");
   nodes(tree).find((node) => node.type === "MapView").props.onMapReady();
+  render(); await flush();
+  assert.equal(fitted.length, 0, "Map readiness alone must not fit a zero-size native view");
+  nodes(render()).find((node) => node.type === "MapView").props.onLayout({
+    nativeEvent: { layout: { width: 360, height: 0 } },
+  });
+  render(); await flush();
+  assert.equal(fitted.length, 0, "A zero-height layout must not trigger a camera command");
+  nodes(render()).find((node) => node.type === "MapView").props.onLayout({
+    nativeEvent: { layout: { width: 0, height: 900 } },
+  });
+  render(); await flush();
+  assert.equal(fitted.length, 0, "A zero-width layout must not trigger a camera command");
+  nodes(render()).find((node) => node.type === "MapView").props.onLayout({
+    nativeEvent: { layout: { width: 360, height: 900 } },
+  });
   props = { ...props, bottomInset: 300 };
   render(); await flush();
   assert.equal(fitted.at(-1)[1].edgePadding.bottom, 320);
@@ -1146,12 +1199,35 @@ test("driver map uses the authorized route endpoint, refreshes on trip version c
   assert.equal(nodes(tree).find((node) => node.type === "MapView").props.initialRegion.latitude, 41.95);
   assert.equal(centered.at(-1)[0].latitude, 41.95);
   assert.equal(centered.at(-1)[0].latitudeDelta, 0.025);
-  assert.equal(nodes(tree).find((node) => node.type === "MapView").props.mapPadding.bottom, 300,
+  assert.equal(nodes(tree).find((node) => node.type === "MapView").props.mapPadding.bottom, 320,
     "A single GPS point is centered above the bottom panel");
   assert.ok(nodes(tree).find((node) => node.type === "Marker" && node.props.title === "Your current location"));
   props = { ...props, ride: { stops: [{ type: "pickup", address: { location: { coordinates: [-87.7, 42] } } }] } };
   render(); await flush();
   assert.equal(centered.at(-1)[0].latitude, 42, "Late pickup coordinates update the camera after map readiness");
+  props = { ...props, ride: { stops: [] }, userLocation: null, waitForLocation: true, compact: true };
+  render(); await flush();
+  tree = render();
+  assert.equal(nodes(tree).some((node) => node.type === "MapView"), false,
+    "Booking does not mount a map with a world/default region before GPS arrives");
+  assert.match(text(tree), /Waiting for a map location/);
+  props = { ...props, userLocation: { latitude: 9.03, longitude: 38.74 }, topInset: 450, bottomInset: 350 };
+  render(); await flush();
+  tree = render();
+  const neighborhoodMap = nodes(tree).find((node) => node.type === "MapView");
+  assert.equal(neighborhoodMap.props.initialRegion.latitude, 9.03);
+  assert.equal(neighborhoodMap.props.initialRegion.longitude, 38.74);
+  assert.equal(neighborhoodMap.props.initialRegion.latitudeDelta, 0.025);
+  neighborhoodMap.props.onLayout({ nativeEvent: { layout: { width: 360, height: 640 } } });
+  render(); await flush();
+  const padding = nodes(render()).find((node) => node.type === "MapView").props.mapPadding;
+  assert.ok(padding.top + padding.bottom <= 520, "Overlays leave at least 120 pixels for the map camera");
+  assert.equal(nodes(render()).some((node) => node.props.accessibilityLabel === "Center map on my location"), false);
+  assert.equal(nodes(render()).some((node) => node.type === "View" && node.props.style?.top === 450), false,
+    "A ready compact map has no empty controls badge");
+  assert.equal(centered.at(-1)[0].latitude, 9.03);
+  assert.equal(centered.at(-1)[0].longitude, 38.74);
+  props = { ...props, topInset: 70 };
   configuration.canRenderNativeMap = false;
   tree = render();
   assert.equal(nodes(tree).some((node) => node.type === "MapView"), false);
@@ -1348,20 +1424,20 @@ test("ride form uses selected places, hides ZIP for Ethiopia and drops stale pla
     throw new Error(`Unexpected ride request ${route}`);
   });
   await ui.start();
-  const searches = () => nodes(ui.render()).filter((node) => node.type === "AddressSearchInput");
+  const search = (index) => ui.searchStop(index);
   const inputs = () => nodes(ui.render()).filter((node) => node.type === "TextInput");
-  assert.equal(searches().length, 2);
-  assert.equal(searches()[0].props.label, "Search pickup location");
+  assert.equal(nodes(ui.render()).filter((node) => node.type === "AddressSearchInput").length, 1);
+  assert.equal(search(0).props.label, "Search pickup location");
   ui.button("Saved address & passenger details").props.onPress();
   ui.button("Saved address & passenger details").props.onPress();
   assert.ok(inputs().some((node) => node.props.label === "ZIP code"));
-  searches()[0].props.onSelect({ placeId: "ChIJpickup000001", address1: "1 Main St", city: "Town", zip: "12345",
+  search(0).props.onSelect({ placeId: "ChIJpickup000001", address1: "1 Main St", city: "Town", zip: "12345",
     country: "USA", formattedAddress: "1 Main St, Town, USA" });
-  searches()[1].props.onSelect({ placeId: "ChIJdropoff00001", address1: "9 Elm St", city: "Town", zip: "12345",
+  search(1).props.onSelect({ placeId: "ChIJdropoff00001", address1: "9 Elm St", city: "Town", zip: "12345",
     country: "USA", formattedAddress: "9 Elm St, Town, USA" });
-  assert.match(searches()[0].props.selectedText, /1 Main St/);
+  assert.match(search(0).props.selectedText, /1 Main St/);
   inputs().find((node) => node.props.label === "Street address / landmark" && node.props.value === "9 Elm St").props.onChangeText("10 Elm St");
-  assert.equal(searches()[1].props.selectedText, "");
+  assert.equal(search(1).props.selectedText, "");
   await ui.calculate({ returnToForm: true });
   assert.equal(sent.stops[0].address.placeId, "ChIJpickup000001");
   assert.equal(sent.stops[0].address.label, "Pickup", "selection keeps the stop label and contact");

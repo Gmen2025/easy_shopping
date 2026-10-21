@@ -20,13 +20,17 @@ const locatedFields = ["address1", "city", "zip", "country"];
 
 const ui = {
   page: { flex: 1, backgroundColor: "#eef2f6" },
-  mapBackground: { ...StyleSheet.absoluteFillObject },
+  mapBackground: { ...StyleSheet.absoluteFill },
   overlay: { flex: 1 },
   panelPosition: { flex: 1, justifyContent: "flex-end" },
-  panel: { maxHeight: "55%", backgroundColor: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24,
+  panel: { maxHeight: "40%", backgroundColor: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24,
     shadowColor: "#111827", shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.12, shadowRadius: 12, elevation: 8 },
   panelScroll: { flexShrink: 1 },
-  keyboardPanel: { maxHeight: "100%" },
+  searchPanel: { maxHeight: "45%", marginHorizontal: 12, backgroundColor: "#fff", borderRadius: 16, padding: 10, gap: 4, flexShrink: 1, elevation: 4 },
+  activeSearchPanel: { maxHeight: "85%" },
+  searchResults: { flexShrink: 1 },
+  searchTools: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  hiddenPanel: { display: "none" },
   panelHandle: { alignItems: "center", paddingTop: 10, paddingBottom: 8, gap: 5 },
   handleBar: { width: 40, height: 4, borderRadius: 2, backgroundColor: "#d5dae1" },
   handleText: { color: "#374151", fontSize: 12, fontWeight: "700" },
@@ -56,7 +60,6 @@ const ui = {
   stopDivider: { height: 1, backgroundColor: "#edf0f3", marginVertical: 1 },
   modeRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
   modeTitle: { color: "#202630", fontSize: 14, fontWeight: "700" },
-  modeText: { color: "#6a7380", fontSize: 12, lineHeight: 18 },
   smallText: { color: "#68717e", fontSize: 11, lineHeight: 16 },
   error: { color: "#b91c1c", backgroundColor: "#fff", borderRadius: 10, padding: 12 },
   details: { backgroundColor: "#fff", borderRadius: 12, padding: 12, gap: 8 },
@@ -104,25 +107,13 @@ export default function RideBooking({ navigation }) {
   const [mapTopInset, setMapTopInset] = useState(120);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
-  const bookingScroll = useRef(null);
-  const focusedInput = useRef(null);
   const running = useRef(false);
-  const revealFocusedInput = () => {
-    if (focusedInput.current != null) {
-      bookingScroll.current?.getScrollResponder()?.scrollResponderScrollNativeHandleToKeyboard(
-        focusedInput.current, 160, true
-      );
-    }
-  };
   useEffect(() => {
     const show = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", () => {
       setKeyboardVisible(true);
-      setPanelCollapsed(false);
-      revealFocusedInput();
     });
     const hide = Keyboard.addListener("keyboardDidHide", () => {
       setKeyboardVisible(false);
-      focusedInput.current = null;
     });
     return () => { show.remove(); hide.remove(); };
   }, []);
@@ -209,6 +200,7 @@ export default function RideBooking({ navigation }) {
   const moveStop = (index, direction) => {
     invalidateQuotes();
     setExpandedStops({});
+    setMapStop(0);
     setStops((previous) => {
       const reordered = [...previous];
       [reordered[index], reordered[index + direction]] = [reordered[index + direction], reordered[index]];
@@ -227,6 +219,17 @@ export default function RideBooking({ navigation }) {
       currentLocation: { latitude: coordinate.latitude, longitude: coordinate.longitude }, placeId: undefined, address2: "",
       label: stops[mapStop].address.label, phone: stops[mapStop].address.phone } });
   });
+  const addStop = () => {
+    invalidateQuotes();
+    setExpandedStops({});
+    setMapStop(stops.length - 1);
+    setStops((previous) => {
+      const stop = newRideStop("pickup", previous[0].address.country);
+      stop.address.phone = previous[0].address.phone;
+      return balanceRideStops([...previous.slice(0, -1), stop, previous.at(-1)]);
+    });
+  };
+  const activeStop = stops[mapStop] || stops[0];
   if (loading) return <ActivityIndicator />;
   if (!isAuthenticated || needsSignIn) return <View style={styles.content}>
     <Text style={styles.title}>Sign in to use rides</Text>
@@ -239,19 +242,17 @@ export default function RideBooking({ navigation }) {
   return <View style={ui.page}>
     {config?.enabled ? <View style={ui.mapBackground}>
       <RideRouteMap fullScreen
+        waitForLocation compact
         ride={step >= 2 ? quote || quotes[0] || { stops } : { stops }}
         userLocation={userLocation}
         topInset={mapTopInset}
-        bottomInset={panelHeight}
+        bottomInset={keyboardVisible ? 0 : panelHeight}
         onSelectLocation={step === 1 ? selectMapLocation : undefined}
         selectionDisabled={busy}
         distanceUnit={/usa/i.test(database) ? "mile" : "km"} />
     </View> : null}
     <SafeAreaView style={ui.overlay} pointerEvents="box-none">
-    <View style={ui.header} onLayout={(event) => {
-      const { y, height } = event.nativeEvent.layout;
-      setMapTopInset(y + height + 12);
-    }}>
+    <View style={keyboardVisible ? ui.hiddenPanel : ui.header}>
       <View>
         <Text style={ui.brand}>Addu Genet Ride</Text>
         <Text style={ui.tagline}>Safe  •  Fast  •  Reliable</Text>
@@ -261,10 +262,74 @@ export default function RideBooking({ navigation }) {
         <Text style={ui.myRidesText}>My rides</Text>
       </TouchableOpacity>
     </View>
+    {config?.enabled && step < 2 ? <View style={keyboardVisible ? [ui.searchPanel, ui.activeSearchPanel] : ui.searchPanel} onLayout={(event) => {
+      const { y, height } = event.nativeEvent.layout;
+      setMapTopInset(y + height + 12);
+    }}>
+      <View style={ui.searchTools}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          {stops.map((stop, index) => <Button key={index} compact disabled={busy}
+            accessibilityLabel={`Edit stop ${index + 1}`}
+            accessibilityState={{ selected: mapStop === index }}
+            mode={mapStop === index ? "contained-tonal" : "text"}
+            textColor={stop.type === "pickup" ? "#16864b" : "#dc2626"}
+            onPress={() => setMapStop(index)}>
+            {`${index + 1}. ${stop.type === "pickup" ? "Pickup" : "Drop-off"}`}
+          </Button>)}
+        </ScrollView>
+        {mode === "regular" ? <Button compact icon="plus" accessibilityLabel="Add stop"
+          disabled={busy || stops.length >= 12} onPress={addStop}>Add</Button> : null}
+      </View>
+      <ScrollView style={ui.searchResults} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
+        <AddressSearchInput key={mapStop}
+          label={activeStop.type === "pickup" ? "Search pickup location" : "Search drop-off location"}
+          disabled={busy}
+          onFocus={() => setKeyboardVisible(true)}
+          selectedText={activeStop.address.placeId || activeStop.address.currentLocation
+            ? activeStop.address.formattedAddress || addressText(activeStop.address) : ""}
+          onSelect={(place) => {
+            update(mapStop, { address: { ...activeStop.address, ...place, _id: undefined,
+              currentLocation: undefined, label: activeStop.address.label, phone: activeStop.address.phone,
+              address2: activeStop.address.address2 } });
+            setKeyboardVisible(false);
+            Keyboard.dismiss();
+          }} />
+        {saved.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false}
+          contentContainerStyle={ui.badgeList} keyboardShouldPersistTaps="handled">
+          {saved.map((address) => {
+            const selected = activeStop.address._id === address._id;
+            return <TouchableOpacity key={address._id} accessibilityRole="button"
+              accessibilityLabel={`Use ${address.label || "saved address"} for stop ${mapStop + 1}: ${addressText(address)}`}
+              accessibilityState={{ selected, disabled: busy }} disabled={busy}
+              style={[ui.addressBadge, selected && ui.selectedBadge]}
+              onPress={() => {
+                update(mapStop, { address: { ...address, label: activeStop.address.label } });
+                setKeyboardVisible(false);
+                Keyboard.dismiss();
+              }}>
+              <FontAwesome5 name="map-marker-alt" size={14} color={selected ? "#8a6c09" : "#64748b"} />
+              <View style={ui.badgeDetails}>
+                <Text style={ui.badgeLabel} numberOfLines={1}>{address.label || "Saved address"}</Text>
+                <Text style={ui.badgeAddress} numberOfLines={1}>{addressText(address)}</Text>
+              </View>
+            </TouchableOpacity>;
+          })}
+        </ScrollView> : null}
+      </ScrollView>
+      <View style={ui.searchTools}>
+        <Button compact disabled={busy} icon="crosshairs-gps" onPress={() => run(async () => {
+          await ensureRegion();
+          await locatePickup(database);
+        })}>Use my current location</Button>
+        <Button compact onPress={() => { setKeyboardVisible(false); Keyboard.dismiss(); }}>Done</Button>
+      </View>
+      {pickupLocationError ? <Text accessibilityRole="alert" style={ui.error}>{pickupLocationError}</Text> : null}
+    </View> : <View onLayout={(event) => setMapTopInset(event.nativeEvent.layout.y + 12)} />}
+    {busy ? <ActivityIndicator /> : null}
+    {error ? <Text accessibilityRole="alert" style={ui.error}>{error}</Text> : null}
     <View style={ui.panelPosition} pointerEvents="box-none">
-    <View style={keyboardVisible ? [ui.panel, ui.keyboardPanel] : ui.panel} onLayout={(event) => {
+    <View style={keyboardVisible ? [ui.panel, ui.hiddenPanel] : ui.panel} onLayout={(event) => {
       setPanelHeight(event.nativeEvent.layout.height);
-      if (keyboardVisible) revealFocusedInput();
     }}>
       <TouchableOpacity accessibilityRole="button" accessibilityLabel={panelCollapsed ? "Show booking details" : "Show more map"}
         accessibilityState={{ expanded: !panelCollapsed }} style={ui.panelHandle}
@@ -275,11 +340,8 @@ export default function RideBooking({ navigation }) {
         <View style={ui.handleBar} />
         <Text style={ui.handleText}>{panelCollapsed ? "Show booking details" : "Show more map"}</Text>
       </TouchableOpacity>
-    {busy ? <ActivityIndicator /> : null}
-    {error ? <Text accessibilityRole="alert" style={ui.error}>{error}</Text> : null}
-    {!panelCollapsed ? <ScrollView ref={bookingScroll} style={ui.panelScroll} contentContainerStyle={ui.content}
+    {!panelCollapsed ? <ScrollView style={ui.panelScroll} contentContainerStyle={ui.content}
       automaticallyAdjustKeyboardInsets
-      onLayout={() => { if (keyboardVisible) revealFocusedInput(); }}
       keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
     {!config?.enabled ? <View style={ui.intro}>
       <Text style={ui.title}>Ride service unavailable</Text>
@@ -296,19 +358,6 @@ export default function RideBooking({ navigation }) {
         <Text style={ui.subtitle}>{step === 0 ? "Add your pickup and destination to get a ride estimate." :
           "Choose a stop, then tap the map to set its location. Stops are served in the order shown."}</Text>
       </View>
-      {step === 1 ? <View style={ui.card}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        {stops.map((stop, index) => <Button key={index} disabled={busy}
-          mode={mapStop === index ? "contained-tonal" : "text"}
-          style={mapStop === index ? ui.primaryButton : undefined}
-          labelStyle={{ color: "#171717" }}
-          onPress={() => setMapStop(index)}>
-          {`${index + 1}. ${stop.type === "pickup" ? "Pickup" : "Drop-off"}`}
-        </Button>)}
-        </ScrollView>
-        <Text style={ui.stopTitle}>{addressText(stops[mapStop].address) || "No address selected for this stop"}</Text>
-        <Text style={ui.smallText}>Location pins only. Calculate below to get the verified road route and prices.</Text>
-      </View> : null}
       <View style={ui.card}>
         <Text style={ui.sectionTitle}>Your trip</Text>
         {stops.map((stop, index) => <View key={index} style={ui.stopCard}>
@@ -335,47 +384,6 @@ export default function RideBooking({ navigation }) {
               setStops((previous) => balanceRideStops(previous.filter((_, at) => at !== index)));
             }}>Remove stop</Button>
           </View> : null}
-          {index === 0 && stop.type === "pickup" ? <>
-            <Button disabled={busy} icon="crosshairs-gps" onPress={() => run(async () => {
-              await ensureRegion();
-              await locatePickup(database);
-            })}>Use my current location</Button>
-            {pickupLocationError ? <Text accessibilityRole="alert" style={ui.error}>{pickupLocationError}</Text> : null}
-            <Text style={ui.smallText}>Your current location is the default pickup. Search below to change it, or edit the address in stop details.</Text>
-          </> : null}
-          <AddressSearchInput
-            label={stop.type === "pickup" ? "Search pickup location" : "Search drop-off location"}
-            disabled={busy}
-            onFocus={(event) => {
-              focusedInput.current = event.target ?? event.nativeEvent.target;
-              setPanelCollapsed(false);
-              revealFocusedInput();
-            }}
-            selectedText={stop.address.placeId || stop.address.currentLocation
-              ? stop.address.formattedAddress || addressText(stop.address) : ""}
-            onSelect={(place) => update(index, { address: { ...stop.address, ...place,
-              _id: undefined, currentLocation: undefined, label: stop.address.label, phone: stop.address.phone,
-              address2: stop.address.address2 } })} />
-          {saved.length ? <>
-            <Text style={ui.smallText}>Saved addresses</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={ui.badgeList}
-              keyboardShouldPersistTaps="handled">
-              {saved.map((address) => {
-                const selected = stop.address._id === address._id;
-                return <TouchableOpacity key={address._id} accessibilityRole="button"
-                  accessibilityLabel={`Use ${address.label || "saved address"} for stop ${index + 1}: ${addressText(address)}`}
-                  accessibilityState={{ selected, disabled: busy }} disabled={busy}
-                  style={[ui.addressBadge, selected && ui.selectedBadge]}
-                  onPress={() => update(index, { address: { ...address, label: stop.address.label } })}>
-                  <FontAwesome5 name="map-marker-alt" size={14} color={selected ? "#8a6c09" : "#64748b"} />
-                  <View style={ui.badgeDetails}>
-                    <Text style={ui.badgeLabel} numberOfLines={1}>{address.label || "Saved address"}</Text>
-                    <Text style={ui.badgeAddress} numberOfLines={1}>{addressText(address)}</Text>
-                  </View>
-                </TouchableOpacity>;
-              })}
-            </ScrollView>
-          </> : null}
           <TextInput label="Contact phone" keyboardType="phone-pad" autoComplete="tel" value={stop.address.phone || ""}
             disabled={busy} onChangeText={(phone) => update(index, { address: { ...stop.address, phone } })}
             style={styles.input} />
@@ -409,31 +417,21 @@ export default function RideBooking({ navigation }) {
                 style={styles.input} />)}
           </View> : null}
         </View>)}
-        {mode === "regular" ? <Button disabled={busy || stops.length >= 12} onPress={() => {
-          invalidateQuotes(); setExpandedStops({}); setMapStop(0); setStops((previous) => {
-            const stop = newRideStop("pickup", previous[0].address.country);
-            stop.address.phone = previous[0].address.phone;
-            return balanceRideStops([...previous.slice(0, -1), stop, previous.at(-1)]);
-          });
-        }}>+ Add another stop</Button> : null}
         <Text style={ui.smallText}>Stops are served in the order shown. Start with a pickup and finish with a drop-off.</Text>
       </View>
 
       <View style={ui.card}>
         <View style={ui.modeRow}>
           <Text style={ui.modeTitle}>Shared ride</Text>
+          <Button compact accessibilityLabel="About shared rides" onPress={() => Alert.alert("About shared rides",
+            `Regular ride: arrange the stops and pay one fare for everyone in your booking.\n\nShared ride: you may ride with unrelated customers on a compatible route. You pay only your booking's fare, not their detours.\n\nShared discount ${config.sharedDiscountPercent}%. Maximum pickup wait ${config.maxPickupMinutes} min; shared extra travel ${config.maxDetourMinutes} min.\n\nPay only after your ride is complete. Your final fare may be based on the actual route and travel time.`
+          )}>Info</Button>
           <Switch value={mode === "shared"} disabled={busy} onValueChange={(shared) => {
             setMode(shared ? "shared" : "regular"); invalidateQuotes();
             setExpandedStops({}); setMapStop(0);
             setStops((previous) => balanceRideStops([previous[0], previous.at(-1)]));
           }} />
         </View>
-        <Text style={ui.modeText}>{mode === "regular"
-          ? "Regular ride: arrange the stops and pay one fare for everyone in your booking."
-          : "Shared ride: you may ride with unrelated customers on a compatible route. You pay only your booking's fare, not their detours."}</Text>
-        <Text style={ui.smallText}>Compare Economy, Comfort and Van prices for this route below.
-          Shared discount {config.sharedDiscountPercent}%. Maximum pickup wait {config.maxPickupMinutes} min; shared extra travel {config.maxDetourMinutes} min.</Text>
-        <Text style={ui.smallText}>Pay only after your ride is complete. Your final fare may be based on the actual route and travel time.</Text>
       </View>
       {step === 0 ? <Button mode="contained" disabled={busy} style={ui.primaryButton}
         labelStyle={{ color: "#171717", fontWeight: "800" }} onPress={() => setStep(1)}>Review map & stops</Button> : null}
