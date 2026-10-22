@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import { useIsFocused } from "@react-navigation/native";
 import { AuthContext } from "../../Context/store/Auth";
-import { ActivityIndicator, Alert, Keyboard, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button, Switch, TextInput } from "react-native-paper";
 import { Picker } from "@react-native-picker/picker";
@@ -22,13 +22,12 @@ const ui = {
   page: { flex: 1, backgroundColor: "#eef2f6" },
   mapBackground: { ...StyleSheet.absoluteFill },
   overlay: { flex: 1 },
-  panelPosition: { flex: 1, justifyContent: "flex-end" },
-  panel: { maxHeight: "40%", backgroundColor: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24,
+  panelPosition: { flex: 1, justifyContent: "flex-end", minHeight: 0 },
+  panel: { maxHeight: "70%", backgroundColor: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24,
     shadowColor: "#111827", shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.12, shadowRadius: 12, elevation: 8 },
+  keyboardPanel: { maxHeight: "100%" },
   panelScroll: { flexShrink: 1 },
-  searchPanel: { maxHeight: "45%", marginHorizontal: 12, backgroundColor: "#fff", borderRadius: 16, padding: 10, gap: 4, flexShrink: 1, elevation: 4 },
-  activeSearchPanel: { maxHeight: "85%" },
-  searchResults: { flexShrink: 1 },
+  searchPanel: { backgroundColor: "#fff", borderRadius: 16, padding: 10, gap: 4 },
   searchTools: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   hiddenPanel: { display: "none" },
   panelHandle: { alignItems: "center", paddingTop: 10, paddingBottom: 8, gap: 5 },
@@ -102,12 +101,24 @@ export default function RideBooking({ navigation }) {
   const [pickupLocationError, setPickupLocationError] = useState("");
   const [step, setStep] = useState(0);
   const [mapStop, setMapStop] = useState(0);
-  const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const [panelCollapsed, setPanelCollapsed] = useState(true);
   const [panelHeight, setPanelHeight] = useState(0);
   const [mapTopInset, setMapTopInset] = useState(120);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
   const running = useRef(false);
+  const panelScroll = useRef(null);
+  const focusedInput = useRef(null);
+  const scrollToFocusedInput = () => {
+    if (focusedInput.current != null) {
+      panelScroll.current?.scrollResponderScrollNativeHandleToKeyboard(focusedInput.current, 16, true);
+    }
+  };
+  const focusInput = (event) => {
+    focusedInput.current = event.nativeEvent.target;
+    scrollToFocusedInput();
+  };
+  const blurInput = () => { focusedInput.current = null; };
   useEffect(() => {
     const show = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", () => {
       setKeyboardVisible(true);
@@ -117,6 +128,9 @@ export default function RideBooking({ navigation }) {
     });
     return () => { show.remove(); hide.remove(); };
   }, []);
+  useEffect(() => {
+    if (keyboardVisible) scrollToFocusedInput();
+  }, [keyboardVisible]);
   const invalidateQuotes = () => { setQuote(null); setQuotes([]); };
   const run = async (action) => {
     if (running.current) return;
@@ -129,6 +143,7 @@ export default function RideBooking({ navigation }) {
         return;
       }
       const message = failure.response?.data?.message || failure.message;
+      setPanelCollapsed(false);
       setError(message); Alert.alert("Ride needs attention", message);
     } finally { running.current = false; setBusy(false); }
   };
@@ -179,6 +194,9 @@ export default function RideBooking({ navigation }) {
       return { ...stop, address: { ...stop.address, phone } };
     }));
     setExpandedStops({});
+    focusedInput.current = null;
+    Keyboard.dismiss();
+    setPanelCollapsed(policy.enabled);
     setStep(0); setMapStop(0);
     invalidateQuotes();
     setPickupLocationError("");
@@ -246,13 +264,18 @@ export default function RideBooking({ navigation }) {
         ride={step >= 2 ? quote || quotes[0] || { stops } : { stops }}
         userLocation={userLocation}
         topInset={mapTopInset}
-        bottomInset={keyboardVisible ? 0 : panelHeight}
+        bottomInset={panelHeight}
         onSelectLocation={step === 1 ? selectMapLocation : undefined}
         selectionDisabled={busy}
         distanceUnit={/usa/i.test(database) ? "mile" : "km"} />
     </View> : null}
     <SafeAreaView style={ui.overlay} pointerEvents="box-none">
-    <View style={keyboardVisible ? ui.hiddenPanel : ui.header}>
+    <KeyboardAvoidingView style={ui.overlay} pointerEvents="box-none"
+      behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <View style={keyboardVisible ? ui.hiddenPanel : ui.header} onLayout={(event) => {
+      const { y, height } = event.nativeEvent.layout;
+      setMapTopInset(y + height + 12);
+    }}>
       <View>
         <Text style={ui.brand}>Addu Genet Ride</Text>
         <Text style={ui.tagline}>Safe  •  Fast  •  Reliable</Text>
@@ -262,10 +285,27 @@ export default function RideBooking({ navigation }) {
         <Text style={ui.myRidesText}>My rides</Text>
       </TouchableOpacity>
     </View>
-    {config?.enabled && step < 2 ? <View style={keyboardVisible ? [ui.searchPanel, ui.activeSearchPanel] : ui.searchPanel} onLayout={(event) => {
-      const { y, height } = event.nativeEvent.layout;
-      setMapTopInset(y + height + 12);
+    {busy ? <ActivityIndicator /> : null}
+    {error ? <Text accessibilityRole="alert" style={ui.error}>{error}</Text> : null}
+    {panelCollapsed && pickupLocationError ? <Text accessibilityRole="alert" style={ui.error}>{pickupLocationError}</Text> : null}
+    <View style={ui.panelPosition} pointerEvents="box-none">
+    <View style={[ui.panel, keyboardVisible && ui.keyboardPanel]} onLayout={(event) => {
+      setPanelHeight(event.nativeEvent.layout.height);
     }}>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel={panelCollapsed ? "Show booking details" : "Show more map"}
+        accessibilityState={{ expanded: !panelCollapsed }} style={ui.panelHandle}
+        onPress={() => {
+          focusedInput.current = null;
+          Keyboard.dismiss();
+          setPanelCollapsed((previous) => !previous);
+        }}>
+        <View style={ui.handleBar} />
+        <Text style={ui.handleText}>{panelCollapsed ? "Show booking details" : "Show more map"}</Text>
+      </TouchableOpacity>
+    {!panelCollapsed ? <ScrollView ref={panelScroll} style={ui.panelScroll} contentContainerStyle={ui.content}
+      onLayout={scrollToFocusedInput}
+      keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+    {config?.enabled && step < 2 ? <View style={ui.searchPanel}>
       <View style={ui.searchTools}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {stops.map((stop, index) => <Button key={index} compact disabled={busy}
@@ -280,11 +320,11 @@ export default function RideBooking({ navigation }) {
         {mode === "regular" ? <Button compact icon="plus" accessibilityLabel="Add stop"
           disabled={busy || stops.length >= 12} onPress={addStop}>Add</Button> : null}
       </View>
-      <ScrollView style={ui.searchResults} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
         <AddressSearchInput key={mapStop}
           label={activeStop.type === "pickup" ? "Search pickup location" : "Search drop-off location"}
           disabled={busy}
-          onFocus={() => setKeyboardVisible(true)}
+          onFocus={focusInput}
+          onBlur={blurInput}
           selectedText={activeStop.address.placeId || activeStop.address.currentLocation
             ? activeStop.address.formattedAddress || addressText(activeStop.address) : ""}
           onSelect={(place) => {
@@ -315,7 +355,6 @@ export default function RideBooking({ navigation }) {
             </TouchableOpacity>;
           })}
         </ScrollView> : null}
-      </ScrollView>
       <View style={ui.searchTools}>
         <Button compact disabled={busy} icon="crosshairs-gps" onPress={() => run(async () => {
           await ensureRegion();
@@ -324,25 +363,7 @@ export default function RideBooking({ navigation }) {
         <Button compact onPress={() => { setKeyboardVisible(false); Keyboard.dismiss(); }}>Done</Button>
       </View>
       {pickupLocationError ? <Text accessibilityRole="alert" style={ui.error}>{pickupLocationError}</Text> : null}
-    </View> : <View onLayout={(event) => setMapTopInset(event.nativeEvent.layout.y + 12)} />}
-    {busy ? <ActivityIndicator /> : null}
-    {error ? <Text accessibilityRole="alert" style={ui.error}>{error}</Text> : null}
-    <View style={ui.panelPosition} pointerEvents="box-none">
-    <View style={keyboardVisible ? [ui.panel, ui.hiddenPanel] : ui.panel} onLayout={(event) => {
-      setPanelHeight(event.nativeEvent.layout.height);
-    }}>
-      <TouchableOpacity accessibilityRole="button" accessibilityLabel={panelCollapsed ? "Show booking details" : "Show more map"}
-        accessibilityState={{ expanded: !panelCollapsed }} style={ui.panelHandle}
-        onPress={() => {
-          Keyboard.dismiss();
-          setPanelCollapsed((previous) => !previous);
-        }}>
-        <View style={ui.handleBar} />
-        <Text style={ui.handleText}>{panelCollapsed ? "Show booking details" : "Show more map"}</Text>
-      </TouchableOpacity>
-    {!panelCollapsed ? <ScrollView style={ui.panelScroll} contentContainerStyle={ui.content}
-      automaticallyAdjustKeyboardInsets
-      keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+    </View> : null}
     {!config?.enabled ? <View style={ui.intro}>
       <Text style={ui.title}>Ride service unavailable</Text>
       <Text style={ui.subtitle}>Ride service is not enabled in this region. Sign in and reload, or contact Admin.</Text>
@@ -385,6 +406,8 @@ export default function RideBooking({ navigation }) {
             }}>Remove stop</Button>
           </View> : null}
           <TextInput label="Contact phone" keyboardType="phone-pad" autoComplete="tel" value={stop.address.phone || ""}
+            onFocus={focusInput}
+            onBlur={blurInput}
             disabled={busy} onChangeText={(phone) => update(index, { address: { ...stop.address, phone } })}
             style={styles.input} />
           <Button compact mode="text" disabled={busy} onPress={() => setExpandedStops((previous) => ({
@@ -392,6 +415,8 @@ export default function RideBooking({ navigation }) {
           }))}>{expandedStops[index] ? "Hide stop details" : "Saved address & passenger details"}</Button>
           {expandedStops[index] ? <View style={ui.details}>
             <TextInput label={stop.type === "pickup" ? "Passengers boarding" : "Passengers leaving"} keyboardType="number-pad"
+              onFocus={focusInput}
+              onBlur={blurInput}
               value={stop.passengers} disabled={busy || index === stops.length - 1} onChangeText={(passengers) => {
                 if (mode === "shared") {
                   invalidateQuotes();
@@ -409,6 +434,8 @@ export default function RideBooking({ navigation }) {
             </> : null}
             {fields.filter(([key]) => !(key === "zip" && isEthiopia(stop.address.country))).map(([key, label]) =>
               <TextInput key={key} label={label} value={stop.address[key] || ""} disabled={busy}
+                onFocus={focusInput}
+                onBlur={blurInput}
                 onChangeText={(value) => update(index, { address: { ...stop.address, [key]: value,
                   ...(key !== "label" ? { _id: undefined } : {}),
                   ...(locatedFields.includes(key) ? {
@@ -520,6 +547,7 @@ export default function RideBooking({ navigation }) {
     </ScrollView> : null}
     </View>
     </View>
+    </KeyboardAvoidingView>
     </SafeAreaView>
   </View>;
 }

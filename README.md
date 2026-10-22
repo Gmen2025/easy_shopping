@@ -60,6 +60,11 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   in-flight legacy quotes retain their timing.
 - **Store-based delivery pricing**: All products from one pickup store to one
   destination incur one delivery fee, not a fee per product or unit. Stores
+  are selected by the backend: when one eligible store has enough unreserved
+  stock for the entire checkout at the quoted prices and within storefront
+  restrictions, that store is preferred over splitting products between
+  nearer stores. If no one store can fulfill everything, multiple stores may
+  supply the order. Separate delivery addresses still have separate fees. Stores
   within **500 meters of every other store in their pricing group** share one
   fee when the **same vehicle type** is selected. The fee uses the store with
   the shortest driving distance to the drop-off, including the speed surcharge
@@ -90,14 +95,19 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   and the inbox retains the latest 20 unique entries.
 - **Profile Management**: Edit profile and manage addresses
 - **Map-first Ride Booking**: A full-screen background map stays visible through
-  pickup/drop-off editing, vehicle selection and trip summary. Use **Show more
-  map** to collapse the scrollable booking panel and **Show booking details** to
-  reopen it. In **Map & stops**, choose a stop before tapping the map; locations
+  pickup/drop-off editing, vehicle selection and trip summary. The screen opens
+  with one **collapsed** bottom panel. **Show booking details** expands the
+  pickup/drop-off search card and booking details together in a single vertical
+  scroll area; **Show more map** collapses them together without clearing edits.
+  In **Map & stops**, choose a stop before tapping the map; locations
   are verified before being applied. A single search at the top edits the selected
   pickup or drop-off; use the stop selectors to switch and **+ Add** to insert
   another stop. Saved-address badges apply to the selected stop. While typing,
-  the lower details panel and brand header hide, leaving the search and its
-  scrollable suggestions at the top; **Done** restores the normal layout.
+  the brand header hides and the combined panel expands within the space above
+  the keyboard. Search suggestions, phone, passenger and manual address fields
+  remain mounted and scrollable, and focused inputs scroll above the keyboard.
+  iOS uses keyboard padding; Android uses the configured resize mode.
+  **Done** dismisses the keyboard without collapsing the panel.
   Shared-ride rules are available through **Info** beside the shared-ride switch.
   Fare calculation and payment-after-ride behavior are unchanged. The booking map
   waits for real coordinates before mounting, uses neighborhood zoom for a single

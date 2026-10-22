@@ -119,6 +119,7 @@ function harness(file, request, params = {}, auth = { isAuthenticated: true, loa
   const start = async () => {
     render(); effects.forEach((effect) => effect());
     for (let attempt = 0; attempt < 10; attempt++) await new Promise(setImmediate);
+    if (options.expandBooking !== false) button("Show booking details")?.props.onPress();
   };
   const button = (label) => nodes(render()).find((node) =>
     (node.type === "Button" && (text(node) === label || node.props.accessibilityLabel === label)) ||
@@ -229,11 +230,11 @@ test("customer UI defaults to regular, submits ordered multi-stops and one fare,
   assert.equal(ui.navigations.at(-1)[0], "MyRides");
   assert.equal(ui.calls.some((call) => call.route.includes("payment")), false);
 });
-test("booking keeps one full-screen background map with a collapsible, measured details panel", async () => {
+test("booking starts collapsed and keeps search and booking details in one measured scrollable panel", async () => {
   const ui = harness("Screens\\Ride\\RideBooking.js", async (route) => {
     if (route === "config") return policy;
     if (route === "quote-options") return pricedOptions();
-  });
+  }, {}, undefined, { expandBooking: false });
   await ui.start();
   const maps = () => nodes(ui.render()).filter((node) => node.type === "RideRouteMap");
   assert.equal(maps().length, 1);
@@ -246,20 +247,23 @@ test("booking keeps one full-screen background map with a collapsible, measured 
   assert.equal(background.props.style.left, 0);
   assert.equal(background.props.style.right, 0);
   assert.equal(background.props.style.bottom, 0);
-  const panel = nodes(tree).find((node) => node.type === "View" && node.props.style?.maxHeight === "40%");
+  const panel = nodes(tree).find((node) => node.type === "View" && node.props.style?.[0]?.maxHeight === "70%");
   panel.props.onLayout({ nativeEvent: { layout: { height: 320 } } });
   assert.equal(maps()[0].props.bottomInset, 320);
-  const searchPanel = nodes(tree).find((node) => node.type === "View" && node.props.style?.elevation === 4);
-  assert.equal(nodes(searchPanel).filter((node) => node.type === "AddressSearchInput").length, 1);
-  assert.equal(nodes(panel).some((node) => node.type === "AddressSearchInput"), false,
-    "Address search is outside the lower booking panel");
-  assert.ok(nodes(searchPanel).find((node) => node.props.accessibilityLabel === "Add stop"),
-    "The plus/add control stays beside the top stop selectors");
-  searchPanel.props.onLayout({ nativeEvent: { layout: { y: 80, height: 180 } } });
-  assert.equal(maps()[0].props.topInset, 272);
+  assert.equal(ui.button("Show booking details").props.accessibilityState.expanded, false);
+  assert.equal(ui.button("Review map & stops"), undefined);
+  assert.equal(nodes(tree).filter((node) => node.type === "AddressSearchInput").length, 0);
+  ui.button("Show booking details").props.onPress();
+  assert.ok(ui.button("Review map & stops"));
+  const expandedPanel = nodes(ui.render()).find((node) => node.type === "View" && node.props.style?.[0]?.maxHeight === "70%");
+  const scrolls = nodes(expandedPanel).filter((node) => node.type === "ScrollView" && !node.props.horizontal);
+  assert.equal(scrolls.length, 1, "Search suggestions and booking details use one vertical scroll container");
+  assert.equal(nodes(scrolls[0]).filter((node) => node.type === "AddressSearchInput").length, 1);
+  assert.ok(nodes(scrolls[0]).find((node) => node.props.accessibilityLabel === "Add stop"));
+  assert.ok(nodes(scrolls[0]).find((node) => node.props.label === "Contact phone"));
   ui.button("Show more map").props.onPress();
   assert.equal(maps().length, 1);
-  assert.equal(ui.button("Review map & stops"), undefined);
+  assert.equal(nodes(ui.render()).filter((node) => node.type === "AddressSearchInput").length, 0);
   ui.button("Show booking details").props.onPress();
   assert.ok(ui.button("Review map & stops"));
   await ui.calculate();
@@ -269,9 +273,15 @@ test("booking keeps one full-screen background map with a collapsible, measured 
   ui.button("Economy - USD 10.00").props.onPress();
   ui.button("Continue").props.onPress();
   assert.equal(maps().length, 1, "Summary reuses the background map, not an embedded second map");
+  ui.button("Back").props.onPress();
+  ui.button("Back").props.onPress();
+  ui.button("Back").props.onPress();
+  await ui.button("Reload region & addresses").props.onPress();
+  assert.ok(ui.button("Show booking details"), "Reloading starts the booking panel collapsed again");
+  assert.equal(nodes(ui.render()).some((node) => node.type === "AddressSearchInput"), false);
 });
 
-test("one top search switches between stops and hides bottom details while the keyboard is open", async () => {
+test("all ride inputs remain mounted and scroll into view with keyboard avoidance on iOS and Android", async () => {
   for (const platform of ["android", "ios"]) {
     const ui = harness("Screens\\Ride\\RideBooking.js", async (route) => route === "config" ? policy : {},
       {}, undefined, { platform });
@@ -279,24 +289,51 @@ test("one top search switches between stops and hides bottom details while the k
     const searches = nodes(ui.render()).filter((node) => node.type === "AddressSearchInput");
     assert.equal(searches.length, 1);
     assert.equal(searches[0].props.label, "Search pickup location");
-    searches[0].props.onFocus();
+    const scrollCalls = [];
+    const scroll = nodes(ui.render()).find((node) => node.type === "ScrollView" && !node.props.horizontal);
+    scroll.props.ref.current = { scrollResponderScrollNativeHandleToKeyboard: (...args) => scrollCalls.push(args) };
+    const keyboardAvoidance = nodes(ui.render()).find((node) => node.type === "KeyboardAvoidingView");
+    assert.equal(keyboardAvoidance.props.behavior, platform === "ios" ? "padding" : undefined);
+    searches[0].props.onFocus({ nativeEvent: { target: 101 } });
+    assert.deepEqual(scrollCalls.at(-1), [101, 16, true]);
     ui.keyboardListeners.get(platform === "ios" ? "keyboardWillShow" : "keyboardDidShow")();
-    const panel = nodes(ui.render()).find((node) => Array.isArray(node.props.style) &&
-      node.props.style[1]?.display === "none");
-    assert.ok(panel, `${platform} hides lower details, leaving room for the top search`);
+    const panel = nodes(ui.render()).find((node) => node.type === "View" &&
+      node.props.style?.[0]?.maxHeight === "70%");
+    assert.equal(panel.props.style[1].maxHeight, "100%");
+    assert.ok(nodes(panel).find((node) => node.props.label === "Contact phone"),
+      `${platform} keeps booking inputs mounted while typing`);
     assert.equal(ui.searchStop(1).props.label, "Search drop-off location");
     assert.equal(nodes(ui.render()).filter((node) => node.type === "AddressSearchInput").length, 1);
-    assert.equal(nodes(ui.render()).find((node) => node.type === "RideRouteMap").props.bottomInset, 0);
+    const stopDetails = nodes(ui.render()).find((node) => node.type === "Button" && text(node) === "Saved address & passenger details");
+    stopDetails.props.onPress();
+    const inputs = nodes(ui.render()).filter((node) => node.type === "TextInput" && !node.props.disabled);
+    assert.ok(inputs.some((node) => node.props.label === "Street address / landmark"));
+    inputs.forEach((input, index) => {
+      input.props.onFocus({ nativeEvent: { target: 200 + index } });
+      assert.deepEqual(scrollCalls.at(-1), [200 + index, 16, true]);
+    });
+    scroll.props.onLayout();
+    assert.deepEqual(scrollCalls.at(-1), [200 + inputs.length - 1, 16, true]);
+    inputs.at(-1).props.onBlur();
+    const beforeLayout = scrollCalls.length;
+    scroll.props.onLayout();
+    assert.equal(scrollCalls.length, beforeLayout, "Blurred inputs are not measured after unmounting or changing stops");
+    panel.props.onLayout({ nativeEvent: { layout: { height: 280 } } });
+    assert.equal(nodes(ui.render()).find((node) => node.type === "RideRouteMap").props.bottomInset, 280);
     ui.button("Done").props.onPress();
-    assert.ok(nodes(ui.render()).find((node) => node.props.style?.maxHeight === "40%"));
     ui.keyboardListeners.get("keyboardDidHide")();
-    assert.ok(nodes(ui.render()).find((node) => node.props.style?.maxHeight === "40%"));
+    assert.ok(ui.button("Review map & stops"));
+    ui.button("Show more map").props.onPress();
+    assert.equal(nodes(ui.render()).filter((node) => node.type === "TextInput").length, 0);
+    ui.button("Show booking details").props.onPress();
+    assert.ok(nodes(ui.render()).find((node) => node.props.label === "Street address / landmark"),
+      "Collapsing preserves expanded stop details and form state");
   }
 });
 
 test("booking shows GPS on the map even when pickup address verification fails", async () => {
   const ui = harness("Screens\\Ride\\RideBooking.js", async (route) => route === "config" ? policy : {},
-    {}, undefined, { currentLocation: async () => { throw new Error("Address verification unavailable"); } });
+    {}, undefined, { expandBooking: false, currentLocation: async () => { throw new Error("Address verification unavailable"); } });
   await ui.start();
   const map = nodes(ui.render()).find((node) => node.type === "RideRouteMap");
   assert.equal(map.props.userLocation.latitude, 41.95);
