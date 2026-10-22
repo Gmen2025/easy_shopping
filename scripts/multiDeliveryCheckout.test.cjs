@@ -63,6 +63,7 @@ function harness(request, { resumeId, database = "E_ShopUSA", params = {}, excha
     "../assets/common/currency": currency, "../assets/common/exchangeRate": exchange });
   const rides = load("assets\\common\\rides.js", { "./storefront": { apiRequest: async () => assert.fail("Place search is mocked") } });
   const paymentAvailability = load("assets\\common\\paymentAvailability.js", {});
+  const deliveryPricing = load("assets\\common\\deliveryPricing.js", {});
   const deliveryMethods = { deliveryMethodOptions: (config = {}) => [
     { value: "STANDARD", label: "Standard Delivery", description: `${config.standardMinBusinessDays || 2} - ${config.standardMaxBusinessDays || 5} business days` },
     { value: "EXPRESS", label: "Express Delivery", description: `${config.expressMinBusinessDays || 1} - ${config.expressMaxBusinessDays || 2} business days` },
@@ -88,6 +89,7 @@ function harness(request, { resumeId, database = "E_ShopUSA", params = {}, excha
     "../../../assets/common/rides": rides,
     "../../../assets/common/paymentAvailability": paymentAvailability,
     "../../../assets/common/delivery": deliveryMethods,
+    "../../../assets/common/deliveryPricing": deliveryPricing,
   }, { development });
   const render = () => {
     cursor = 0;
@@ -117,6 +119,72 @@ function harness(request, { resumeId, database = "E_ShopUSA", params = {}, excha
 
 const freshExchange = () => ({ enabled: true, active: true, birrPerUsd: 3, revision: 5, source: "manual",
   appliedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 86400000).toISOString() });
+
+test("delivery pricing previews exact shared cents, separate vehicle types and unchanged legacy quotes", () => {
+  const { calculateDeliveryPricing } = load("assets\\common\\deliveryPricing.js", {});
+  const deliveries = ["a", "b", "c"].map((key, index) => ({
+    key, store: { name: key }, distanceKm: index + 1, vehicle: "car",
+    pricingGroup: { key: index === 2 ? "distant" : "nearby" },
+    vehicleOptions: [{ type: "car", fee: 4.01 + index }, { type: "van", fee: 8 + index }],
+  }));
+  let result = calculateDeliveryPricing(deliveries);
+  assert.equal(result.deliveryFee, 10.02);
+  assert.equal(result.byKey.a.deliveryFee, 2.01);
+  assert.equal(result.byKey.b.deliveryFee, 2);
+  assert.equal(result.byKey.b.storeName, "a");
+  result = calculateDeliveryPricing(deliveries, { a: "van", b: "car" });
+  assert.equal(result.deliveryFee, 19.02);
+  assert.equal(result.byKey.b.storeCount, 1);
+  result = calculateDeliveryPricing(deliveries, { a: "van", b: "van" });
+  assert.equal(result.deliveryFee, 14.01);
+  assert.equal(result.byKey.b.deliveryFee, 4);
+  for (const delivery of deliveries) { delete delivery.pricingGroup; }
+  assert.equal(calculateDeliveryPricing(deliveries).deliveryFee, 15.03);
+  assert.throws(() => calculateDeliveryPricing(deliveries, { a: "truck" }), /suitable vehicles/);
+});
+
+test("nearby-store checkout displays shared fees, reprices vehicle changes and preserves the prepared server total", async () => {
+  let quote;
+  const ui = harness(async (route, options) => {
+    if (route === "delivery-current-address") return {
+      label: "Home", address1: "Main", city: "Town", zip: "12345", country: "USA", phone: "123",
+    };
+    if (route === "delivery-addresses") return [];
+    if (route === "delivery-bank-accounts") return [{ _id: "bank", bankName: "Bank" }];
+    if (route === "checkouts/quote") {
+      quote = { _id: "shared-checkout", cart: options.data.cart, itemsSubtotal: 30, deliveryFee: 4.01, totalPrice: 34.01,
+        expiresAt: new Date(Date.now() + 600000).toISOString(),
+        deliveries: ["Nearest", "Nearby"].map((name, index) => ({
+          key: name, store: { _id: name, name }, address: options.data.addresses[0], lines: [], cargo: {},
+          distanceKm: index ? 5 : 2, vehicle: "car", pricingGroup: { key: "shared", radiusMeters: 500 },
+          vehicleOptions: [{ type: "car", fee: index ? 7 : 4.01 }, { type: "van", fee: index ? 12 : 8 }],
+        })) };
+      return quote;
+    }
+    if (route === "checkouts/shared-checkout/prepare") {
+      assert.ok(options.data.selections.every((selection) => selection.vehicle === "van"));
+      return { ...quote, status: "awaiting_payment", paymentMethod: "bank", deliveryFee: 8, totalPrice: 38,
+        bankAccount: { bankName: "Bank" } };
+    }
+    throw new Error(route);
+  });
+  await ui.start();
+  await ui.calculate();
+  assert.match(text(ui.render()), /Combined total: \$34.01/);
+  assert.match(text(ui.render()), /Shared delivery fee: \$4.01 for 2 nearby stores/);
+  assert.match(text(ui.render()), /This store's share: \$2.01/);
+  const select = (name, vehicle) => nodes(ui.render()).find((node) =>
+    node.type === "Picker" && node.props.accessibilityLabel === `Delivery vehicle for ${name}`).props.onValueChange(vehicle);
+  select("Nearest", "van");
+  assert.match(text(ui.render()), /Combined total: \$45.00/);
+  assert.doesNotMatch(text(ui.render()), /Shared delivery fee:/);
+  select("Nearby", "van");
+  assert.match(text(ui.render()), /Combined total: \$38.00/);
+  assert.match(text(ui.render()), /Shared delivery fee: \$8.00 for 2 nearby stores/);
+  await ui.place();
+  assert.match(text(ui.render()), /Combined total: \$38.00/);
+  assert.match(text(ui.render()), /Shared fees are split equally between store orders for refunds/);
+});
 
 for (const development of [true, false]) {
   test(`USA Car selection and cash checkout follow the development build gate (${development})`, async () => {

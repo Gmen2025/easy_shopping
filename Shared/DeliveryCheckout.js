@@ -65,6 +65,16 @@ export const InternationalReceipt = ({ value }) => value.internationalShipping ?
   <Text>{value.internationalShipping.customsNotice}</Text>
 </View> : null;
 
+export const DeliveryPricingReceipt = ({ value }) => {
+  const { formatPrice } = useCurrency();
+  const group = value.deliveryPricingGroup;
+  if (!group) return null;
+  const fee = value.deliveryFee;
+  return <Text>{group.storeCount > 1
+    ? `Delivery fee share: ${formatPrice(fee)}. Shared across ${group.storeCount} stores within ${group.radiusMeters} meters using ${group.vehicle}, priced from ${group.storeName}. Shared total: ${formatPrice(group.deliveryFee)}.`
+    : `Delivery fee: ${formatPrice(fee)} (once for all products from this store).`}</Text>;
+};
+
 export const DeliverySummary = ({ group }) => {
   const { formatPrice } = useCurrency();
   return <View style={styles.card}>
@@ -86,7 +96,9 @@ export const DeliverySummary = ({ group }) => {
     <Text style={styles.heading}>Combined total: {formatPrice(group.totalPrice)}</Text>
     <ExchangeReceipt value={group} />
     {group.kind === "service" ? <Text selectable>Service request: {group.serviceRequest}</Text> :
-      <Text>Each pickup/destination pair is a separate delivery, not one combined driver route.</Text>}
+      <Text>{group.deliveries?.some((delivery) => delivery.pricingGroup)
+        ? "Delivery is priced once per store and destination. Stores within 500 meters of each other share one fee when the same vehicle type is selected, using the nearest store's road distance to the drop-off. Different vehicle types or distant stores are charged separately. Shared fees are split equally between store orders for refunds. Pickups remain separately tracked."
+        : "Each pickup/destination pair is a separate delivery, not one combined driver route."}</Text>}
   </View>;
 };
 

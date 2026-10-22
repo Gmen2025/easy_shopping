@@ -15,6 +15,7 @@ import { addressText, isEthiopia } from "../../../assets/common/rides";
 import { exchangeRequest, rateIsActive, usdAmount, usdText, usdInactiveMessage, birrAmount, etbText, exportInactiveMessage } from "../../../assets/common/exchangeRate";
 import { isCashOnDeliveryAvailable } from "../../../assets/common/paymentAvailability";
 import { deliveryMethodOptions, deliveryModeLabel, getDeliverySettings } from "../../../assets/common/delivery";
+import { calculateDeliveryPricing } from "../../../assets/common/deliveryPricing";
 
 const ADDRESS_FIELDS = [
   ["label", "Address label"], ["address1", "Street address"], ["address2", "Apartment / unit (optional)"],
@@ -270,8 +271,8 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
     await showGroup(await storeRequest(`checkouts/${group._id}/confirm`, { method: "post", timeout: 60000 }));
   });
   const needsVehicleSelection = quote?.deliveries.some((delivery) => !selections[delivery.key]);
-  const selectedFee = quote?.deliveries.reduce((sum, delivery) => sum +
-    (delivery.vehicleOptions.find((option) => option.type === selections[delivery.key])?.fee ?? delivery.deliveryFee ?? 0), 0) || 0;
+  const pricing = calculateDeliveryPricing(quote?.deliveries || [], selections);
+  const selectedFee = pricing.deliveryFee;
   const previewTotal = (quote?.itemsSubtotal || 0) + selectedFee + (quote?.international?.shippingFee || 0);
   const methods = [
     { value: "bank", label: "Bank Transfer", description: "Verified by Admin after submitting your reference" },
@@ -461,6 +462,11 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
             <PackageMeasurements size={line.packageSize} />
           </View>)}
           <Text>Road distance: {(/usa/i.test(database) ? delivery.distanceKm / 1.609344 : delivery.distanceKm).toFixed(2)} {/usa/i.test(database) ? "mi" : "km"}</Text>
+          {delivery.pricingGroup ? <Text>
+            {pricing.byKey[delivery.key].storeCount > 1
+              ? `Shared delivery fee: ${formatPrice(pricing.byKey[delivery.key].sharedFee)} for ${pricing.byKey[delivery.key].storeCount} nearby stores using the same vehicle type, priced from ${pricing.byKey[delivery.key].storeName}. This store's share: ${formatPrice(pricing.byKey[delivery.key].deliveryFee)}.`
+              : `Delivery fee for this store: ${formatPrice(pricing.byKey[delivery.key].deliveryFee)} (once for all its products).`}
+          </Text> : null}
           <CargoSummary cargo={delivery.cargo} />
           {delivery.requiresVehicleSelection || !delivery.vehicle ? <Text>Some packaged measurements are not available currently.
             Choose a vehicle manually. Full load capacity cannot be verified; available options account for known measurements.</Text> :
@@ -473,7 +479,7 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
             accessibilityLabel={`Delivery vehicle for ${delivery.store.name}`}
             onValueChange={(value) => setSelections((previous) => ({ ...previous, [delivery.key]: value }))}>
             {delivery.requiresVehicleSelection || !delivery.vehicle ? <Picker.Item label="Choose a vehicle..." value="" /> : null}
-            {delivery.vehicleOptions.map((option) => <Picker.Item key={option.type} label={`${option.type === "car" ? "Car" : option.type} - ${formatPrice(option.fee)}`} value={option.type} />)}
+            {delivery.vehicleOptions.map((option) => <Picker.Item key={option.type} label={`${option.type === "car" ? "Car" : option.type} - ${formatPrice(option.fee)}${delivery.pricingGroup ? " before nearby-store sharing" : ""}`} value={option.type} />)}
           </Picker>
         </View>)}
         <DeliveryWindow value={quote} />

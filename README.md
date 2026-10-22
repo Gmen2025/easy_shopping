@@ -58,6 +58,20 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
   Deploy the matching backend and upgraded mobile together: old clients sending
   SAME_DAY/NEXT_DAY for new orders will be rejected. Existing orders and
   in-flight legacy quotes retain their timing.
+- **Store-based delivery pricing**: All products from one pickup store to one
+  destination incur one delivery fee, not a fee per product or unit. Stores
+  within **500 meters of every other store in their pricing group** share one
+  fee when the **same vehicle type** is selected. The fee uses the store with
+  the shortest driving distance to the drop-off, including the speed surcharge
+  only once. Proximity uses straight-line pickup distance; far-apart stores,
+  different vehicle types and separate destination IDs are charged separately.
+  Vehicle choices show unshared route prices; the delivery preview shows the
+  actual shared total and each store's share. Shared fees are split equally
+  between store orders, with exact cent rounding, for partial refunds.
+  Pickups, capacity checks and tracking remain separate per store. The US hub
+  leg uses the same rule per international recipient; onward shipping is
+  unchanged. Historical orders and existing quotes keep their saved pricing.
+  Deploy the matching backend and updated mobile together.
 - **Reference-inspired cart flow**: White cards, a yellow brand header/actions
   and progress through Cart, Address, Delivery and Payment lead to a separate
   Order Summary. Quantity +/- and remove respect the exact regional/storefront

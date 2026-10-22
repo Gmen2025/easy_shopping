@@ -4,7 +4,7 @@ import { Button, TextInput } from "react-native-paper";
 import { useFocusEffect } from "@react-navigation/native";
 import { storeRequest } from "../../../assets/common/storefront";
 import { useCurrency } from "../../../assets/common/currency";
-import { DeliverySummary, DeliveryWindow, ExchangeReceipt, InternationalReceipt, styles } from "../../../Shared/DeliveryCheckout";
+import { DeliverySummary, DeliveryWindow, DeliveryPricingReceipt, ExchangeReceipt, InternationalReceipt, styles } from "../../../Shared/DeliveryCheckout";
 import { deliveryModeLabel } from "../../../assets/common/delivery";
 import { paymentText } from "../../../assets/common/exchangeRate";
 import { getDatabaseNameFromStorage } from "../../../assets/common/databaseConfig";
@@ -100,6 +100,7 @@ const DeliveryCheckouts = ({ navigation, route }) => {
         </Text>)}
         <Text>Store: {order.fulfillmentStatus} | Delivery: {order.deliveryStatus}</Text>
         <Text>Products: {formatPrice(order.itemsSubtotal)} | Route fee: {formatPrice(order.deliveryFee)}</Text>
+        <DeliveryPricingReceipt value={order} />
         <Text>Total: {formatPrice(order.totalPrice)}</Text>
         <ExchangeReceipt value={order} />
         <InternationalReceipt value={order} />

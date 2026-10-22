@@ -16,7 +16,7 @@ import { AuthContext } from "../Context/store/Auth";
 import UserOrderItems from "./UserOrderItems";
 import { useCurrency } from "../assets/common/currency";
 import { deliveryModeLabel, formatScheduledDeliveryDate } from "../assets/common/delivery";
-import { ExchangeReceipt, InternationalReceipt } from "./DeliveryCheckout";
+import { DeliveryPricingReceipt, ExchangeReceipt, InternationalReceipt } from "./DeliveryCheckout";
 
 const OrderCard = (props) => {
   const context = useContext(AuthContext);
@@ -602,6 +602,7 @@ const OrderCard = (props) => {
           <Text style={styles.price}>{formatPrice(props.totalPrice)}</Text>
         </View>
         <ExchangeReceipt value={props.order || props} />
+        <DeliveryPricingReceipt value={props.order || props} />
         <InternationalReceipt value={props.order || props} />
         {!props.editMode && props._id ? (
           <EasyButton
