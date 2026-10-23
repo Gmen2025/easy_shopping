@@ -2,6 +2,29 @@
 
 This guide will help you host your Privacy Policy on GitHub Pages for free.
 
+## Maintaining the current policy
+
+The app already links to these public pages:
+
+- Privacy: https://gmen2025.github.io/easy_shopping/privacy.html
+- Account deletion: https://gmen2025.github.io/easy_shopping/account-deletion.html
+
+For an update, edit [PRIVACY_POLICY.md](PRIVACY_POLICY.md) and
+[privacy.html](privacy.html) together so their policy text stays identical.
+Keep [account-deletion.html](account-deletion.html) consistent with the actual
+deletion flow, contact address, and retention disclosures. The existing HTML
+pages are ready to publish; they do not need to be recreated or uploaded to an
+online converter.
+
+Review operator details, enabled providers, and actual retention practices before
+publishing. A policy notice does not implement deletion, token revocation, or
+other backend safeguards.
+
+Commit and push the reviewed policy files to the configured Pages source branch,
+then check the Pages deployment and both public URLs. Local edits alone do not
+update the live policy. No mobile rebuild is required while these URLs remain
+unchanged.
+
 ---
 
 ## Option 1: Quick Setup (Using This Repository)

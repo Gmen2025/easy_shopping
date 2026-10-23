@@ -13,7 +13,7 @@ import { AuthContext } from "../../Context/store/Auth";
 import baseUrl from "../../assets/common/baseUrl";
 import { filterProfileOrders, getProfileUserOrders } from "../../assets/common/profileOrders";
 
-const SUPPORT_EMAIL = "girmahalie2026@gmail.com";
+const SUPPORT_EMAIL = "easyshop@addugeneteshop.com";
 const SUPPORT_PHONE = "+251954141473";
 const PRIVACY_URL = "https://gmen2025.github.io/easy_shopping/privacy.html";
 const DELETION_URL = "https://gmen2025.github.io/easy_shopping/account-deletion.html";
