@@ -2,9 +2,33 @@
 
 This guide will help you host your Privacy Policy on GitHub Pages for free.
 
+## Google Auth Platform: use the existing business website
+
+The business website is `https://addugeneteshop.com/`; its source is in the
+separate `D:\MERNWebApp\AdduGenetE_Shop` project. That site's `public` directory
+contains standalone privacy, terms, and deletion pages. Review those documents,
+build the website, and deploy the full `dist` output to its existing host.
+Do not point this domain at GitHub Pages when it already hosts the storefront.
+
+After deployment, use these Google Auth Platform > Branding values:
+
+- Home page: `https://addugeneteshop.com/`
+- Privacy policy: `https://addugeneteshop.com/privacy.html`
+- Terms of service: `https://addugeneteshop.com/terms.html`
+- Authorized domain: `addugeneteshop.com`
+
+Verify domain ownership in Google Search Console with an account associated with
+the Google Cloud project, and confirm that all three pages load publicly over
+HTTPS. Branding links do not replace the backend OAuth callback URL. Follow the
+website README for deployment and callback/domain verification details.
+
+The mobile app uses the domain policy URLs defined in
+`assets/common/legalLinks.js`. Deploy the website pages before releasing the app
+update. Keep shared disclosures in the website and mobile policies consistent.
+
 ## Maintaining the current policy
 
-The app already links to these public pages:
+The repository retains these GitHub Pages copies for reference:
 
 - Privacy: https://gmen2025.github.io/easy_shopping/privacy.html
 - Account deletion: https://gmen2025.github.io/easy_shopping/account-deletion.html

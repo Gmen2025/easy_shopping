@@ -5,6 +5,7 @@ import {
   AuthPage, AuthBrand, AuthButton, BackButton, VerificationCode, authStyles as styles,
 } from "../../Shared/AuthUI";
 import { authErrorMessage, resendSecondsRemaining } from "../../assets/common/authFlow";
+import { PRIVACY_URL, TERMS_URL } from "../../assets/common/legalLinks";
 
 const Login = ({ navigation }) => {
   const auth = useContext(AuthContext);
@@ -33,11 +34,11 @@ const Login = ({ navigation }) => {
     return () => clearInterval(timer);
   }, [resendAt]);
 
-  const openPrivacy = async () => {
+  const openLegalLink = async (url, title) => {
     try {
-      await Linking.openURL("https://gmen2025.github.io/easy_shopping/privacy.html");
+      await Linking.openURL(url);
     } catch (linkError) {
-      setError("Unable to open the Privacy Policy. Please try again.");
+      setError(`Unable to open the ${title}. Please try again.`);
     }
   };
 
@@ -122,9 +123,10 @@ const Login = ({ navigation }) => {
       {auth.loading && !emailMode && <Text style={styles.subtitle}>Completing sign-in...</Text>}
       {!!(error || auth.error) && <Text accessibilityRole="alert" style={styles.error}>{error || auth.error}</Text>}
       <Text style={[styles.subtitle, { marginTop: 18, marginBottom: 0 }]}>
-        By continuing, you agree to our published privacy practices.
+        Review our Terms of Service and how we handle your information.
       </Text>
-      <Text accessibilityRole="link" onPress={openPrivacy} style={styles.link}>Privacy Policy</Text>
+      <Text accessibilityRole="link" onPress={() => openLegalLink(PRIVACY_URL, "Privacy Policy")} style={styles.link}>Privacy Policy</Text>
+      <Text accessibilityRole="link" onPress={() => openLegalLink(TERMS_URL, "Terms of Service")} style={styles.link}>Terms of Service</Text>
       <Text style={[styles.subtitle, { marginTop: 16, marginBottom: 2 }]}>
         Don't have an account?{" "}
         <Text accessibilityRole="link" onPress={() => navigation.navigate("Register")} style={{ color: "#997300", fontWeight: "700" }}>Sign Up</Text>

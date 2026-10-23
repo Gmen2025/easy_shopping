@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Button, Dimensions, ScrollView, Switch } from "react-native";
+import { View, Text, StyleSheet, Button, Dimensions, ScrollView, Switch, Linking } from "react-native";
 import FormContainer from "../../Shared/Form/FormContainer";
 import Input from "../../Shared/Form/Input";
 import Error from "../../Shared/Error";
@@ -10,6 +10,7 @@ import Icon from "react-native-vector-icons/FontAwesome";
 
 import axios from "axios";
 import baseUrl from "../../assets/common/baseUrl";
+import { PRIVACY_URL, TERMS_URL } from "../../assets/common/legalLinks";
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -26,6 +27,18 @@ const Register = (props) => {
     becomeDriver: false,
     registrationStep: "form", // "form", "verificationSent", "verifying"
   });
+
+  const openLegalLink = async (url, title) => {
+    try {
+      await Linking.openURL(url);
+    } catch (error) {
+      Toast.show({
+        type: "error",
+        text1: `Unable to open the ${title}`,
+        text2: "Please try again.",
+      });
+    }
+  };
 
   // Email validation function
   const validateEmail = (email) => {
@@ -312,6 +325,11 @@ const Register = (props) => {
 
             {/* Buttons */}
             <View style={styles.actionSection}>
+              <Text>Review our privacy practices and service terms before creating an account.</Text>
+              <Text accessibilityRole="link" style={styles.loginLinkText}
+                onPress={() => openLegalLink(PRIVACY_URL, "Privacy Policy")}>Privacy Policy</Text>
+              <Text accessibilityRole="link" style={styles.loginLinkText}
+                onPress={() => openLegalLink(TERMS_URL, "Terms of Service")}>Terms of Service</Text>
               <EasyButton 
                 onPress={() => register()} 
                 tertiary 
@@ -501,4 +519,3 @@ const styles = StyleSheet.create({
 });
 
 export default Register;
-

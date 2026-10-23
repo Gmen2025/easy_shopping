@@ -47,12 +47,35 @@ test("profile preserves actual contact details, navigation, order cards and expl
   for (const route of ["EditProfile", "ServiceRequests", "SecuritySettings", "DeliveryCheckouts"]) {
     assert.ok(source.includes(`"${route}"`), `Missing ${route}`);
   }
-  for (const text of ["girmahalie2026@gmail.com", "+251954141473", "https://t.me/BettyT58",
+  for (const text of ["easyshop@addugeneteshop.com", "+251954141473", "https://t.me/BettyT58",
     "https://wa.me/251954141473", "<OrderCard {...order}", "ordersLoading", "ordersError",
     "Retry loading orders", "user?.name", "user?.email", "user?.phone", "await logout()"]) {
     assert.ok(source.includes(text), `Missing ${text}`);
   }
   for (const fake of ["Girma Halie", "support@addugeneteshop.com", "+1 (555)", "manage methods"]) {
     assert.ok(!source.includes(fake), `Reference placeholder leaked: ${fake}`);
+  }
+});
+
+test("account screens use the business domain for accessible legal links", () => {
+  const legalFile = path.join(root, "assets", "common", "legalLinks.js");
+  const { code } = babel.transformSync(fs.readFileSync(legalFile, "utf8"), {
+    filename: legalFile, configFile: false, babelrc: false,
+    plugins: ["@babel/plugin-transform-modules-commonjs"],
+  });
+  const links = {};
+  vm.runInNewContext(code, { exports: links });
+  assert.equal(links.PRIVACY_URL, "https://addugeneteshop.com/privacy.html");
+  assert.equal(links.TERMS_URL, "https://addugeneteshop.com/terms.html");
+  assert.equal(links.DELETION_URL, "https://addugeneteshop.com/account-deletion.html");
+  for (const screen of ["Login", "Register", "UserProfile"]) {
+    const source = fs.readFileSync(path.join(root, "Screens", "User", `${screen}.js`), "utf8");
+    babel.parseSync(source, { configFile: false, babelrc: false, parserOpts: { plugins: ["jsx"] } });
+    assert.ok(source.includes('from "../../assets/common/legalLinks"'));
+    assert.ok(source.includes("Privacy Policy"));
+    assert.ok(source.includes("Terms of Service"));
+    assert.ok(source.includes("PRIVACY_URL"));
+    assert.ok(source.includes("TERMS_URL"));
+    assert.ok(!source.includes("gmen2025.github.io"));
   }
 });

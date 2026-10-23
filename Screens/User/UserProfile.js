@@ -12,11 +12,10 @@ import OrderCard from "../../Shared/OrderCard";
 import { AuthContext } from "../../Context/store/Auth";
 import baseUrl from "../../assets/common/baseUrl";
 import { filterProfileOrders, getProfileUserOrders } from "../../assets/common/profileOrders";
+import { PRIVACY_URL, TERMS_URL, DELETION_URL } from "../../assets/common/legalLinks";
 
 const SUPPORT_EMAIL = "easyshop@addugeneteshop.com";
 const SUPPORT_PHONE = "+251954141473";
-const PRIVACY_URL = "https://gmen2025.github.io/easy_shopping/privacy.html";
-const DELETION_URL = "https://gmen2025.github.io/easy_shopping/account-deletion.html";
 
 function ProfileTile({ title, subtitle, icon, color, backgroundColor, onPress, compact, selected }) {
   return (
@@ -246,6 +245,8 @@ const UserProfile = ({ navigation }) => {
           icon="lock" color="#007BFF" onPress={() => navigation.navigate("SecuritySettings")} />
         <AccountRow title="Privacy Policy" subtitle="Learn how we protect your data"
           icon="file-text-o" color="#007BFF" onPress={() => openLink(PRIVACY_URL)} />
+        <AccountRow title="Terms of Service" subtitle="Review the terms for using our services"
+          icon="file-text-o" color="#007BFF" onPress={() => openLink(TERMS_URL)} />
         <AccountRow title="Account Deletion" subtitle="Request to delete your account"
           icon="trash" color="#FF2438" last onPress={() => openLink(DELETION_URL)} />
       </View>

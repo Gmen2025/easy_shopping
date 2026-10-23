@@ -1028,6 +1028,12 @@ Use a `From` email on the verified Resend subdomain `info.addugeneteshop.com`.
 ## 📄 Documentation
 
 - **Privacy Policy**: See `PRIVACY_POLICY.md`
+- **App legal links**: Login, registration, and profile use `assets/common/legalLinks.js`
+  for `https://addugeneteshop.com/privacy.html` and
+  `https://addugeneteshop.com/terms.html`. Profile account-deletion instructions
+  use `https://addugeneteshop.com/account-deletion.html`. Deploy the website's
+  public legal pages before releasing the app update; local website files alone
+  do not make these URLs live.
 - **Account Deletion Page**: See `account-deletion.html`
 - **Production Setup**: See `PRODUCTION_SETUP.md`
 - **App Store Submission**: See `APP_STORE_DESCRIPTION.md`
