@@ -25,4 +25,4 @@ if (ENV === 'production') {
   }
 }
 
-export default baseUrl;
+export default process.env.EXPO_PUBLIC_API_URL || baseUrl;

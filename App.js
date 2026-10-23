@@ -197,6 +197,9 @@ const NotificationBootstrap = ({ onNotificationReceived, onNotificationOpened })
 
 export default function App() {
   const navigationRef = useNavigationContainerRef();
+  const [currentScreen, setCurrentScreen] = useState("");
+  const updateCurrentScreen = () => setCurrentScreen(navigationRef.getCurrentRoute()?.name || "");
+  const hideShoppingHeader = ["Login", "SecuritySettings"].includes(currentScreen);
   const navigateFromHeader = (name, params) => {
     if (!navigationRef.isReady() || !navigationRef.getRootState()?.routeNames.includes(name)) {
       Alert.alert("Navigation unavailable", "Shopping navigation is not ready. Please try again after loading.");
@@ -320,7 +323,7 @@ export default function App() {
               />
               <View style={styles.appContainer}>
                 <StatusBar style="dark" />
-                <View style={styles.headerLayer}>
+                <View style={[styles.headerLayer, hideShoppingHeader && { display: "none" }]}>
                   <Header
                     key={`header-${dbRefreshKey}`}
                     onNavigate={navigateFromHeader}
@@ -333,7 +336,8 @@ export default function App() {
                   />
                 </View>
                 <View style={styles.navLayer}>
-                  <NavigationContainer ref={navigationRef} key={`db-${dbRefreshKey}`}>
+                  <NavigationContainer ref={navigationRef} key={`db-${dbRefreshKey}`}
+                    onReady={updateCurrentScreen} onStateChange={updateCurrentScreen}>
                     <MaintenanceWrapper />
                     <Toast />
                   </NavigationContainer>

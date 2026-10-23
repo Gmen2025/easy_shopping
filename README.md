@@ -2,9 +2,76 @@
 
 A full-featured React Native e-commerce mobile application built with Expo, featuring secure payments, order management, and admin capabilities.
 
+## Social sign-in and optional two-factor authentication
+
+The login screen uses the yellow-and-white Addu Genet design, with email,
+Google, Apple, and Facebook entry points. Provider account selection happens
+in the provider's real browser UI, not an imitation account picker.
+Existing registration, password reset, guest shopping and role-based profiles
+remain available. Authenticated users can open **Profile > Security Settings**
+to enable an authenticator app or email codes, save single-use backup codes,
+regenerate recovery codes, or disable 2FA after verifying their current factor.
+SMS and trusted-device bypass are not implemented.
+
+Deploy the matching authentication backend from `D:\MERN_COURSE\backend`
+before using these screens. Follow its authentication setup documentation
+and `.env.example` to register Google, Apple and Facebook applications,
+configure callback URLs, SMTP, the encryption key and permitted app redirects.
+No OAuth client secrets belong in this mobile app. An unconfigured provider
+returns an explicit error; buttons never simulate successful sign-in.
+
+- Native callback: `addugeneteshop://auth`, using the existing Expo scheme.
+  Use a development or release build, not Expo Go, to test this callback.
+- Optional mobile environment: `EXPO_PUBLIC_API_URL` overrides the API base
+  URL and must include `/api/v1/` with a trailing slash. Otherwise the existing
+  Render API remains the default. Use a reachable LAN URL for a physical phone,
+  not a backend Windows filesystem path.
+- Optional `EXPO_PUBLIC_AUTH_REDIRECT_URI` overrides the callback (also exposed
+  through `app.config.js`). For web, configure a fixed HTTPS origin/page in the
+  backend allowlist; the current web origin is the default.
+- OAuth uses a browser authorization-code flow and a short-lived, one-use,
+  PKCE-bound handoff. Access tokens are never placed in callback URLs.
+- Password and social sign-in both stop at the 2FA challenge when enrolled;
+  the app stores an access token only after final verification.
+- Authenticator setup shows a QR code and selectable manual setup key.
+  Backup codes are displayed once; store them safely before continuing.
+- Rebuild the native app after installing the new Expo Crypto, Web Browser
+  and SVG native dependencies. Restart Metro after changing public environment
+  settings. Provider credentials and SMTP cannot be verified without your
+  configured service accounts.
+
+### Missing ExpoCrypto or ExpoWebBrowser on a device
+
+An APK/dev client installed before these native dependencies were added cannot
+load them from a JavaScript reload or an OTA update. Social sign-in checks the
+installed native modules and displays an explicit rebuild message rather than
+crashing startup; email sign-in remains available. There is no insecure random
+number fallback for PKCE.
+
+For a connected Android emulator/device, run `npx expo run:android --device`
+to rebuild and install the native app, then use
+`npx expo start --dev-client --clear` if Metro is not already running.
+Alternatively, build `npx eas-cli@latest build --platform android --profile development`
+and install that new development APK on each test device. For a standalone test
+APK, use `--profile preview` instead. Restarting Metro alone does not update
+native code. Use a rebuilt development/release app, not Expo Go, for social login.
+
+Focused checks: `node --test scripts/authentication.test.cjs`.
+
 ## 📱 Features
 
 ### Customer Features
+- **Profile dashboard**: Reference-style account summary, yellow edit action,
+  service requests and red sign-out action, order shortcuts, privacy/security
+  rows and support tiles. Phones use two-column tiles; wider screens use four.
+  Account and support details use actual existing data, not reference placeholders.
+  Order List expands the existing order cards; Track Delivery filters active
+  orders and Deliveries filters delivered orders. Cancellation and Payment open
+  the existing delivery checkout manager, which enforces cancellation/refund
+  eligibility and shows checkout payments; no saved-payment-method manager is
+  implied. Security Settings remains accessible for 2FA/recovery. Loading,
+  empty and failed order requests have distinct states, with pull-to-refresh
+  and retry support.
 - **Reference-style Storefront**: Yellow branded header with a shopping menu,
   regional country selector, notification inbox and cart shortcut. Home includes
   search, Ride/Store/Service Request shortcuts, circular catalog categories,

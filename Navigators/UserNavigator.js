@@ -3,6 +3,7 @@ import { createStackNavigator } from "@react-navigation/stack";
 import { AuthContext, isDriverUser } from "../Context/store/Auth";
 
 import Login from "../Screens/User/Login";
+import SecuritySettings from "../Screens/User/SecuritySettings";
 import Register from "../Screens/User/Register";
 import UserProfile from "../Screens/User/UserProfile";
 import ProductContainer from "../Screens/Products/ProductContainer";
@@ -34,6 +35,7 @@ const MyStack = () => {
         <>
           <Stack.Screen name="User Profile" component={UserProfile} />
           <Stack.Screen name="EditProfile" component={EditProfile} />
+          <Stack.Screen name="SecuritySettings" component={SecuritySettings} options={{ gestureEnabled: false }} />
           <Stack.Screen name="ServiceRequests" component={ServiceRequests} />
           <Stack.Screen name="ServiceUsdCheckout" component={MultiDeliveryCheckout} options={{ headerShown: false }} />
           <Stack.Screen name="MultiDeliveryCheckout" component={MultiDeliveryCheckout} options={{ headerShown: false }} />

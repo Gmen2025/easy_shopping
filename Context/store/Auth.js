@@ -3,6 +3,8 @@ import axios from "axios";
 import baseUrl from "../../assets/common/baseUrl";
 import AsyncStorage from "@react-native-async-storage/async-storage"; //Store data in the device
 import { AppState } from "react-native";
+import { socialSignIn } from "../../assets/common/authApi";
+import { authErrorMessage, classifyAuthResponse } from "../../assets/common/authFlow";
 
 export const AuthContext = createContext();
 
@@ -94,6 +96,7 @@ const initialState = {
   isAuthenticated: false,
   loading: false,
   error: null,
+  twoFactorChallenge: null,
 };
 
 const authReducer = (state, action) => {
@@ -108,6 +111,7 @@ const authReducer = (state, action) => {
         user: action.payload,
         isAuthenticated: true,
         error: null,
+        twoFactorChallenge: null,
       };
     case "REGISTER_SUCCESS":
       return {
@@ -124,6 +128,11 @@ const authReducer = (state, action) => {
         error: action.payload,
         isAuthenticated: false,
       };
+    case "TWO_FACTOR_REQUIRED":
+      return { ...state, loading: false, isAuthenticated: false, user: null,
+        twoFactorChallenge: action.payload, error: null };
+    case "CANCEL_LOGIN":
+      return { ...initialState };
     case "REGISTER_FAIL":
       return {
         ...state,
@@ -256,27 +265,70 @@ export const AuthProvider = ({ children }) => {
     };
   }, [handleAppStateChange]);
 
+  const completeSignIn = async (data) => {
+    const result = classifyAuthResponse(data);
+    if (result.challenge) {
+      dispatch({ type: "TWO_FACTOR_REQUIRED", payload: result.challenge });
+      return;
+    }
+    await AsyncStorage.multiSet([
+      ["token", result.token],
+      ["lastActivityTime", Date.now().toString()],
+    ]);
+    dispatch({ type: "LOGIN_SUCCESS", payload: result.user });
+  };
+
   const login = async (email, password) => {
     dispatch({ type: "LOGIN_START" });
     try {
       const res = await axios.post(`${baseUrl}users/login`, {
-        email,
+        email: email.trim().toLowerCase(),
         password,
       });
-      // Extract user data and token from response
-      const { token, ...responseData } = res.data;
-      const userData = extractUserProfile(responseData);
-      dispatch({ type: "LOGIN_SUCCESS", payload: userData });
-      await AsyncStorage.setItem("token", token);
-      // Set initial activity timestamp on login
-      await updateLastActivity();
+      await completeSignIn(res.data);
     } catch (error) {
       dispatch({
         type: "LOGIN_FAIL",
-        payload: error.response?.data?.message || "Login failed",
+        payload: authErrorMessage(error),
       });
     }
   };
+
+  const loginWithSocial = async (provider) => {
+    dispatch({ type: "LOGIN_START" });
+    try {
+      const data = await socialSignIn(provider);
+      if (data) await completeSignIn(data);
+      else dispatch({ type: "CANCEL_LOGIN" });
+    } catch (error) {
+      dispatch({ type: "LOGIN_FAIL", payload: authErrorMessage(error) });
+    }
+  };
+
+  const verifyTwoFactor = async (code, useBackupCode = false) => {
+    dispatch({ type: "LOGIN_START" });
+    try {
+      if (!state.twoFactorChallenge) throw new Error("Please start sign-in again.");
+      const response = await axios.post(`${baseUrl}users/auth/2fa/verify`, {
+        challengeId: state.twoFactorChallenge.challengeId, code, useBackupCode,
+      }, { timeout: 20000 });
+      await completeSignIn(response.data);
+    } catch (error) {
+      dispatch({ type: "LOGIN_FAIL", payload: authErrorMessage(error) });
+    }
+  };
+
+  const resendTwoFactor = async () => {
+    if (!state.twoFactorChallenge) throw new Error("Please start sign-in again.");
+    const response = await axios.post(`${baseUrl}users/auth/2fa/resend`, {
+      challengeId: state.twoFactorChallenge.challengeId,
+    }, { timeout: 20000 });
+    dispatch({ type: "TWO_FACTOR_REQUIRED",
+      payload: { ...state.twoFactorChallenge, ...response.data } });
+    return response.data;
+  };
+
+  const cancelLogin = () => dispatch({ type: "CANCEL_LOGIN" });
 
   const fetchUser = async (userId, token) => {
     dispatch({ type: "FETCH_USER_START" });
@@ -344,7 +396,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ ...state, login, register, logout, fetchUser, refreshProfile, restoreSession, updateLastActivity }}>
+    <AuthContext.Provider value={{ ...state, login, loginWithSocial, verifyTwoFactor, resendTwoFactor, cancelLogin, register, logout, fetchUser, refreshProfile, restoreSession, updateLastActivity }}>
       {children}
     </AuthContext.Provider>
   );
