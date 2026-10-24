@@ -6,6 +6,7 @@ import { Platform } from "react-native";
 import baseUrl from "./baseUrl";
 import { getDatabaseNameFromStorage } from "./databaseConfig";
 import { parseSocialCallback } from "./authFlow";
+import { getSocialLoginSetting } from "./authFeatures";
 
 if (Platform.OS === "web") {
   require("expo-web-browser").maybeCompleteAuthSession();
@@ -22,6 +23,9 @@ export const securityRequest = async (path, body) => {
 };
 
 export const socialSignIn = async (provider) => {
+  if (!(await getSocialLoginSetting()).enabled) {
+    throw new Error("Social sign-in is not available in this app release. Please use email sign-in.");
+  }
   if (!["google", "apple", "facebook"].includes(provider)) {
     throw new Error("Unsupported sign-in provider.");
   }

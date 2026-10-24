@@ -6,9 +6,11 @@ import {
 } from "../../Shared/AuthUI";
 import { authErrorMessage, resendSecondsRemaining } from "../../assets/common/authFlow";
 import { PRIVACY_URL, TERMS_URL } from "../../assets/common/legalLinks";
+import { useSocialSignInAvailability } from "../../assets/common/useSocialSignInAvailability";
 
 const Login = ({ navigation }) => {
   const auth = useContext(AuthContext);
+  const { enabled: socialSignInEnabled, error: socialSettingsError } = useSocialSignInAvailability();
   const [emailMode, setEmailMode] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -106,6 +108,7 @@ const Login = ({ navigation }) => {
         <Text accessibilityRole="link" style={styles.link} onPress={() => navigation.navigate("ForgotPassword")}>Forgot Password?</Text>
       </View> : <AuthButton title="Continue with Email" icon="envelope-o" disabled={auth.loading}
         onPress={() => setEmailMode(true)} />}
+      {socialSignInEnabled && <>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginVertical: 20 }}>
         <View style={{ height: 1, backgroundColor: "#DCE5F0", flex: 1 }} />
         <Text style={{ color: "#45608A" }}>or</Text>
@@ -120,6 +123,10 @@ const Login = ({ navigation }) => {
       <AuthButton title="Continue with Facebook" icon="facebook-official" disabled={auth.loading}
         style={{ backgroundColor: "#0866FF" }} textStyle={{ color: "#FFFFFF" }}
         onPress={() => { setError(""); auth.loginWithSocial("facebook"); }} />
+      </>}
+      {!!socialSettingsError && <Text accessibilityRole="alert" style={styles.error}>
+        {socialSettingsError} Email sign-in is still available.
+      </Text>}
       {auth.loading && !emailMode && <Text style={styles.subtitle}>Completing sign-in...</Text>}
       {!!(error || auth.error) && <Text accessibilityRole="alert" style={styles.error}>{error || auth.error}</Text>}
       <Text style={[styles.subtitle, { marginTop: 18, marginBottom: 0 }]}>

@@ -33,6 +33,9 @@ export const parseSocialCallback = (callbackUrl, redirectUri) => {
     throw new Error("The sign-in callback did not match this app.");
   }
   if (callback.searchParams.has("error")) {
+    if (callback.searchParams.get("error") === "social_login_disabled") {
+      throw new Error("Social sign-in is disabled. Please use email sign-in.");
+    }
     throw new Error("Social sign-in was not completed. Check your provider configuration or try email sign-in.");
   }
   const code = callback.searchParams.get("code");

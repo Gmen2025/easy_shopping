@@ -13,6 +13,7 @@ import Toast from 'react-native-toast-message';
 import EasyButton from '../../Shared/StyledComponenets/EasyButton';
 import { useMaintenance } from '../../Context/store/MaintenanceContext';
 import { AuthContext } from '../../Context/store/Auth';
+import SocialLoginSettings from './SocialLoginSettings';
 
 const MaintenanceSettings = (props) => {
   const { maintenanceEnabled, toggleMaintenance } = useMaintenance();
@@ -84,11 +85,13 @@ const MaintenanceSettings = (props) => {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.headerCard}>
-        <Text style={styles.headerTitle}>Maintenance Settings</Text>
+        <Text style={styles.headerTitle}>Maintenance &amp; Login Settings</Text>
         <Text style={styles.headerSubtitle}>
           Control application maintenance mode
         </Text>
       </View>
+
+      <SocialLoginSettings />
 
       <Card style={styles.mainCard}>
         <Card.Content>

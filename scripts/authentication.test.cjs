@@ -6,7 +6,7 @@ const vm = require("node:vm");
 const babel = require("@babel/core");
 
 const root = path.join(__dirname, "..");
-function load(relative, mocks = {}) {
+function load(relative, mocks = {}, globals = {}) {
   const filename = path.join(root, relative);
   const { code } = babel.transformSync(fs.readFileSync(filename, "utf8"), {
     filename, configFile: false, babelrc: false,
@@ -14,7 +14,7 @@ function load(relative, mocks = {}) {
   });
   const exports = {};
   vm.runInNewContext(code, {
-    exports, URL, URLSearchParams, Date, console, setInterval, clearInterval,
+    exports, URL, URLSearchParams, Date, console, setInterval, clearInterval, ...globals,
     require(name) {
       if (!(name in mocks)) throw new Error(`Unexpected import: ${name}`);
       return mocks[name];
@@ -168,6 +168,7 @@ test("browser sign-in uses S256 PKCE, database context and a code-only exchange"
     "./baseUrl": { __esModule: true, default: "https://api.example/api/v1/" },
     "./databaseConfig": { getDatabaseNameFromStorage: async () => "E_ShopUSA" },
     "./authFlow": flow,
+    "./authFeatures": { getSocialLoginSetting: async () => ({ enabled: true }) },
   });
   await api.socialSignIn("google");
   assert.equal(browserUrl.searchParams.get("provider"), "google");
@@ -193,6 +194,7 @@ for (const missing of ["ExpoCrypto", "ExpoWebBrowser"]) {
       "./baseUrl": { __esModule: true, default: "https://api.example/api/v1/" },
       "./databaseConfig": {},
       "./authFlow": flow,
+      "./authFeatures": { getSocialLoginSetting: async () => ({ enabled: true }) },
     });
     assert.equal(typeof api.securityRequest, "function");
     await assert.rejects(api.socialSignIn("google"), (error) => {
@@ -203,3 +205,198 @@ for (const missing of ["ExpoCrypto", "ExpoWebBrowser"]) {
     });
   });
 }
+
+test("remote social settings validate server data and require authentication for admin updates", async () => {
+  let data = { success: true, enabled: false };
+  let token = "admin-token";
+  const writes = [];
+  const features = load("assets\\common\\authFeatures.js", {
+    axios: {
+      get: async () => ({ data }),
+      put: async (url, body, options) => { writes.push({ url, body, options }); return { data }; },
+    },
+    "@react-native-async-storage/async-storage": { getItem: async () => token },
+    "./baseUrl": { __esModule: true, default: "https://api.example/api/v1/" },
+  });
+  for (const enabled of [true, false]) {
+    data = { success: true, enabled };
+    assert.equal((await features.getSocialLoginSetting()).enabled, enabled);
+  }
+  await features.updateSocialLoginSetting(false);
+  assert.equal(writes[0].url, "https://api.example/api/v1/settings/social-login");
+  assert.equal(writes[0].body.enabled, false);
+  assert.equal(writes[0].options.headers.Authorization, "Bearer admin-token");
+  token = null;
+  await assert.rejects(features.updateSocialLoginSetting(true), /session has expired/);
+  assert.equal(writes.length, 1);
+  for (const invalid of [{}, { success: true, enabled: "true" }, { success: false, enabled: true }]) {
+    data = invalid;
+    await assert.rejects(features.getSocialLoginSetting(), /invalid social sign-in settings/);
+  }
+});
+
+test("disabled social sign-in rejects before loading native modules or making requests", async () => {
+  const api = load("assets\\common\\authApi.js", {
+    axios: {},
+    "@react-native-async-storage/async-storage": {},
+    expo: {},
+    "expo-constants": {},
+    "react-native": { Platform: { OS: "android" } },
+    "./baseUrl": { __esModule: true, default: "https://api.example/api/v1/" },
+    "./databaseConfig": {},
+    "./authFlow": flow,
+    "./authFeatures": { getSocialLoginSetting: async () => ({ enabled: false }) },
+  });
+  for (const provider of ["google", "apple", "facebook"]) {
+    await assert.rejects(api.socialSignIn(provider), /not available.*email sign-in/);
+  }
+});
+
+test("login renders all social providers only when enabled and always keeps email and legal links", () => {
+    for (const enabled of [true, false]) {
+      const react = {
+        createElement: (type, props, ...children) => ({ type, props, children }),
+        useContext: () => ({ loading: false }),
+        useEffect: () => {},
+        useState: (value) => [value, () => {}],
+      };
+      const { default: Login } = load("Screens\\User\\Login.js", {
+        react,
+        "react-native": { View: "View", Text: "Text", TextInput: "TextInput", Linking: {} },
+        "../../Context/store/Auth": { AuthContext: {} },
+        "../../Shared/AuthUI": {
+          AuthPage: "AuthPage", AuthBrand: "AuthBrand", AuthButton: "AuthButton",
+          BackButton: "BackButton", VerificationCode: "VerificationCode", authStyles: {},
+        },
+        "../../assets/common/authFlow": flow,
+        "../../assets/common/legalLinks": {},
+        "../../assets/common/useSocialSignInAvailability": { useSocialSignInAvailability: () => ({ enabled, error: "" }) },
+      });
+      const tree = JSON.stringify(Login({ navigation: {} }));
+      for (const provider of ["Google", "Apple", "Facebook"]) {
+        assert.equal(tree.includes(`Continue with ${provider}`), enabled);
+      }
+      assert.equal(tree.includes('"or"'), enabled);
+      for (const label of ["Continue with Email", "Privacy Policy", "Terms of Service", "Continue as Guest"]) {
+        assert.ok(tree.includes(label), label);
+      }
+    }
+  });
+
+test("signup does not expose or submit driver registration fields", () => {
+    const source = fs.readFileSync(path.join(root, "Screens", "User", "Register.js"), "utf8");
+    babel.parseSync(source, { configFile: false, babelrc: false, parserOpts: { plugins: ["jsx"] } });
+    for (const removed of ["Register as Driver", "becomeDriver", "isDriver", "is_driver", "driverRole", "<Switch"]) {
+      assert.ok(!source.includes(removed), removed);
+    }
+    assert.ok(source.includes('users/register'));
+    assert.ok(source.includes("requireEmailVerification: true"));
+  });
+
+test("login availability refreshes on focus, every 30 seconds and foreground, fails closed, and cleans up", async () => {
+  const state = [];
+  let focus, tick, onAppState, intervalMs, cleared, removed = false;
+  let setting = { enabled: true };
+  let failure;
+  const { useSocialSignInAvailability } = load("assets\\common\\useSocialSignInAvailability.js", {
+    react: {
+      useCallback: (fn) => fn,
+      useState: (initial) => {
+        const index = state.length;
+        state.push(initial);
+        return [initial, (value) => { state[index] = value; }];
+      },
+    },
+    "react-native": { AppState: {
+      addEventListener: (_event, callback) => {
+        onAppState = callback;
+        return { remove: () => { removed = true; } };
+      },
+    } },
+    "@react-navigation/native": { useFocusEffect: (callback) => { focus = callback; } },
+    "./authFeatures": { getSocialLoginSetting: async () => {
+      if (failure) throw failure;
+      return setting;
+    } },
+  }, {
+    setInterval: (callback, ms) => { tick = callback; intervalMs = ms; return "timer"; },
+    clearInterval: (id) => { cleared = id; },
+  });
+  useSocialSignInAvailability();
+  assert.equal(state[0], false);
+  const cleanup = focus();
+  await new Promise(setImmediate);
+  assert.equal(state[0], true);
+  assert.equal(intervalMs, 30000);
+  setting = { enabled: false };
+  await tick();
+  assert.equal(state[0], false);
+  setting = { enabled: true };
+  onAppState("active");
+  await new Promise(setImmediate);
+  assert.equal(state[0], true);
+  failure = new Error("Settings service unavailable");
+  await tick();
+  assert.equal(state[0], false);
+  assert.equal(state[1], "Settings service unavailable");
+  failure = null;
+  const pending = tick();
+  cleanup();
+  await pending;
+  assert.equal(state[0], false, "Late requests cannot update an unfocused screen");
+  assert.equal(cleared, "timer");
+  assert.equal(removed, true);
+});
+
+test("mobile admin switch saves confirmed status and surfaces failures with a refresh action", async () => {
+  const state = [];
+  let index = 0, focus, fail = false;
+  const writes = [];
+  const react = {
+    createElement: (type, props, ...children) => ({ type, props, children }),
+    useCallback: (fn) => fn,
+    useState: (initial) => {
+      const slot = index++;
+      if (state.length <= slot) state.push(initial);
+      return [state[slot], (value) => { state[slot] = value; }];
+    },
+  };
+  const { default: Settings } = load("Screens\\Admin\\SocialLoginSettings.js", {
+    react,
+    "react-native": { ActivityIndicator: "ActivityIndicator", Switch: "Switch", View: "View" },
+    "react-native-paper": { Card: Object.assign(() => {}, { Content: "Content" }), Text: "Text", Button: "Button" },
+    "@react-navigation/native": { useFocusEffect: (callback) => { focus = callback; } },
+    "../../assets/common/authFeatures": {
+      getSocialLoginSetting: async () => ({ success: true, enabled: false }),
+      updateSocialLoginSetting: async (enabled) => {
+        writes.push(enabled);
+        if (fail) throw new Error("Admin access required");
+        return { success: true, enabled };
+      },
+    },
+  });
+  const render = () => { index = 0; return Settings(); };
+  const find = (node, type) => {
+    if (!node || typeof node !== "object") return;
+    if (node.type === type) return node;
+    return node.children?.flat(Infinity).map((child) => find(child, type)).find(Boolean);
+  };
+  render();
+  const cleanup = focus();
+  await new Promise(setImmediate);
+  let toggle = find(render(), "Switch");
+  assert.equal(toggle.props.value, false);
+  assert.equal(toggle.props.disabled, false);
+  await toggle.props.onValueChange(true);
+  toggle = find(render(), "Switch");
+  assert.equal(toggle.props.value, true);
+  fail = true;
+  await toggle.props.onValueChange(false);
+  const failed = render();
+  assert.equal(find(failed, "Switch").props.disabled, true);
+  assert.ok(JSON.stringify(failed).includes("Admin access required"));
+  await find(failed, "Button").props.onPress();
+  assert.equal(find(render(), "Switch").props.disabled, false);
+  assert.deepEqual(writes, [true, false]);
+  cleanup();
+});

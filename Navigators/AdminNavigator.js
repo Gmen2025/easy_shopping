@@ -117,7 +117,7 @@ function MyStack() {
         name="MaintenanceSettings"
         component={MaintenanceSettings}
         options={{
-          title: 'Maintenance Mode',
+          title: 'Maintenance & Login',
           headerTintColor: '#e6c20eff',
           headerTitleAlign: 'center',
           headerTitleStyle:{
