@@ -4,6 +4,7 @@ import {
   Alert,
   FlatList,
   Modal,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -19,9 +20,13 @@ import axios from "axios";
 import baseUrl from "../../assets/common/baseUrl";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import { storeRequest } from "../../assets/common/storefront";
+import StoreLogo from "../../Shared/StoreLogo";
+import StoreLogoField from "../../Shared/StoreLogoField";
+import { normalizeStoreLogo } from "../../assets/common/storeLogo";
 
 const emptyForm = {
   name: "",
+  logo: "",
   country: "Ethio",
   address1: "",
   address2: "",
@@ -36,6 +41,8 @@ const AdminStores = () => {
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [logoBusy, setLogoBusy] = useState(false);
+  const [editLogoBusy, setEditLogoBusy] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [location, setLocation] = useState(null);
   const [locatingDevice, setLocatingDevice] = useState(false);
@@ -47,7 +54,7 @@ const AdminStores = () => {
   const [loadingRejections, setLoadingRejections] = useState(false);
   const [deletingRejectionId, setDeletingRejectionId] = useState("");
   const [editingStore, setEditingStore] = useState(null);
-  const [editForm, setEditForm] = useState({ name: "", address: "", email: "", phone: "", password: "" });
+  const [editForm, setEditForm] = useState({ name: "", address: "", email: "", phone: "", password: "", logo: "" });
   const [editLocation, setEditLocation] = useState(null);
   const [editLocating, setEditLocating] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -129,6 +136,7 @@ const AdminStores = () => {
   };
 
   const createStore = async () => {
+    if (creating || logoBusy) return;
     const { name, country, address1, address2, city, zip, email, phone, password } = form;
     const isUSA = country === "USA";
 
@@ -148,11 +156,12 @@ const AdminStores = () => {
 
     setCreating(true);
     try {
+      const logo = normalizeStoreLogo(form.logo);
       const token = await AsyncStorage.getItem("token");
       const currentDb = await getDatabaseNameFromStorage();
       const response = await axios.post(
         `${baseUrl}stores/admin/company-stores`,
-        { name, address, email, phone, password, latitude: location.latitude, longitude: location.longitude },
+        { name, address, email, phone, password, logo, latitude: location.latitude, longitude: location.longitude },
         { headers: { Authorization: `Bearer ${token}`, "x-database-name": currentDb } }
       );
       Alert.alert("Company store created", response?.data?.message || "Store was created successfully.");
@@ -224,6 +233,7 @@ const AdminStores = () => {
     setEditingStore(store);
     setEditForm({
       name: store.name || "",
+      logo: store.logo || "",
       address: store.address || "",
       email: store.email || "",
       phone: store.phone || "",
@@ -236,6 +246,7 @@ const AdminStores = () => {
   };
 
   const closeEditStore = () => {
+    if (savingEdit || editLogoBusy) return;
     setEditingStore(null);
   };
 
@@ -257,6 +268,7 @@ const AdminStores = () => {
   };
 
   const saveEditStore = async () => {
+    if (savingEdit || editLogoBusy) return;
     const { name, address, email, phone, password } = editForm;
     if (!name || !address || !email || !phone) {
       Alert.alert("Missing fields", "Please fill in all required fields.");
@@ -267,7 +279,7 @@ const AdminStores = () => {
     try {
       const token = await AsyncStorage.getItem("token");
       const currentDb = await getDatabaseNameFromStorage();
-      const payload = { name, address, email, phone };
+      const payload = { name, address, email, phone, logo: normalizeStoreLogo(editForm.logo) };
       if (password) payload.password = password;
       if (editLocation) {
         payload.latitude = editLocation.latitude;
@@ -279,7 +291,7 @@ const AdminStores = () => {
         { headers: { Authorization: `Bearer ${token}`, "x-database-name": currentDb } }
       );
       Alert.alert("Store updated", response?.data?.message || "Company store was updated successfully.");
-      closeEditStore();
+      setEditingStore(null);
       loadStores();
     } catch (error) {
       Alert.alert("Update failed", error?.response?.data?.message || "Unable to update this store.");
@@ -290,6 +302,7 @@ const AdminStores = () => {
 
   const renderStore = ({ item }) => (
     <View style={styles.row}>
+      <StoreLogo name={item.name} logo={item.logo} size={48} />
       <View style={styles.details}>
         <Text style={styles.name}>{item.name}</Text>
         <Text style={styles.detail}>{item.address}</Text>
@@ -362,6 +375,8 @@ const AdminStores = () => {
               <Text style={styles.createButtonText}>{migratingInventory ? "Migrating..." : "Migrate existing inventory"}</Text>
             </TouchableOpacity>
             <TextInput style={styles.input} placeholder="Store name" value={form.name} onChangeText={(text) => setForm({ ...form, name: text })} />
+            <StoreLogoField name={form.name} value={form.logo} disabled={creating} onBusyChange={setLogoBusy}
+              onChange={(logo) => setForm((current) => ({ ...current, logo }))} />
             <TextInput style={styles.input} placeholder="Email" autoCapitalize="none" keyboardType="email-address" value={form.email} onChangeText={(text) => setForm({ ...form, email: text.toLowerCase() })} />
             <TextInput style={styles.input} placeholder="Phone" keyboardType="phone-pad" value={form.phone} onChangeText={(text) => setForm({ ...form, phone: text })} />
             <TextInput style={styles.input} placeholder="Password" secureTextEntry value={form.password} onChangeText={(text) => setForm({ ...form, password: text })} />
@@ -404,7 +419,7 @@ const AdminStores = () => {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={styles.createButton} disabled={creating} onPress={createStore}>
+            <TouchableOpacity style={styles.createButton} disabled={creating || logoBusy} onPress={createStore}>
               <Text style={styles.createButtonText}>{creating ? "Creating..." : "Create Store"}</Text>
             </TouchableOpacity>
 
@@ -464,8 +479,11 @@ const AdminStores = () => {
       <Modal visible={!!editingStore} animationType="slide" transparent onRequestClose={closeEditStore}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
+            <ScrollView keyboardShouldPersistTaps="handled">
             <Text style={styles.formTitle}>Edit Company Store</Text>
             <TextInput style={styles.input} placeholder="Store name" value={editForm.name} onChangeText={(text) => setEditForm({ ...editForm, name: text })} />
+            <StoreLogoField name={editForm.name} value={editForm.logo} disabled={savingEdit} onBusyChange={setEditLogoBusy}
+              onChange={(logo) => setEditForm((current) => ({ ...current, logo }))} />
             <TextInput style={styles.input} placeholder="Address" value={editForm.address} onChangeText={(text) => setEditForm({ ...editForm, address: text })} />
             <TextInput style={styles.input} placeholder="Email" autoCapitalize="none" keyboardType="email-address" value={editForm.email} onChangeText={(text) => setEditForm({ ...editForm, email: text.toLowerCase() })} />
             <TextInput style={styles.input} placeholder="Phone" keyboardType="phone-pad" value={editForm.phone} onChangeText={(text) => setEditForm({ ...editForm, phone: text })} />
@@ -485,13 +503,14 @@ const AdminStores = () => {
             </View>
 
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelButton} onPress={closeEditStore} disabled={savingEdit}>
+              <TouchableOpacity style={styles.cancelButton} onPress={closeEditStore} disabled={savingEdit || editLogoBusy}>
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.createButton, { flex: 1, marginTop: 0 }]} onPress={saveEditStore} disabled={savingEdit}>
+              <TouchableOpacity style={[styles.createButton, { flex: 1, marginTop: 0 }]} onPress={saveEditStore} disabled={savingEdit || editLogoBusy}>
                 <Text style={styles.createButtonText}>{savingEdit ? "Saving..." : "Save Changes"}</Text>
               </TouchableOpacity>
             </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -570,6 +589,7 @@ const styles = StyleSheet.create({
   empty: { textAlign: "center", color: "#6b7280", marginTop: 24 },
   row: {
     flexDirection: "row",
+    gap: 10,
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
@@ -615,6 +635,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalCard: {
+    maxHeight: "90%",
     backgroundColor: "#fff",
     borderRadius: 12,
     padding: 16,

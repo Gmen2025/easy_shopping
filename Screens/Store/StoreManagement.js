@@ -7,6 +7,8 @@ import baseUrl from "../../assets/common/baseUrl";
 import { storeRequest } from "../../assets/common/storefront";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import { useCurrency } from "../../assets/common/currency";
+import StoreLogoField from "../../Shared/StoreLogoField";
+import { normalizeStoreLogo } from "../../assets/common/storeLogo";
 
 const emptyProfile = { name: "", address: "", logo: "", description: "", latitude: "", longitude: "" };
 const StoreManagement = () => {
@@ -21,6 +23,7 @@ const StoreManagement = () => {
   const [stock, setStock] = useState({ price: "", countInStock: "", minStock: "5" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [logoBusy, setLogoBusy] = useState(false);
   const [enabled, setEnabled] = useState(false);
   const [error, setError] = useState("");
   const { formatPrice } = useCurrency();
@@ -54,7 +57,7 @@ const StoreManagement = () => {
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
   const run = async (action) => {
-    if (saving) return;
+    if (saving || logoBusy) return;
     setSaving(true);
     try { await action(); }
     catch (failure) { Alert.alert("Store update failed", failure.response?.data?.message || failure.message); }
@@ -71,13 +74,14 @@ const StoreManagement = () => {
     });
   };
   const saveProfile = () => run(async () => {
+    const payload = { ...profile, logo: normalizeStoreLogo(profile.logo) };
     if (creatingBranch) {
       const root = locations.find((store) => !store.parentStore);
-      const branch = await storeRequest(`me/locations/${root._id}/branches`, { method: "post", data: profile });
+      const branch = await storeRequest(`me/locations/${root._id}/branches`, { method: "post", data: payload });
       setLocations((current) => [...current, branch]);
       await selectLocation(branch);
     } else {
-      const updated = await storeRequest(`me/locations/${selectedId}`, { method: "put", data: profile });
+      const updated = await storeRequest(`me/locations/${selectedId}`, { method: "put", data: payload });
       setLocations((current) => current.map((store) => store._id === updated._id ? updated : store));
       await selectLocation(updated);
     }
@@ -89,22 +93,24 @@ const StoreManagement = () => {
       <Text style={styles.title}>My store & inventory</Text>
       {error ? <TouchableOpacity onPress={load}><Text style={styles.warning}>{error} Tap to retry.</Text></TouchableOpacity> : null}
       {!enabled ? <Text style={styles.warning}>Admin must migrate inventory before store stock can be edited.</Text> : null}
-      <Picker selectedValue={selectedId} enabled={!saving} onValueChange={(id) => run(() => selectLocation(locations.find((store) => store._id === id)))}>
+      <Picker selectedValue={selectedId} enabled={!saving && !logoBusy} onValueChange={(id) => run(() => selectLocation(locations.find((store) => store._id === id)))}>
         {locations.map((store) => <Picker.Item key={store._id} label={store.name} value={store._id} />)}
       </Picker>
       {selectedId ? <>
         <Text selectable>Store ID: {selectedId}</Text>
         <View style={styles.card}>
           <Text style={styles.heading}>{creatingBranch ? "New branch" : "Store profile"}</Text>
-          {Object.keys(emptyProfile).map((field) => (
-            <TextInput key={field} style={styles.input} placeholder={field === "logo" ? "Logo image HTTPS URL (optional)" : field}
+          <StoreLogoField name={profile.name} value={profile.logo} disabled={saving} onBusyChange={setLogoBusy}
+            onChange={(logo) => setProfile((current) => ({ ...current, logo }))} />
+          {Object.keys(emptyProfile).filter((field) => field !== "logo").map((field) => (
+            <TextInput key={field} style={styles.input} placeholder={field}
               value={profile[field]} editable={!saving}
               onChangeText={(value) => setProfile((current) => ({ ...current, [field]: value }))} />
           ))}
-          <TouchableOpacity style={styles.button} disabled={saving} onPress={saveProfile}><Text>Save profile</Text></TouchableOpacity>
-          {!creatingBranch ? <TouchableOpacity style={styles.button} disabled={saving} onPress={() => { setCreatingBranch(true); setProfile(emptyProfile); }}>
+          <TouchableOpacity style={styles.button} disabled={saving || logoBusy} onPress={saveProfile}><Text>Save profile</Text></TouchableOpacity>
+          {!creatingBranch ? <TouchableOpacity style={styles.button} disabled={saving || logoBusy} onPress={() => { setCreatingBranch(true); setProfile(emptyProfile); }}>
             <Text>Add a branch</Text>
-          </TouchableOpacity> : <TouchableOpacity onPress={() => run(() => selectLocation(locations.find((store) => store._id === selectedId)))}><Text>Cancel branch</Text></TouchableOpacity>}
+          </TouchableOpacity> : <TouchableOpacity disabled={saving || logoBusy} onPress={() => run(() => selectLocation(locations.find((store) => store._id === selectedId)))}><Text>Cancel branch</Text></TouchableOpacity>}
         </View>
         <View style={styles.card}>
           <Text style={styles.heading}>Add or adjust a catalog product</Text>

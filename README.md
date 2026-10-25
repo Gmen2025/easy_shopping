@@ -2,6 +2,27 @@
 
 A full-featured React Native e-commerce mobile application built with Expo, featuring secure payments, order management, and admin capabilities.
 
+## Optional store logos
+
+**Admin > Company Stores** supports an optional image on both Create and Edit.
+**My store & inventory** supports the same controls for owner profiles and new
+branches. Choose a JPEG, PNG or WebP from the photo library (up to 5 MB), enter
+an HTTPS image URL, or remove the image to use initials from the registered
+store name. Both store-directory cards and storefront headers show the logo,
+with initials as a fallback for missing or unavailable images.
+
+Image selection uses the existing Expo Image Picker and Cloudinary integration.
+Photo access is requested only when choosing an image. Upload failures are
+displayed and saving is blocked while an upload is in progress. Save the store
+form to persist an uploaded or removed logo; cancelling edits leaves its saved
+logo unchanged. Changes are shared with the website through `Store.logo` in the
+same regional database. Deploy the matching backend first and configure its
+existing Cloudinary credentials; no new mobile dependency or database migration
+is required. Removing/replacing the store reference does not delete the old
+Cloudinary asset.
+
+Focused validation: `node --test scripts\store-logo.test.cjs`.
+
 ## Social sign-in and optional two-factor authentication
 
 The login screen uses the yellow-and-white Addu Genet design, with email,

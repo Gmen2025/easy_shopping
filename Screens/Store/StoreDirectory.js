@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import StoreLogo from "../../Shared/StoreLogo";
 import { useFocusEffect } from "@react-navigation/native";
 import { storeRequest } from "../../assets/common/storefront";
 
@@ -24,7 +25,7 @@ const StoreDirectory = ({ navigation }) => {
       ListEmptyComponent={loading ? <ActivityIndicator /> : <Text>{error || "No stores are available yet."}</Text>}
       renderItem={({ item }) => (
         <TouchableOpacity style={styles.card} accessibilityRole="button" onPress={() => navigation.navigate("Storefront", { storeId: item._id })}>
-          {item.logo ? <Image source={{ uri: item.logo }} style={styles.logo} /> : null}
+          <StoreLogo name={item.name} logo={item.logo} />
           <View style={styles.details}>
             <Text style={styles.name}>{item.name}</Text>
             <Text>{item.address}</Text>
@@ -40,7 +41,6 @@ const styles = StyleSheet.create({
   content: { padding: 16 },
   title: { fontSize: 24, fontWeight: "700", marginBottom: 16 },
   card: { backgroundColor: "#fff", padding: 16, borderRadius: 12, marginBottom: 12, flexDirection: "row", gap: 12 },
-  logo: { width: 64, height: 64, borderRadius: 8 },
   details: { flex: 1 },
   name: { fontSize: 18, fontWeight: "700", marginBottom: 6 },
 });

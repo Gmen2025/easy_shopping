@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, FlatList, Image, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, StyleSheet, Text, View } from "react-native";
+import StoreLogo from "../../Shared/StoreLogo";
 import { useFocusEffect } from "@react-navigation/native";
 import { storeRequest } from "../../assets/common/storefront";
 import ProductList from "../Products/ProductList";
@@ -22,7 +23,7 @@ const Storefront = ({ navigation, route }) => {
       keyExtractor={(item) => item._id} refreshing={loading} onRefresh={load}
       ListHeaderComponent={
         <View style={styles.header}>
-          {data?.store.logo ? <Image source={{ uri: data.store.logo }} style={styles.logo} /> : null}
+          <StoreLogo name={data?.store.name} logo={data?.store.logo} size={80} />
           <Text style={styles.title}>{data?.store.name || "Store products"}</Text>
           <Text>{data?.store.address}</Text>
           <Text selectable>Store ID: {route.params.storeId}</Text>
@@ -38,7 +39,6 @@ const Storefront = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#f3f6fb" },
   header: { padding: 16 },
-  logo: { width: 80, height: 80, borderRadius: 12, marginBottom: 12 },
   title: { fontSize: 24, fontWeight: "700", marginBottom: 8 },
   note: { color: "#6b7280", marginTop: 12 },
 });
