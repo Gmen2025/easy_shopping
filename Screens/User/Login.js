@@ -10,7 +10,8 @@ import { useSocialSignInAvailability } from "../../assets/common/useSocialSignIn
 
 const Login = ({ navigation }) => {
   const auth = useContext(AuthContext);
-  const { enabled: socialSignInEnabled, error: socialSettingsError } = useSocialSignInAvailability();
+  const { providers: socialProviders, error: socialSettingsError } = useSocialSignInAvailability();
+  const socialSignInEnabled = Object.values(socialProviders).some(Boolean);
   const [emailMode, setEmailMode] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -114,15 +115,15 @@ const Login = ({ navigation }) => {
         <Text style={{ color: "#45608A" }}>or</Text>
         <View style={{ height: 1, backgroundColor: "#DCE5F0", flex: 1 }} />
       </View>
-      <AuthButton title="Continue with Google" icon="google" disabled={auth.loading}
+      {socialProviders.google && <AuthButton title="Continue with Google" icon="google" disabled={auth.loading}
         style={{ backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#D9E2EF" }}
-        onPress={() => { setError(""); auth.loginWithSocial("google"); }} />
-      <AuthButton title="Continue with Apple" icon="apple" disabled={auth.loading}
+        onPress={() => { setError(""); auth.loginWithSocial("google"); }} />}
+      {socialProviders.apple && <AuthButton title="Continue with Apple" icon="apple" disabled={auth.loading}
         style={{ backgroundColor: "#10141D" }} textStyle={{ color: "#FFFFFF" }}
-        onPress={() => { setError(""); auth.loginWithSocial("apple"); }} />
-      <AuthButton title="Continue with Facebook" icon="facebook-official" disabled={auth.loading}
+        onPress={() => { setError(""); auth.loginWithSocial("apple"); }} />}
+      {socialProviders.facebook && <AuthButton title="Continue with Facebook" icon="facebook-official" disabled={auth.loading}
         style={{ backgroundColor: "#0866FF" }} textStyle={{ color: "#FFFFFF" }}
-        onPress={() => { setError(""); auth.loginWithSocial("facebook"); }} />
+        onPress={() => { setError(""); auth.loginWithSocial("facebook"); }} />}
       </>}
       {!!socialSettingsError && <Text accessibilityRole="alert" style={styles.error}>
         {socialSettingsError} Email sign-in is still available.

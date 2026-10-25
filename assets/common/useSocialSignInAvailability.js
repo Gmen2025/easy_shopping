@@ -1,10 +1,10 @@
 import { useCallback, useState } from "react";
 import { AppState } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import { getSocialLoginSetting } from "./authFeatures";
+import { DISABLED_SOCIAL_PROVIDERS, getSocialLoginSetting } from "./authFeatures";
 
 export function useSocialSignInAvailability() {
-  const [enabled, setEnabled] = useState(false);
+  const [providers, setProviders] = useState(DISABLED_SOCIAL_PROVIDERS);
   const [error, setError] = useState("");
 
   useFocusEffect(useCallback(() => {
@@ -16,19 +16,19 @@ export function useSocialSignInAvailability() {
       try {
         const setting = await getSocialLoginSetting();
         if (active) {
-          setEnabled(setting.enabled);
+          setProviders(setting.providers);
           setError("");
         }
       } catch (requestError) {
         if (active) {
-          setEnabled(false);
+          setProviders(DISABLED_SOCIAL_PROVIDERS);
           setError(requestError.response?.data?.message || requestError.message || "Unable to load social sign-in settings.");
         }
       } finally {
         pending = false;
       }
     };
-    setEnabled(false);
+    setProviders(DISABLED_SOCIAL_PROVIDERS);
     refresh();
     const timer = setInterval(refresh, 30000);
     const subscription = AppState.addEventListener("change", (state) => {
@@ -41,5 +41,5 @@ export function useSocialSignInAvailability() {
     };
   }, []));
 
-  return { enabled, error };
+  return { providers, error };
 }

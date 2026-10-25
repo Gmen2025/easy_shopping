@@ -20,22 +20,25 @@ configure callback URLs, SMTP, the encryption key and permitted app redirects.
 No OAuth client secrets belong in this mobile app. An unconfigured provider
 returns an explicit error; buttons never simulate successful sign-in.
 
-- Admins control Google, Apple, and Facebook together under **Admin >
+- Admins control Google, Apple, and Facebook separately under **Admin >
   Maintenance & Login > Social sign-in**, or in the website's **Admin Dashboard >
-  Social sign-in** panel. The backend stores one global switch in its default
-  database, shared by all regions and all development/production clients
-  connected to that backend. It defaults to OFF. Separate test backends have
-  separate switches.
+  Social sign-in** panel. Each provider has its own toggle, shared by all regions
+  and all development/production clients connected to that backend. Settings
+  are stored in its default database and default to OFF. Existing shared settings
+  are inherited until each provider is changed, so upgrading preserves the current
+  state. Separate test backends have separate settings.
 - Login reads public `GET /settings/social-login` on focus, on returning to the
   foreground, and every 30 seconds while focused. Failed/invalid reads hide the
   buttons and show an error without blocking email login. The mobile API checks
-  again before opening a provider. The backend enforces the switch at social
-  start, callback, handoff exchange and social-origin 2FA completion. Turning it
-  off does not revoke existing sessions or affect password sign-in/2FA.
+  again before opening the selected provider. Only enabled provider buttons are
+  visible; the separator is hidden when none are enabled. The backend enforces
+  that provider's setting at social start, callback, handoff exchange and
+  social-origin 2FA completion. Disabling one provider does not disable the others,
+  revoke existing sessions or affect password sign-in/2FA.
 - Deploy the matching backend first, then distribute the updated mobile bundle
   and website. After that, admin changes do not require rebuilding clients.
   `EXPO_PUBLIC_ENABLE_SOCIAL_LOGIN` is no longer used and can be removed from
-  build environments. Enabling the switch does not configure provider secrets,
+  build environments. Enabling a provider does not configure provider secrets,
   native modules or callbacks; finish the provider setup and testing first.
 - Public signup is customer-only: the Register as Driver switch and driver-role
   fields have been removed from the form/submission. Existing driver accounts

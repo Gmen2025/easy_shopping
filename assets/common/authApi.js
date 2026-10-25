@@ -23,11 +23,11 @@ export const securityRequest = async (path, body) => {
 };
 
 export const socialSignIn = async (provider) => {
-  if (!(await getSocialLoginSetting()).enabled) {
-    throw new Error("Social sign-in is not available in this app release. Please use email sign-in.");
-  }
   if (!["google", "apple", "facebook"].includes(provider)) {
     throw new Error("Unsupported sign-in provider.");
+  }
+  if (!(await getSocialLoginSetting()).providers[provider]) {
+    throw new Error("This social sign-in provider is not available. Please use email sign-in.");
   }
   if (Platform.OS !== "web") {
     const missingModules = ["ExpoCrypto", "ExpoWebBrowser"].filter(

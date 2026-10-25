@@ -168,7 +168,7 @@ test("browser sign-in uses S256 PKCE, database context and a code-only exchange"
     "./baseUrl": { __esModule: true, default: "https://api.example/api/v1/" },
     "./databaseConfig": { getDatabaseNameFromStorage: async () => "E_ShopUSA" },
     "./authFlow": flow,
-    "./authFeatures": { getSocialLoginSetting: async () => ({ enabled: true }) },
+    "./authFeatures": { getSocialLoginSetting: async () => ({ providers: { google: true, apple: true, facebook: true } }) },
   });
   await api.socialSignIn("google");
   assert.equal(browserUrl.searchParams.get("provider"), "google");
@@ -194,7 +194,7 @@ for (const missing of ["ExpoCrypto", "ExpoWebBrowser"]) {
       "./baseUrl": { __esModule: true, default: "https://api.example/api/v1/" },
       "./databaseConfig": {},
       "./authFlow": flow,
-      "./authFeatures": { getSocialLoginSetting: async () => ({ enabled: true }) },
+      "./authFeatures": { getSocialLoginSetting: async () => ({ providers: { google: true, apple: true, facebook: true } }) },
     });
     assert.equal(typeof api.securityRequest, "function");
     await assert.rejects(api.socialSignIn("google"), (error) => {
@@ -207,7 +207,7 @@ for (const missing of ["ExpoCrypto", "ExpoWebBrowser"]) {
 }
 
 test("remote social settings validate server data and require authentication for admin updates", async () => {
-  let data = { success: true, enabled: false };
+  let data = { success: true, providers: { google: false, apple: false, facebook: false } };
   let token = "admin-token";
   const writes = [];
   const features = load("assets\\common\\authFeatures.js", {
@@ -219,17 +219,20 @@ test("remote social settings validate server data and require authentication for
     "./baseUrl": { __esModule: true, default: "https://api.example/api/v1/" },
   });
   for (const enabled of [true, false]) {
-    data = { success: true, enabled };
-    assert.equal((await features.getSocialLoginSetting()).enabled, enabled);
+    data = { success: true, providers: { google: enabled, apple: false, facebook: false } };
+    assert.equal((await features.getSocialLoginSetting()).providers.google, enabled);
   }
-  await features.updateSocialLoginSetting(false);
+  await features.updateSocialLoginSetting("google", false);
   assert.equal(writes[0].url, "https://api.example/api/v1/settings/social-login");
-  assert.equal(writes[0].body.enabled, false);
+  assert.equal(writes[0].body.providers.google, false);
+  assert.deepEqual(Object.keys(writes[0].body.providers), ["google"]);
   assert.equal(writes[0].options.headers.Authorization, "Bearer admin-token");
   token = null;
-  await assert.rejects(features.updateSocialLoginSetting(true), /session has expired/);
+  await assert.rejects(features.updateSocialLoginSetting("google", true), /session has expired/);
   assert.equal(writes.length, 1);
-  for (const invalid of [{}, { success: true, enabled: "true" }, { success: false, enabled: true }]) {
+  for (const invalid of [{}, { success: true, enabled: true },
+    { success: true, providers: { google: "true", apple: false, facebook: false } },
+    { success: true, providers: { google: true } }, { success: false, providers: { google: true, apple: true, facebook: true } }]) {
     data = invalid;
     await assert.rejects(features.getSocialLoginSetting(), /invalid social sign-in settings/);
   }
@@ -245,15 +248,16 @@ test("disabled social sign-in rejects before loading native modules or making re
     "./baseUrl": { __esModule: true, default: "https://api.example/api/v1/" },
     "./databaseConfig": {},
     "./authFlow": flow,
-    "./authFeatures": { getSocialLoginSetting: async () => ({ enabled: false }) },
+    "./authFeatures": { getSocialLoginSetting: async () => ({ providers: { google: false, apple: false, facebook: false } }) },
   });
   for (const provider of ["google", "apple", "facebook"]) {
     await assert.rejects(api.socialSignIn(provider), /not available.*email sign-in/);
   }
 });
 
-test("login renders all social providers only when enabled and always keeps email and legal links", () => {
-    for (const enabled of [true, false]) {
+test("login renders exactly the enabled providers for all eight combinations and keeps email and legal links", () => {
+    for (let mask = 0; mask < 8; mask++) {
+      const providers = { google: !!(mask & 1), apple: !!(mask & 2), facebook: !!(mask & 4) };
       const react = {
         createElement: (type, props, ...children) => ({ type, props, children }),
         useContext: () => ({ loading: false }),
@@ -270,13 +274,13 @@ test("login renders all social providers only when enabled and always keeps emai
         },
         "../../assets/common/authFlow": flow,
         "../../assets/common/legalLinks": {},
-        "../../assets/common/useSocialSignInAvailability": { useSocialSignInAvailability: () => ({ enabled, error: "" }) },
+        "../../assets/common/useSocialSignInAvailability": { useSocialSignInAvailability: () => ({ providers, error: "" }) },
       });
       const tree = JSON.stringify(Login({ navigation: {} }));
       for (const provider of ["Google", "Apple", "Facebook"]) {
-        assert.equal(tree.includes(`Continue with ${provider}`), enabled);
+        assert.equal(tree.includes(`Continue with ${provider}`), providers[provider.toLowerCase()]);
       }
-      assert.equal(tree.includes('"or"'), enabled);
+      assert.equal(tree.includes('"or"'), mask !== 0);
       for (const label of ["Continue with Email", "Privacy Policy", "Terms of Service", "Continue as Guest"]) {
         assert.ok(tree.includes(label), label);
       }
@@ -296,7 +300,9 @@ test("signup does not expose or submit driver registration fields", () => {
 test("login availability refreshes on focus, every 30 seconds and foreground, fails closed, and cleans up", async () => {
   const state = [];
   let focus, tick, onAppState, intervalMs, cleared, removed = false;
-  let setting = { enabled: true };
+  const off = { google: false, apple: false, facebook: false };
+  const googleOnly = { google: true, apple: false, facebook: false };
+  let setting = { providers: googleOnly };
   let failure;
   const { useSocialSignInAvailability } = load("assets\\common\\useSocialSignInAvailability.js", {
     react: {
@@ -314,7 +320,7 @@ test("login availability refreshes on focus, every 30 seconds and foreground, fa
       },
     } },
     "@react-navigation/native": { useFocusEffect: (callback) => { focus = callback; } },
-    "./authFeatures": { getSocialLoginSetting: async () => {
+    "./authFeatures": { DISABLED_SOCIAL_PROVIDERS: off, getSocialLoginSetting: async () => {
       if (failure) throw failure;
       return setting;
     } },
@@ -323,27 +329,27 @@ test("login availability refreshes on focus, every 30 seconds and foreground, fa
     clearInterval: (id) => { cleared = id; },
   });
   useSocialSignInAvailability();
-  assert.equal(state[0], false);
+  assert.deepEqual(state[0], off);
   const cleanup = focus();
   await new Promise(setImmediate);
-  assert.equal(state[0], true);
+  assert.deepEqual(state[0], googleOnly);
   assert.equal(intervalMs, 30000);
-  setting = { enabled: false };
+  setting = { providers: off };
   await tick();
-  assert.equal(state[0], false);
-  setting = { enabled: true };
+  assert.deepEqual(state[0], off);
+  setting = { providers: googleOnly };
   onAppState("active");
   await new Promise(setImmediate);
-  assert.equal(state[0], true);
+  assert.deepEqual(state[0], googleOnly);
   failure = new Error("Settings service unavailable");
   await tick();
-  assert.equal(state[0], false);
+  assert.deepEqual(state[0], off);
   assert.equal(state[1], "Settings service unavailable");
   failure = null;
   const pending = tick();
   cleanup();
   await pending;
-  assert.equal(state[0], false, "Late requests cannot update an unfocused screen");
+  assert.deepEqual(state[0], off, "Late requests cannot update an unfocused screen");
   assert.equal(cleared, "timer");
   assert.equal(removed, true);
 });
@@ -352,6 +358,7 @@ test("mobile admin switch saves confirmed status and surfaces failures with a re
   const state = [];
   let index = 0, focus, fail = false;
   const writes = [];
+  let providers = { google: false, apple: false, facebook: false };
   const react = {
     createElement: (type, props, ...children) => ({ type, props, children }),
     useCallback: (fn) => fn,
@@ -367,19 +374,21 @@ test("mobile admin switch saves confirmed status and surfaces failures with a re
     "react-native-paper": { Card: Object.assign(() => {}, { Content: "Content" }), Text: "Text", Button: "Button" },
     "@react-navigation/native": { useFocusEffect: (callback) => { focus = callback; } },
     "../../assets/common/authFeatures": {
-      getSocialLoginSetting: async () => ({ success: true, enabled: false }),
-      updateSocialLoginSetting: async (enabled) => {
-        writes.push(enabled);
+      SOCIAL_PROVIDERS: ["google", "apple", "facebook"],
+      getSocialLoginSetting: async () => ({ success: true, providers: { ...providers } }),
+      updateSocialLoginSetting: async (provider, enabled) => {
+        writes.push({ provider, enabled });
         if (fail) throw new Error("Admin access required");
-        return { success: true, enabled };
+        providers = { ...providers, [provider]: enabled };
+        return { success: true, providers };
       },
     },
   });
   const render = () => { index = 0; return Settings(); };
-  const find = (node, type) => {
+  const find = (node, type, label) => {
     if (!node || typeof node !== "object") return;
-    if (node.type === type) return node;
-    return node.children?.flat(Infinity).map((child) => find(child, type)).find(Boolean);
+    if (node.type === type && (!label || node.props.accessibilityLabel === label)) return node;
+    return node.children?.flat(Infinity).map((child) => find(child, type, label)).find(Boolean);
   };
   render();
   const cleanup = focus();
@@ -397,6 +406,15 @@ test("mobile admin switch saves confirmed status and surfaces failures with a re
   assert.ok(JSON.stringify(failed).includes("Admin access required"));
   await find(failed, "Button").props.onPress();
   assert.equal(find(render(), "Switch").props.disabled, false);
-  assert.deepEqual(writes, [true, false]);
+  assert.deepEqual(writes, [{ provider: "google", enabled: true }, { provider: "google", enabled: false }]);
+  fail = false;
+  for (const label of ["Apple", "Facebook"]) {
+    await find(render(), "Switch", `Enable ${label} sign-in`).props.onValueChange(true);
+  }
+  await find(render(), "Switch", "Enable Google sign-in").props.onValueChange(false);
+  const mixed = render();
+  assert.equal(find(mixed, "Switch", "Enable Google sign-in").props.value, false);
+  assert.equal(find(mixed, "Switch", "Enable Apple sign-in").props.value, true);
+  assert.equal(find(mixed, "Switch", "Enable Facebook sign-in").props.value, true);
   cleanup();
 });
