@@ -1,7 +1,4 @@
-export const isCashOnDeliveryAvailable = (databaseName, isDevelopment) =>
-  databaseName === "E_ShopUSA" || databaseName === "E_ShoppingUSA"
-    ? isDevelopment === true
-    : true;
+export const isCashOnDeliveryAvailable = (databaseName) => Boolean(databaseName);
 
 export const isCashOnDeliveryMethod = (value) =>
   value === 1 || value === "1" ||

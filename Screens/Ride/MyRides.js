@@ -10,6 +10,8 @@ import CardPayment, { canPayByCard } from "../../Shared/CheckoutCardPayment";
 import { styles } from "../../Shared/DeliveryCheckout";
 import { AuthContext } from "../../Context/store/Auth";
 import RideRouteMap from "../../Shared/RideRouteMap";
+import usePaymentAvailability from "../../assets/common/usePaymentAvailability";
+import { PAYMENT_UNAVAILABLE } from "../../assets/common/paymentSettings";
 
 const ui = {
   screen: { flex: 1, backgroundColor: "#fff" },
@@ -30,6 +32,7 @@ export default function MyRides({ route, navigation }) {
   const { isAuthenticated, loading, logout } = useContext(AuthContext);
   const [needsSignIn, setNeedsSignIn] = useState(false);
   const focused = useIsFocused();
+  const availability = usePaymentAvailability();
   const [rides, setRides] = useState([]);
   const [selected, setSelected] = useState(null);
   const [banks, setBanks] = useState([]);
@@ -98,6 +101,8 @@ export default function MyRides({ route, navigation }) {
     await update("payment-confirm", {});
   });
   const active = selected && !["completed", "cancelled", "terminated", "quote"].includes(selected.status);
+  const paymentMethods = ["bank", ...(/usa/i.test(database) && canPayByCard ? ["card"] : []), "cash"]
+    .filter((key) => availability.methods?.[key] === true);
   const trackingDriver = selected && ["assigned", "onboard"].includes(selected.status);
   const driverLocation = trackingDriver ? rideStopPoint({ address: { location: selected.assignedDriver?.location } }) : null;
   const callDriver = () => run(async () => {
@@ -197,15 +202,19 @@ export default function MyRides({ route, navigation }) {
         <Text>Payment: {selected.paymentStatus} {selected.paymentMethod || ""}</Text>
         {selected.paymentStatus !== "completed" ? <>
           {!selected.paymentMethod ? <>
+            {availability.error ? <Text accessibilityRole="alert" style={styles.error}>{availability.error}</Text> :
+              !availability.methods ? <Text>Loading payment methods...</Text> :
+                !paymentMethods.length ? <Text accessibilityRole="alert" style={styles.error}>{PAYMENT_UNAVAILABLE}</Text> : null}
             <Picker selectedValue={method} enabled={!busy} onValueChange={setMethod}>
-              <Picker.Item label="Bank transfer" value="bank" />
-              {/usa/i.test(database) && canPayByCard ? <Picker.Item label="Card" value="card" /> : null}
-              {!/usa/i.test(database) ? <Picker.Item label="Cash to driver" value="cash" /> : null}
+              <Picker.Item label="Select payment method..." value="" />
+              {paymentMethods.includes("bank") ? <Picker.Item label="Bank transfer" value="bank" /> : null}
+              {paymentMethods.includes("card") ? <Picker.Item label="Card" value="card" /> : null}
+              {paymentMethods.includes("cash") ? <Picker.Item label="Cash to driver" value="cash" /> : null}
             </Picker>
-            {method === "bank" ? <Picker selectedValue={bankId} enabled={!busy} onValueChange={setBankId}>
+            {method === "bank" && paymentMethods.includes("bank") ? <Picker selectedValue={bankId} enabled={!busy} onValueChange={setBankId}>
               {banks.map((bank) => <Picker.Item key={bank._id} value={bank._id} label={bank.bankName} />)}
             </Picker> : null}
-            <Button disabled={busy || (method === "bank" && !bankId)} onPress={() => run(() => update("payment-method", { method, bankAccountId: bankId }))}>Choose payment method</Button>
+            <Button disabled={busy || !paymentMethods.includes(method) || (method === "bank" && !bankId)} onPress={() => run(() => update("payment-method", { method, bankAccountId: bankId }))}>Choose payment method</Button>
           </> : selected.paymentMethod === "card" ? <>
             {canPayByCard ? <CardPayment pay={pay} disabled={busy} label="Pay ride fare" /> : <Text style={styles.error}>Card payment requires a configured development/production build, not Expo Go.</Text>}
             <Button disabled={busy} onPress={() => run(() => update("payment-confirm", {}))}>Check existing card payment</Button>

@@ -73,6 +73,10 @@ function harness(file, request, params = {}, auth = { isAuthenticated: true, loa
     "@react-native-picker/picker": { Picker: Object.assign((props) => ({ type: "Picker", props }), { Item: "PickerItem" }) },
     "@expo/vector-icons": { FontAwesome5: "FontAwesome5" },
     "@react-navigation/native": { useIsFocused: () => true },
+    "../../assets/common/usePaymentAvailability": { __esModule: true, default: () => ({
+      methods: options.paymentMethods || { bank: true, cash: true, card: true, telebirr: true }, error: "",
+    }) },
+    "../../assets/common/paymentSettings": { PAYMENT_UNAVAILABLE: "Payment is temporarily unavailable. Please try again later." },
     "react-native-safe-area-context": { SafeAreaView: "SafeAreaView" },
     "expo-image-picker": {
       CameraType: { front: "front" },
@@ -1322,6 +1326,21 @@ test("driver termination sends a reason and fresh GPS without confirming destina
   assert.equal(ui.calls.some((call) => call.route === "me/next-stop"), false);
   assert.match(text(ui.render()), /No active passenger ride/);
 });
+
+for (const database of ["E_Shopping", "E_ShopUSA"]) {
+  test(`rider cannot choose a disabled payment method when all methods are off (${database})`, async () => {
+    const ride = { _id: "ride", currency: database === "E_Shopping" ? "etb" : "usd", estimate: 8,
+      finalFare: 8, status: "completed", paymentStatus: "pending", stops: [{ key: "0", type: "pickup", address }] };
+    const ui = harness("Screens\\Ride\\MyRides.js", async (route) => route ? ride : [ride], { rideId: "ride", database },
+      undefined, { paymentMethods: { bank: false, card: false, cash: false, telebirr: false },
+        database: async () => database });
+    await ui.start();
+    assert.match(text(ui.render()), /Payment is temporarily unavailable\. Please try again later\./);
+    assert.equal(ui.button("Choose payment method").props.disabled, true);
+    assert.equal(nodes(ui.render()).some((node) => node.type === "PickerItem" &&
+      ["cash", "bank", "card"].includes(node.props.value)), false);
+  });
+}
 
 test("terminated rider payment stays blocked until Admin review and respects a waived fare", async () => {
   let ride = { _id: "ride", currency: "usd", estimate: 8, status: "terminated",

@@ -29,7 +29,7 @@ function text(value) {
   return text(value?.props?.children || []);
 }
 function harness(request, { resumeId, database = "E_ShopUSA", params = {}, exchangeState, packageSize, development = false,
-  deliveryPolicy = {}, deliveryFailure } = {}) {
+  deliveryPolicy = {}, deliveryFailure, paymentMethods = { cash: true, bank: true, card: true, telebirr: true }, paymentError = "" } = {}) {
   const states = [];
   let cursor = 0;
   let effects = [];
@@ -62,7 +62,6 @@ function harness(request, { resumeId, database = "E_ShopUSA", params = {}, excha
     "react-native-safe-area-context": { useSafeAreaInsets: () => ({ top: 0 }) },
     "../assets/common/currency": currency, "../assets/common/exchangeRate": exchange });
   const rides = load("assets\\common\\rides.js", { "./storefront": { apiRequest: async () => assert.fail("Place search is mocked") } });
-  const paymentAvailability = load("assets\\common\\paymentAvailability.js", {});
   const deliveryPricing = load("assets\\common\\deliveryPricing.js", {});
   const deliveryMethods = { deliveryMethodOptions: (config = {}) => [
     { value: "STANDARD", label: "Standard Delivery", description: `${config.standardMinBusinessDays || 2} - ${config.standardMaxBusinessDays || 5} business days` },
@@ -87,7 +86,8 @@ function harness(request, { resumeId, database = "E_ShopUSA", params = {}, excha
     "../../../Shared/DeliveryCheckout": summary,
     "../../../Shared/AddressSearchInput": { __esModule: true, default: "AddressSearchInput" },
     "../../../assets/common/rides": rides,
-    "../../../assets/common/paymentAvailability": paymentAvailability,
+    "../../../assets/common/usePaymentAvailability": { __esModule: true, default: () => ({ methods: paymentMethods, error: paymentError }) },
+    "../../../assets/common/paymentSettings": { PAYMENT_UNAVAILABLE: "Payment is temporarily unavailable. Please try again later." },
     "../../../assets/common/delivery": deliveryMethods,
     "../../../assets/common/deliveryPricing": deliveryPricing,
   }, { development });
@@ -119,6 +119,33 @@ function harness(request, { resumeId, database = "E_ShopUSA", params = {}, excha
 
 const freshExchange = () => ({ enabled: true, active: true, birrPerUsd: 3, revision: 5, source: "manual",
   appliedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 86400000).toISOString() });
+
+for (const database of ["E_ShopUSA", "E_Shopping"]) {
+  for (const failure of [false, true]) {
+    test(`payment checkout fails closed with no enabled methods or a settings failure (${database}, ${failure})`, async () => {
+      let preparations = 0;
+      const current = { label: "Home", address1: "Main", city: "Town", zip: "12345", phone: "12345678",
+        country: database === "E_Shopping" ? "Ethiopia" : "USA" };
+      const ui = harness(async (route, options) => {
+        if (route === "delivery-current-address") return current;
+        if (route === "delivery-addresses" || route === "delivery-bank-accounts") return [];
+        if (route === "checkouts/quote") return { _id: "disabled", cart: options.data.cart,
+          itemsSubtotal: 30, deliveryFee: 2, totalPrice: 32, expiresAt: new Date(Date.now() + 600000).toISOString(),
+          deliveries: [{ key: "a", store: { _id: "store", name: "Pickup" }, address: current, lines: [],
+            cargo: {}, distanceKm: 1, vehicle: "car", vehicleOptions: [{ type: "car", fee: 2 }] }] };
+        if (route.includes("/prepare")) preparations++;
+        throw new Error(route);
+      }, { database, paymentMethods: failure ? null : { cash: false, bank: false, card: false, telebirr: false },
+        paymentError: failure ? "Unable to load payment availability. Please try again." : "" });
+      await ui.start(); await ui.calculate(); ui.payment();
+      assert.match(text(ui.render()), failure ? /Unable to load payment availability/ : /Payment is temporarily unavailable/);
+      assert.equal(ui.radio("Cash on Delivery"), undefined);
+      assert.equal(ui.radio("Bank Transfer"), undefined);
+      assert.equal(ui.button("Review order").props.disabled, true);
+      assert.equal(preparations, 0);
+    });
+  }
+}
 
 test("delivery pricing previews exact shared cents, separate vehicle types and unchanged legacy quotes", () => {
   const { calculateDeliveryPricing } = load("assets\\common\\deliveryPricing.js", {});
@@ -187,7 +214,7 @@ test("nearby-store checkout displays shared fees, reprices vehicle changes and p
 });
 
 for (const development of [true, false]) {
-  test(`USA Car selection and cash checkout follow the development build gate (${development})`, async () => {
+  test(`USA Car selection and cash checkout work regardless of the development flag (${development})`, async () => {
     let prepared;
     let confirmations = 0;
     const current = { label: "Home", address1: "Main", city: "Town", zip: "12345", country: "USA", phone: "123" };
@@ -224,22 +251,15 @@ for (const development of [true, false]) {
     vehiclePicker.props.onValueChange("car");
     assert.match(text(ui.render()), /Combined total: \$35.00/);
     ui.payment();
-    assert.equal(Boolean(ui.radio("Cash on Delivery")), development);
-    assert.match(text(ui.render()), development
-      ? /Development cash checkout creates real orders/
-      : /USA cash on delivery is available only in a development\/debug app build/);
-    if (development) ui.radio("Cash on Delivery").props.onPress();
+    assert.ok(ui.radio("Cash on Delivery"));
+    ui.radio("Cash on Delivery").props.onPress();
     await ui.place();
-    if (development) {
       assert.equal(prepared.method, "cash");
-      assert.equal(prepared.developmentCashOnDelivery, true);
+      assert.equal(prepared.developmentCashOnDelivery, undefined);
       assert.equal(prepared.selections[0].vehicle, "car");
       await ui.button("Finish checkout").props.onPress();
       assert.equal(confirmations, 1);
       assert.equal(ui.actions.at(-1).type, "complete");
-    } else {
-      assert.equal(prepared.method, "bank", "Release builds cannot select cash");
-    }
   });
 }
 
@@ -327,7 +347,7 @@ test("scheduled vehicle delivery requires and sends a future date", async () => 
   assert.equal(ui.dialogs.length, 1);
 });
 
-test("release builds cannot finish a recovered USA development cash checkout", async () => {
+test("release builds can finish a previously reserved USA cash checkout", async () => {
   const calls = [];
   const ui = harness(async (path) => {
     calls.push(path);
@@ -336,8 +356,7 @@ test("release builds cannot finish a recovered USA development cash checkout", a
   }, { resumeId: "cash-recovery", development: false });
   await ui.start();
   await ui.button("Finish checkout").props.onPress();
-  assert.deepEqual(calls, ["checkouts/cash-recovery"]);
-  assert.match(text(ui.render()), /only be completed in a development\/debug build/);
+  assert.deepEqual(calls, ["checkouts/cash-recovery", "checkouts/cash-recovery/confirm"]);
 });
 
 for (const database of ["E_ShopUSA", "E_Shopping"]) {
@@ -357,7 +376,7 @@ for (const database of ["E_ShopUSA", "E_Shopping"]) {
     assert.equal(nodes(ui.render()).some((node) => node.type === "PickerItem" && node.props.value === "car"), false);
     if (database === "E_ShopUSA") assert.match(text(ui.render()), /Car delivery is unavailable for this load or disabled/);
     ui.payment();
-    assert.equal(Boolean(ui.radio("Cash on Delivery")), database === "E_Shopping");
+    assert.ok(ui.radio("Cash on Delivery"));
   });
 }
 

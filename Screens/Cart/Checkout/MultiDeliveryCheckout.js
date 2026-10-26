@@ -13,7 +13,8 @@ import { CargoSummary, CheckoutHeader, DeliverySummary, DeliveryWindow, PackageM
 import AddressSearchInput from "../../../Shared/AddressSearchInput";
 import { addressText, isEthiopia } from "../../../assets/common/rides";
 import { exchangeRequest, rateIsActive, usdAmount, usdText, usdInactiveMessage, birrAmount, etbText, exportInactiveMessage } from "../../../assets/common/exchangeRate";
-import { isCashOnDeliveryAvailable } from "../../../assets/common/paymentAvailability";
+import usePaymentAvailability from "../../../assets/common/usePaymentAvailability";
+import { PAYMENT_UNAVAILABLE } from "../../../assets/common/paymentSettings";
 import { deliveryMethodOptions, deliveryModeLabel, getDeliverySettings } from "../../../assets/common/delivery";
 import { calculateDeliveryPricing } from "../../../assets/common/deliveryPricing";
 
@@ -43,6 +44,7 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
   const dispatch = useDispatch();
   const { formatPrice } = useCurrency();
   const [database, setDatabase] = useState("");
+  const availability = usePaymentAvailability();
   const [saved, setSaved] = useState([]);
   const [addresses, setAddresses] = useState([]);
   const [editor, setEditor] = useState(null);
@@ -73,7 +75,7 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
   const international = Boolean(group?.international || quote?.international || (/usa/i.test(database) && paymentCurrency === "etb"));
   const availableCard = converted ? nativeCardAvailable && exchange?.cardAvailable : canPayByCard;
   const cashAvailable = Boolean(database) && !service && !international && !converted &&
-    !quote?.exchangeRate && isCashOnDeliveryAvailable(database, __DEV__);
+    !quote?.exchangeRate && availability.methods?.cash === true;
 
   const run = async (action) => {
     if (running.current) return;
@@ -243,22 +245,18 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
       invalidate(); setStep(service ? 3 : 2);
       throw new Error("This quote expired. Calculate a new quote before placing your order.");
     }
-    if (method === "cash" && !cashAvailable) throw new Error("Cash on delivery is unavailable for this checkout. USA cash checkout requires a development/debug build.");
+    if (!methods.some((option) => option.value === method)) throw new Error(availability.error || PAYMENT_UNAVAILABLE);
     if (quote.deliveries.some((delivery) => !selections[delivery.key])) throw new Error("Choose a vehicle for every delivery before continuing.");
     if (!service && (items.some((item) => !quote.cart.some((line) => line.key === cartItemKey(item) && line.quantity === item.quantity)) ||
         items.length !== quote.cart.length)) throw new Error("Your cart changed. Request a fresh quote.");
     const result = await storeRequest(`checkouts/${quote._id}/prepare`, { method: "post", timeout: 60000, data: {
       method, bankAccountId: bankId,
       deliveryMode, scheduledFor: getScheduledFor(),
-      ...(method === "cash" && /usa/i.test(database) ? { developmentCashOnDelivery: __DEV__ === true } : {}),
       selections: quote.deliveries.map((delivery) => ({ key: delivery.key, vehicle: selections[delivery.key] })),
     } });
     await showGroup(result);
   });
   const finish = () => run(async () => {
-    if (group.paymentMethod === "cash" && !isCashOnDeliveryAvailable(database, __DEV__)) {
-      throw new Error("USA cash checkout can only be completed in a development/debug build.");
-    }
     await showGroup(await storeRequest(`checkouts/${group._id}/confirm`, {
       method: "post", data: { reference, sender }, timeout: 60000,
     }));
@@ -278,9 +276,8 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
     { value: "bank", label: "Bank Transfer", description: "Verified by Admin after submitting your reference" },
     ...(!quote?.international && (/usa/i.test(database) || quote?.exchangeRate) && availableCard
       ? [{ value: "card", label: "Credit / Debit Card", description: "Secure card payment" }] : []),
-    ...(cashAvailable ? [{ value: "cash", label: "Cash on Delivery", description: /usa/i.test(database)
-      ? "Development/debug builds only" : "Pay separately when each delivery arrives" }] : []),
-  ];
+    ...(cashAvailable ? [{ value: "cash", label: "Cash on Delivery", description: "Pay separately when each delivery arrives" }] : []),
+  ].filter((option) => availability.methods?.[option.value] === true);
   const placed = group?.status === "placed";
   const shareOrder = () => run(async () => {
     await Share.share({ message: `Addu Genet Eshop order #${group._id}\nStatus: ${group.status}\nPayment: ${group.paymentStatus || "pending"}` });
@@ -498,6 +495,9 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
           {step === 2 && !service ? <Button mode="contained" style={checkoutStyles.primary} labelStyle={checkoutStyles.primaryLabel}
             disabled={busy || needsVehicleSelection} onPress={() => setStep(3)}>Continue to payment</Button> : null}
           {step === 3 ? <>
+          {availability.error ? <Text accessibilityRole="alert" style={styles.error}>{availability.error}</Text> :
+            !availability.methods ? <Text>Loading payment methods...</Text> :
+              !methods.length ? <Text accessibilityRole="alert" style={styles.error}>{PAYMENT_UNAVAILABLE}</Text> : null}
           {methods.map((option) => <TouchableOpacity key={option.value} accessibilityRole="radio"
             accessibilityLabel={option.label} accessibilityState={{ checked: method === option.value, disabled: busy }}
             disabled={busy} onPress={() => setMethod(option.value)}
@@ -508,21 +508,18 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
             <View style={checkoutStyles.optionBody}><Text style={styles.heading}>{option.label}</Text>
               <Text style={checkoutStyles.note}>{option.description}</Text></View>
           </TouchableOpacity>)}
-          {!service && /usa/i.test(database) && !international && !converted && !quote.exchangeRate && !cashAvailable
-            ? <Text style={styles.error}>USA cash on delivery is available only in a development/debug app build.</Text>
-            : null}
-          {cashAvailable && /usa/i.test(database) ? <Text>Development cash checkout creates real orders in the USA database. Use test products; cash is collected on each delivery.</Text> : null}
-          {method === "bank" ? <Picker selectedValue={bankId} enabled={!busy} onValueChange={setBankId}>
+          {method === "bank" && availability.methods?.bank ? <Picker selectedValue={bankId} enabled={!busy} onValueChange={setBankId}>
             <Picker.Item label="Select bank account..." value="" />
             {banks.map((bank) => <Picker.Item key={bank._id} label={`${bank.bankName} - ${bank.accountHolderName}`} value={bank._id} />)}
           </Picker> : null}
           {!quote.international && (/usa/i.test(database) || quote.exchangeRate) && !availableCard ? <Text style={styles.error}>Card payment needs a native build and matching configured Stripe keys. USD requires the dedicated Ethiopia USD merchant.</Text> : null}
           {method === "bank" && !banks.length ? <Text style={styles.error}>Admin must configure a bank account, or choose another available payment method.</Text> : null}
           <Button mode="contained" style={checkoutStyles.primary} labelStyle={checkoutStyles.primaryLabel}
-            disabled={busy || needsVehicleSelection || (method === "bank" && !bankId)}
+            disabled={busy || !methods.some((option) => option.value === method) || needsVehicleSelection || (method === "bank" && !bankId)}
             onPress={() => setStep(4)}>Review order</Button>
           </> : null}
           {step === 4 ? <>
+            {!methods.some((option) => option.value === method) ? <Text accessibilityRole="alert" style={styles.error}>{availability.error || PAYMENT_UNAVAILABLE}</Text> : null}
             <Text style={styles.heading}>Delivery Method</Text>
             <Text>{service ? "Service quote" : deliveryModeLabel(quote.deliveryMode || deliveryMode)}</Text>
             <DeliveryWindow value={quote} />
@@ -547,7 +544,7 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
             {!service ? <Button disabled={busy} onPress={() => setStep(1)}>Change addresses & quantities</Button> : null}
             <Text style={checkoutStyles.note}>The combined total includes the server-quoted charges. Stock, prices and payment eligibility are verified when you continue.</Text>
             <Button mode="contained" style={checkoutStyles.primary} labelStyle={checkoutStyles.primaryLabel}
-              disabled={busy || needsVehicleSelection || (method === "bank" && !bankId)}
+              disabled={busy || !methods.some((option) => option.value === method) || needsVehicleSelection || (method === "bank" && !bankId)}
               onPress={reserveCheckout}>{service ? "Accept quote & continue in USD" : "Place order & continue"}</Button>
           </> : null}
           <Text>{quote.international ? "ETB bank transfer only. Submit your transfer reference before the hold expires. Stores cannot fulfill until Admin verifies funds. After submission the reservation stays held for Admin review." :

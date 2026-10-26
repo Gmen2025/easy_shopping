@@ -7,6 +7,8 @@ import { useCheckout } from "../../../Context/store/CheckoutContext";
 import { getDatabaseNameFromStorage } from "../../../assets/common/databaseConfig";
 import { useCurrency } from "../../../assets/common/currency";
 import { isCashOnDeliveryAvailable } from "../../../assets/common/paymentAvailability";
+import usePaymentAvailability from "../../../assets/common/usePaymentAvailability";
+import { PAYMENT_UNAVAILABLE } from "../../../assets/common/paymentSettings";
 
 
 
@@ -35,6 +37,7 @@ const paymentCards = [
 //new
 const Payment = (props) => {
   const { order } = useCheckout(); // Get the order from the CheckoutContext
+  const availability = usePaymentAvailability();
   const { currencyCode, formatPrice } = useCurrency();
 
   const orderData = order || props.route.params?.order; // Fallback to route params if context is not set
@@ -48,7 +51,6 @@ const Payment = (props) => {
   const [card, setCard] = useState();
   const [isCardPaymentAvailable, setIsCardPaymentAvailable] = useState(false);
   const [isTelebirrAvailable, setIsTelebirrAvailable] = useState(true);
-  const [isUSAStore, setIsUSAStore] = useState(false);
   const [isCashAvailable, setIsCashAvailable] = useState(false);
 
   useFocusEffect(
@@ -59,13 +61,11 @@ const Payment = (props) => {
         const dbName = await getDatabaseNameFromStorage();
         if (isMounted) {
           const isUSA = dbName === "E_ShopUSA";
-          setIsUSAStore(isUSA);
-          setIsCashAvailable(isCashOnDeliveryAvailable(dbName, __DEV__));
+          setIsCashAvailable(isCashOnDeliveryAvailable(dbName));
           setSelected();
           setCard();
           setIsCardPaymentAvailable(isUSA);
-          // Telebirr disabled for all stores
-          setIsTelebirrAvailable(false);
+          setIsTelebirrAvailable(!isUSA);
         }
       };
 
@@ -91,6 +91,9 @@ const Payment = (props) => {
   }, [isCardPaymentAvailable, isTelebirrAvailable, isCashAvailable, selected]);
 
   const visibleMethods = methods.filter((method) => {
+    const key = ({ 1: "cash", 2: "bank", 3: "card", 4: "telebirr" })[method.value];
+    if (availability.methods?.[key] !== true) return false;
+    if (method.value === 4) return isTelebirrAvailable;
     if (method.value === 1) {
       return isCashAvailable;
     }
@@ -103,6 +106,7 @@ const Payment = (props) => {
   });
 
   const isMethodDisabled = (methodValue) => {
+    if (!availability.methods?.[({ 1: "cash", 2: "bank", 3: "card", 4: "telebirr" })[methodValue]]) return true;
     if (methodValue === 1) {
       return !isCashAvailable;
     }
@@ -122,7 +126,7 @@ const Payment = (props) => {
   }
 
   if (isMethodDisabled(selected)) {
-    Alert.alert("Unavailable", "This payment method is not available for the selected store and build.");
+    Alert.alert("Unavailable", PAYMENT_UNAVAILABLE);
     return;
   }
 
@@ -193,9 +197,9 @@ const Payment = (props) => {
 
       <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>Payment Method</Text>
-        {isUSAStore && isCashAvailable ? (
-          <Text style={styles.infoText}>Cash on delivery is enabled for development testing only. It is not available in release builds.</Text>
-        ) : null}
+        {availability.error ? <Text accessibilityRole="alert" style={styles.infoText}>{availability.error}</Text> :
+          !availability.methods ? <Text>Loading payment methods...</Text> :
+            !visibleMethods.length ? <Text accessibilityRole="alert" style={styles.infoText}>{PAYMENT_UNAVAILABLE}</Text> : null}
         {visibleMethods.map((m) => {
           const isSelected = selected === m.value;
           const isDisabled = isMethodDisabled(m.value);
@@ -266,7 +270,7 @@ const Payment = (props) => {
         </View>
       )}
 
-      <EasyButton style={styles.confirmButton} contained tertiary onPress={handleConfirm}>
+      <EasyButton style={styles.confirmButton} contained tertiary disabled={!selected || isMethodDisabled(selected)} onPress={handleConfirm}>
         <Text style={styles.confirmButtonText}>Confirm Payment</Text>
       </EasyButton>
     </ScrollView>

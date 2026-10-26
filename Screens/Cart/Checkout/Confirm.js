@@ -14,7 +14,7 @@ import { useCheckout } from '../../../Context/store/CheckoutContext'; // Import 
 import { useCurrency } from '../../../assets/common/currency';
 import { deductInventoryFromOrder, validateOrderStock } from '../../../assets/common/inventory';
 import { getDatabaseNameFromStorage } from '../../../assets/common/databaseConfig';
-import { isCashOnDeliveryAvailable, isCashOnDeliveryMethod } from '../../../assets/common/paymentAvailability';
+import { paymentSettings, PAYMENT_UNAVAILABLE } from '../../../assets/common/paymentSettings';
 import { getTrackingOrder } from '../../../assets/common/orderTracking';
 
 
@@ -62,15 +62,10 @@ const Confirm = (props) => {
       try {
         const token = await AsyncStorage.getItem("token");
         const databaseName = await getDatabaseNameFromStorage();
-        if ((isCashOnDeliveryMethod(order.paymentMethod) || isCashOnDeliveryMethod(order.methodName)) &&
-          !isCashOnDeliveryAvailable(databaseName, __DEV__)) {
-          Toast.show({
-            topOffset: 60, type: "error",
-            text1: "Cash on delivery unavailable",
-            text2: "USA cash checkout is available only in development/debug builds.",
-          });
-          return;
-        }
+        const enabled = await paymentSettings(databaseName);
+        const method = ({ 1: "cash", 2: "bank", 3: "card", 4: "telebirr" })[order.paymentMethod] ||
+          ({ "cash on delivery": "cash", "bank transfer": "bank", "card payment": "card", telebirr: "telebirr" })[String(order.methodName || "").toLowerCase()];
+        if (!enabled[method]) throw new Error(PAYMENT_UNAVAILABLE);
         const stockValidation = await validateOrderStock({
           orderItems: order.orderItems,
           token,

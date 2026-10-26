@@ -134,18 +134,24 @@ Focused checks: `node --test scripts/authentication.test.cjs`.
 - **Multiple Payment Options**: 
   - Credit/Debit cards via Stripe
   - Telebirr mobile money
-- **USA Development Cash Checkout**: Cash on delivery is selectable for the USA
-  database only when React Native `__DEV__` is true (development/debug bundles).
-  It is hidden and blocked at order confirmation in release bundles, including
-  preview and production builds. Ethiopia cash checkout remains unchanged.
-  This is a mobile build gate, not a backend authorization policy. Development
-  cash checkout creates real orders in the selected database; use test products.
-  Both the legacy payment screen and vehicle/multi-delivery checkout expose it.
-  Domestic USA vehicle checkout sends `developmentCashOnDelivery: true` when
-  reserving cash orders, including from a debug app connected to Render.
-  Deploy the matching backend first. Release apps omit the option and block
-  forced cash reservations/unfinished cash confirmation. USA-to-Ethiopia birr
-  shipping and Ethiopia USD/service checkout still do not allow cash.
+- **Regional payment controls**: Cash on delivery (including USA) and all
+  existing supported methods are available independently of development or
+  production builds. Admin > Maintenance & Login > Payment methods has
+  separate USA/Ethio switches for cash, bank, card and Telebirr, shared with
+  the website. Missing switches default ON. Checkout and ride payment screens
+  refresh on focus, foregrounding and every 30 seconds. Disabled methods
+  cannot start new payments; settings failures block new submissions with
+  an explicit error. If no eligible methods remain, checkout displays:
+  "Payment is temporarily unavailable. Please try again later."
+  Deploy the matching backend first (`settings/payment-methods` uses the
+  selected `x-database-name`; updates require Admin).
+  Existing grouped reservations, saved ride methods, card intents and receipt
+  reconciliation remain accessible. Legacy order creation is a new submission
+  and is blocked while its method is disabled; coordinate maintenance around
+  already-paid legacy orders. Currency restrictions, provider configuration
+  and Stripe's native-build requirement still apply. Telebirr is supported by
+  legacy Ethio checkout, not grouped checkout/rides. USA-to-Ethiopia shipping
+  remains ETB bank-only; Ethiopia USD/service payments still exclude cash.
 - **USA Car Delivery**: In vehicle checkout, calculate routes and select
   **Car** under **Delivery vehicle** for each pickup/destination. The previewed
   fee updates and the saved order requires a car driver. Car is shown only when

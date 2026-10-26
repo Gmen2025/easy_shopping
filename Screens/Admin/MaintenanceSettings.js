@@ -14,6 +14,7 @@ import EasyButton from '../../Shared/StyledComponenets/EasyButton';
 import { useMaintenance } from '../../Context/store/MaintenanceContext';
 import { AuthContext } from '../../Context/store/Auth';
 import SocialLoginSettings from './SocialLoginSettings';
+import PaymentMethodSettings from './PaymentMethodSettings';
 
 const MaintenanceSettings = (props) => {
   const { maintenanceEnabled, toggleMaintenance } = useMaintenance();
@@ -92,6 +93,7 @@ const MaintenanceSettings = (props) => {
       </View>
 
       <SocialLoginSettings />
+      <PaymentMethodSettings />
 
       <Card style={styles.mainCard}>
         <Card.Content>
