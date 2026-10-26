@@ -76,8 +76,7 @@ export const isDriverUser = (user) => {
   return false;
 };
 
-// Company (non-partner) drivers/store-owners get their own bottom-tab dashboard instead of
-// the full Admin panel. Regular partner drivers/store-owners keep the existing experience.
+// Company roles retain their store/offer management controls; all drivers can open dispatch.
 export const isCompanyDriverUser = (user) => {
   const profile = extractUserProfile(user);
   return Boolean(profile?.isDriver && profile?.isCompanyOwnedDriver && !profile?.isAdmin);

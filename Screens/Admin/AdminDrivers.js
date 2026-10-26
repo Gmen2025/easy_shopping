@@ -506,11 +506,12 @@ const AdminDrivers = () => {
         ListFooterComponent={
           <View style={styles.formCard}>
             <View style={styles.rejectionsHeader}>
-              <Text style={styles.listTitle}>Rejected Delivery Requests</Text>
+              <Text style={styles.listTitle}>Delivery Rejection Review</Text>
               <TouchableOpacity onPress={loadRejectedDeliveries} disabled={loadingRejections}>
                 <Text style={styles.refreshLocationText}>{loadingRejections ? "Loading..." : "Refresh"}</Text>
               </TouchableOpacity>
             </View>
+            <Text style={styles.detail}>Driver rejections are flagged for review but remain available to other drivers. Reroute-only responses are not review flags. No order is automatically cancelled or refunded.</Text>
             {rejectedDeliveries.length === 0 ? (
               <Text style={styles.detail}>No rejected delivery requests.</Text>
             ) : (
@@ -527,7 +528,7 @@ const AdminDrivers = () => {
                       </Text>
                     ) : null}
                     {(order.companyDriverResponses || [])
-                      .filter((entry) => entry.status === "rejected")
+                      .filter((entry) => entry.status === "rejected" && entry.action !== "reroute")
                       .map((entry) => (
                         <View key={entry._id} style={styles.rejectionEntryRow}>
                           <Text style={styles.detail}>Rejected by {entry.driver?.name || "a company driver"}</Text>

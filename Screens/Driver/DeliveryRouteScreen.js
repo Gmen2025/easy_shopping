@@ -59,6 +59,7 @@ const DeliveryRouteScreen = () => {
     request.dropoffAddress?.phone ||
     "";
   const currentStage = orderStatus === "Picked Up" ? "delivery" : "pickup";
+  const dropoffBlocked = currentStage === "delivery" && request.dropoffReady === false;
   const liveOrderStatus = route?.params?.orderStatus ||
     request.deliveryStatus || request.rawPayload?.deliveryStatus || orderStatus;
   const isCompleted = liveOrderStatus === "Delivered" ||
@@ -122,7 +123,7 @@ const DeliveryRouteScreen = () => {
 
   const saveDeliveryStatus = async (deliveryStatus) => {
     if (deliveryStatus === "Delivered" && request.dropoffReady === false) {
-      setStatusError("Collect all products for this destination first. Refresh your delivery queue after the remaining pickups.");
+      setStatusError("Complete all pickups for this customer cart first. Refresh your delivery queue after the remaining pickups.");
       return false;
     }
     setStatusError("");
@@ -164,6 +165,10 @@ const DeliveryRouteScreen = () => {
     setRouteStats(null);
     setRouteError("");
     const loadRoute = async () => {
+      if (dropoffBlocked) {
+        setRouteError("Complete all pickups for this customer cart before starting any drop-off. Return to your delivery queue.");
+        return;
+      }
       if (pending || terminalError || !latestOrigin.current ||
         Date.now() < routeRequestTiming.current.nextAllowedAt || isCompleted) return;
       if (!orderId) {
@@ -223,7 +228,7 @@ const DeliveryRouteScreen = () => {
     loadRoute();
     const timer = setInterval(loadRoute, 2000);
     return () => { clearInterval(timer); controller.abort(); };
-  }, [orderId, orderStatus, isCompleted,
+  }, [orderId, orderStatus, isCompleted, dropoffBlocked,
     storeCoordinates?.latitude, storeCoordinates?.longitude]);
 
   useEffect(() => {
@@ -417,7 +422,8 @@ const DeliveryRouteScreen = () => {
           {(request.requiredVehicle || request.rawPayload?.requiredVehicle) ? <Text style={styles.addressLink}>
             Vehicle: {request.requiredVehicle || request.rawPayload?.requiredVehicle}
           </Text> : null}
-          <TouchableOpacity onPress={() => openDirections(customerCoordinates, storeCoordinates)}>
+          <TouchableOpacity disabled={request.dropoffReady === false}
+            onPress={() => openDirections(customerCoordinates, storeCoordinates)}>
             <Text style={styles.addressLink} numberOfLines={1}>🏁 Drop-off: {dropoffAddressLabel}</Text>
           </TouchableOpacity>
           {isCompanyDriverRoute && Boolean(customerPhone) ? (
@@ -537,7 +543,7 @@ const DeliveryRouteScreen = () => {
                     setDeliveryRouteStarted(true);
                   }}
                 >
-                  <Text style={styles.primaryActionText}>{request.dropoffReady === false ? "Collect remaining destination products first" :
+                  <Text style={styles.primaryActionText}>{request.dropoffReady === false ? "Complete all cart pickups first" :
                     deliveryRouteStarted ? "Confirm delivery" : "Start delivery route"}</Text>
                 </TouchableOpacity>
               </>

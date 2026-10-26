@@ -28,7 +28,7 @@ const INCOME_PERIODS = [
   { key: "yearly", label: "365 Days" },
 ];
 
-const submitDeliveryAction = async (orderId, action) => {
+const submitDeliveryAction = async (orderId, action, shared = false) => {
   const controller = new AbortController();
   let deadlineTimer;
   const deadline = new Promise((_, reject) => {
@@ -49,7 +49,7 @@ const submitDeliveryAction = async (orderId, action) => {
           throw new Error("The delivery action timed out before it could be sent.");
         }
         return axios.put(
-          `${baseUrl}orders/${orderId}/company-${action}`,
+          shared ? `${baseUrl}drivers/me/available-deliveries/${orderId}/claim` : `${baseUrl}orders/${orderId}/company-${action}`,
           {},
           {
             headers: { Authorization: `Bearer ${token}`, "x-database-name": currentDb },
@@ -110,6 +110,7 @@ const normalizeQueueEntry = (entry = {}) => {
 
 const CompanyDriverDashboard = ({ navigation }) => {
   const { logout, user } = useContext(AuthContext);
+  const companyDriver = Boolean(user?.isCompanyOwnedDriver);
   const { formatPrice } = useCurrency();
   const [orders, setOrders] = useState([]);
   const [queue, setQueue] = useState([]);
@@ -139,7 +140,7 @@ const CompanyDriverDashboard = ({ navigation }) => {
     try {
       const token = await AsyncStorage.getItem("token");
       const currentDb = await getDatabaseNameFromStorage();
-      const response = await axios.get(`${baseUrl}orders/company/my-deliveries`, {
+      const response = await axios.get(`${baseUrl}drivers/me/available-deliveries`, {
         timeout: 20000,
         headers: { Authorization: `Bearer ${token}`, "x-database-name": currentDb },
       });
@@ -224,6 +225,7 @@ const CompanyDriverDashboard = ({ navigation }) => {
   }, []);
 
   const loadRides = useCallback(async () => {
+    if (!companyDriver) return;
     if (requestsInFlight.current.has("rides")) return;
     requestsInFlight.current.add("rides");
     try {
@@ -241,7 +243,7 @@ const CompanyDriverDashboard = ({ navigation }) => {
     }
     catch (error) { setRideError(error.response?.data?.message || error.message); }
     finally { requestsInFlight.current.delete("rides"); }
-  }, []);
+  }, [companyDriver]);
   const refreshData = useCallback(async () => {
     if (refreshInFlight.current) return;
     refreshInFlight.current = true;
@@ -266,7 +268,7 @@ const CompanyDriverDashboard = ({ navigation }) => {
     actionInFlight.current = true;
     setActingId(order._id);
     try {
-      await submitDeliveryAction(order._id, "claim");
+      await submitDeliveryAction(order._id, "claim", Boolean(order.sharedAssignment));
       Alert.alert("Delivery claimed", "This delivery is now assigned to you.");
       setOrders((current) => current.filter((item) => item._id !== order._id));
       loadQueue();
@@ -312,6 +314,10 @@ const CompanyDriverDashboard = ({ navigation }) => {
   };
 
   const startRoute = (queueEntry) => {
+    if (queueEntry.deliveryStatus === "Picked Up" && queueEntry.dropoffReady === false) {
+      Alert.alert("Complete cart pickups first", "Collect all products for this customer cart before starting any drop-off.");
+      return;
+    }
     const request = normalizeQueueEntry(queueEntry);
     navigation.navigate("DeliveryRoute", {
       request,
@@ -405,11 +411,12 @@ const CompanyDriverDashboard = ({ navigation }) => {
         </View>
 
         {/* Actions */}
+        {item.canClaim === false ? <Text>Queued until you are online with an eligible vehicle and enough capacity. Refresh after updating your availability.</Text> : null}
         <View style={styles.cardActionsRow}>
-          <TouchableOpacity
+          {item.canRespond !== false ? <><TouchableOpacity
             style={styles.rejectBtn}
             disabled={Boolean(actingId)}
-            onPress={() => Alert.alert("Reject for Admin review?", "The order will stop rerouting and wait for Admin to cancel or delete it. Payment is not cancelled or refunded by this action.", [
+            onPress={() => Alert.alert("Reject this delivery?", "This request will leave your list and stay available for other drivers. It will also be flagged for Admin review without pausing delivery. If nobody is available, it stays queued. The order and payment are not cancelled or refunded.", [
               { text: "Cancel", style: "cancel" },
               { text: "Reject", style: "destructive", onPress: () => respondToOffer(item, "reject") },
             ])}
@@ -419,10 +426,10 @@ const CompanyDriverDashboard = ({ navigation }) => {
           <TouchableOpacity style={styles.rejectBtn} disabled={Boolean(actingId)}
             onPress={() => respondToOffer(item, "reroute")}>
             <Text style={styles.rejectBtnText}>Reroute</Text>
-          </TouchableOpacity>
+          </TouchableOpacity></> : null}
           <TouchableOpacity
             style={styles.claimBtn}
-            disabled={Boolean(actingId)}
+            disabled={Boolean(actingId) || item.canClaim === false}
             onPress={() => claimOrder(item)}
           >
             {actingId === item._id ? (
@@ -493,8 +500,10 @@ const CompanyDriverDashboard = ({ navigation }) => {
         </View>
 
         {item.dropoffReady === false ? <Text>Collect the remaining {item.pendingPickupOrderIds?.length || 0} pickup order(s)
-          for this destination before confirming drop-off.</Text> : null}
-        <TouchableOpacity style={styles.routeBtn} onPress={() => startRoute(item)}>
+          for this customer cart before starting any drop-off.</Text> : null}
+        <TouchableOpacity style={styles.routeBtn}
+          disabled={item.deliveryStatus === "Picked Up" && item.dropoffReady === false}
+          onPress={() => startRoute(item)}>
           <Text style={styles.routeBtnText}>
             {item.deliveryStatus === "Picked Up" ? "Route to Delivery ➔" : "Route to Pickup ➔"}
           </Text>
@@ -513,7 +522,7 @@ const CompanyDriverDashboard = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
       >
         {/* Header Block */}
-        <View style={[styles.headerCard, styles.rideServiceCard]}>
+        {companyDriver ? <View style={[styles.headerCard, styles.rideServiceCard]}>
           <Text style={styles.headerTitle}>RIDE SERVICE</Text>
           <Text>Separate ride offers, passenger route and service preferences</Text>
           {rideError ? <Text>Ride service: {rideError}</Text> : null}
@@ -551,12 +560,12 @@ const CompanyDriverDashboard = ({ navigation }) => {
               ? "Update ride profile photo"
               : "Open ride assignments & route"}</Text>
           </TouchableOpacity>
-        </View>
+        </View> : null}
         <View style={styles.headerCard}>
           <View style={styles.headerRow}>
             <View>
               <Text style={styles.headerTitle}>Delivery Dispatch</Text>
-              <Text style={styles.headerDriverName}>{user?.name || "Company Driver"}</Text>
+              <Text style={styles.headerDriverName}>{user?.name || "Driver"}</Text>
             </View>
             <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
               <Text style={styles.logoutText}>Sign out</Text>
@@ -690,7 +699,7 @@ const CompanyDriverDashboard = ({ navigation }) => {
             <View style={styles.sectionContainer}>
               <Text style={styles.sectionHeaderTitle}>Your Route ({queue.length})</Text>
               {routeStops.length ? <View style={styles.card}><Text style={styles.locationTitle}>Combined accepted cart route</Text>
-                <Text>One store visit can collect products for several accepted carts. Customer prices do not change.</Text>
+                <Text>Complete all pickups for each customer cart before any of its drop-offs. One store visit can collect products for several accepted carts. Customer prices do not change.</Text>
                 {routeStops.map((stop, index) => <TouchableOpacity key={stop.key} accessibilityRole="button"
                   accessibilityLabel={`Open combined route stop ${index + 1}`}
                   disabled={stop.type === "dropoff" && stop.requires.length > 0}
@@ -711,8 +720,8 @@ const CompanyDriverDashboard = ({ navigation }) => {
 
             {/* Unassigned Deliveries Section */}
             <View style={styles.sectionContainer}>
-              <Text style={styles.sectionHeaderTitle}>Unassigned Company Deliveries</Text>
-              <Text style={styles.helperText}>Default offers remain queued even while unavailable. Claim when eligible, reroute to another account, or reject for Admin review.</Text>
+              <Text style={styles.sectionHeaderTitle}>Available Delivery Assignments</Text>
+              <Text style={styles.helperText}>Unclaimed deliveries are shared with eligible available company and partner drivers. Company drivers can still see queued requests while unavailable, and Reject or Reroute them for other drivers to claim. Reject also flags the request for Admin review without pausing delivery. Both actions remove the request from your list without cancelling or refunding it; it stays queued if nobody is available. Claim the complete cart; the first successful claim gets the assignment.</Text>
               {ordersError ? <Text accessibilityRole="alert" style={styles.helperText}>Offers could not be verified: {ordersError}</Text> : null}
               {dispatchMessage ? <Text style={styles.helperText}>{dispatchMessage}</Text> : null}
               {orders.length === 0 && !ordersError ? (

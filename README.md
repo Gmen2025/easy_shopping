@@ -15,15 +15,38 @@ Company drivers claim a complete cart after all stores accept it, then can batch
 several accepted carts within the cart-count and conservative combined vehicle
 capacity limits. Shared stores appear once in the operational stop list. Confirm
 each collected store order; after pickup the cart route returns to the refreshed
-queue so destination readiness reflects every collected product. A drop-off
-unlocks only after all its own products are picked up; unrelated addresses may
-still await collection. Unknown package measurements require manual vehicle
+queue so cart readiness reflects every collected product. No drop-off route or
+delivery confirmation unlocks until all pickups for that customer cart finish.
+Other accepted carts are checked independently. Unknown package measurements require manual vehicle
 selection and disable multi-cart batching.
 
 Deploy the matching backend first and release both clients. Saved legacy quotes
 and orders retain their previous rules. Geographic multi-start route ordering is
 a heuristic, priced with actual road legs, not guaranteed shortest-road routing.
 Live driver navigation and batching never reprice a reserved cart.
+The configured default store receives unaccepted fallback requests from all
+storefronts, including unrelated ones, to claim with matching stock/prices,
+reroute, or reject for Admin review. Other fallback stores retain family scope.
+
+All driver accounts, including partners, have a Driver tab with **Available
+Delivery Assignments**, shared with the website through the backend's
+`drivers/me/available-deliveries` list/claim APIs. Eligible available drivers
+can claim an unassigned complete cart or legacy delivery even if a company offer
+was directed to someone else. Partner drivers retain the 5 km first-pickup radius
+and pre-pickup recipient privacy. Approval, vehicle/capacity, availability and
+ride exclusions are checked again transactionally on claim; no socket or second
+acceptance is required.
+
+If nobody is available, requests stay queued. Company drivers still see them
+when reopening or refreshing while offline/full, with Claim disabled until
+eligible. Company drivers can Reroute/Reject any ready unclaimed request, even
+without a designated offer or another driver currently available. Both actions
+remove the whole cart only from that driver's list and leave it queued for
+other eligible company/partner drivers. Reject also flags it in Admin's Delivery
+Rejection Review without blocking delivery; Reroute does not create a review
+flag. Neither action cancels/refunds payment. Assigned carts cannot be released by these actions.
+Company-only passenger ride
+controls remain hidden for partner drivers.
 US-to-Ethiopia shipping uses this for the US store-to-hub leg only; international
 tariffs remain separate.
 
@@ -638,17 +661,17 @@ Focused checks: `node --test scripts/authentication.test.cjs`.
 - **Company Order Fallback**: With no eligible partner store within 10 km or driver
   within 5 km, the backend routes to the nearest available company account without
   a radius limit. AdminStore receives assigned orders in its overview; AdminDriver
-  receives an unassigned offer to claim, reroute, or finally reject. When no
+  receives an unassigned offer to claim, reroute, or reject for other drivers. When no
   currently eligible company driver remains, an approved default company driver
   still receives a persistent list, even offline, busy or suspended. Existing
   offers stay visible when availability or proximity changes. Claim enforces
   approval, availability, suspension, service/ride conflicts, vehicle and capacity
-  checks. Claimed deliveries enter the active queue; **Reroute** tries another
-  account. With no alternative, rerouting fails explicitly and keeps the request
-  queued. Final **Reject** stops automatic reassignment and marks the order
-  **awaiting Admin cancellation or deletion** in Order Management. It does not
-  itself cancel payment, delete the order or issue a refund; grouped orders use
-  their combined checkout's cancellation/refund flow. Driver lists refresh every
+  checks. Claimed deliveries enter the active queue; **Reroute** and **Reject**
+  exclude the responding driver and return the entire unclaimed request to other
+  eligible drivers. With no alternative, it stays queued until one is available.
+  Reject additionally flags the request for non-blocking Admin review; Reroute
+  does not. Neither action cancels payment, deletes the order or issues a refund.
+  Driver lists refresh every
   15 seconds while focused.
   When company stores cannot be ranked by proximity, an eligible preferred
   company store or a stable available default is used instead of leaving pickup

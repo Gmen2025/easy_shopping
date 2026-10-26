@@ -6,7 +6,7 @@ import Icon from 'react-native-vector-icons/FontAwesome'
 import CartIcon from '../Shared/CartIcon'
 import AdminLowStockBadge from '../Shared/AdminLowStockBadge'
 import {AuthContext} from '../Context/store/Auth'
-import { isCompanyDriverUser, isCompanyStoreUser } from '../Context/store/Auth'
+import { isDriverUser, isCompanyStoreUser } from '../Context/store/Auth'
 
 import HomeNavigator from './HomeNavigator'
 import CartNavigator from './CartNavigator'
@@ -106,7 +106,7 @@ const Main = () => {
           }}
         />
       ) : null}
-      {isCompanyDriverUser(context.user) ? (
+      {isDriverUser(context.user) && !context.user?.isAdmin ? (
         <Tab.Screen
           name='AdminDriver'
           component={CompanyDriverNavigator}

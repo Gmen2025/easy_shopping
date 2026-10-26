@@ -330,6 +330,7 @@ test(`driver routing uses ${liveDriver ? "live GPS" : "the registered store with
   let now = 100000;
   let currentDriver = liveDriver;
   let orderStatus = "Driver Assigned";
+  let dropoffReady;
   const state = new Map();
   const refs = [];
   let refIndex = 0;
@@ -367,7 +368,7 @@ test(`driver routing uses ${liveDriver ? "live GPS" : "the registered store with
     "@react-navigation/native": {
       useNavigation: () => ({}),
       useRoute: () => ({ params: { orderStatus, request: {
-        id: "order", storeLocation: pickup, customerLocation: dropoff,
+        id: "order", storeLocation: pickup, customerLocation: dropoff, dropoffReady,
       } } }),
     },
     "react-native-maps": { __esModule: true, default: "MapView", Marker: "Marker", Polyline: "Polyline" },
@@ -452,7 +453,25 @@ test(`driver routing uses ${liveDriver ? "live GPS" : "the registered store with
   if (succeeds) {
     cleanup();
     orderStatus = "Picked Up";
-    now = refs[2].current.nextAllowedAt - 50000;
+    dropoffReady = false;
+    stateIndex = 0;
+    refIndex = 0;
+    effects.length = 0;
+    const blockedTree = screenExports.default();
+    const beforeBlocked = calls;
+    const blockedCleanup = effects[0]();
+    await new Promise(setImmediate);
+    assert.equal(calls, beforeBlocked, "Incomplete cart pickups must not request drop-off directions");
+    assert.match(errors.at(-1), /all pickups.*customer cart/);
+    assert.match(JSON.stringify(blockedTree), /Complete all cart pickups first/);
+    const nodes = (value) => !value || typeof value !== "object" ? [] :
+      Array.isArray(value) ? value.flatMap(nodes) : [value, ...nodes(value.children)];
+    const dropoffLink = nodes(blockedTree).find((node) =>
+      node.type === "TouchableOpacity" && JSON.stringify(node.children).includes("Drop-off:"));
+    assert.equal(dropoffLink.props.disabled, true, "External navigation cannot bypass the cart pickup gate");
+    blockedCleanup();
+    dropoffReady = true;
+    now = refs[2].current.nextAllowedAt - 10000;
     stateIndex = 0;
     refIndex = 0;
     effects.length = 0;

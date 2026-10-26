@@ -450,7 +450,7 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
           <Text>Billable road distance: {(/usa/i.test(database) ? quote.cartRoute.distanceKm / 1.609344 : quote.cartRoute.distanceKm).toFixed(2)} {/usa/i.test(database) ? "mi" : "km"}.
             One base fee and delivery-speed surcharge for the entire route.</Text>
           <Text>Driver travel to the first pickup and detours for other customers are not charged.
-            Your reserved fee stays fixed. A drop-off can finish once all products for that address are collected.</Text>
+            Your reserved fee stays fixed. All pickups for your complete cart must finish before any drop-off begins.</Text>
           {quote.cartRoute.stops.map((stop, index) => <Text key={stop.key}>{index + 1}. {stop.type === "pickup" ? "Pickup" : "Drop-off"}: {stop.name}</Text>)}
         </View> : null}
         <Text>Delivery speed: {deliveryModeLabel(deliveryMode)}

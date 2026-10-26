@@ -5,7 +5,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const babel = require("@babel/core");
 
-function fixture({ database = "E_Shopping", rideDriver = { serviceModes: { delivery: true } },
+function fixture({ database = "E_Shopping", user = { isDriver: true, isCompanyOwnedDriver: true }, rideDriver = { serviceModes: { delivery: true } },
   locationPermission = "granted" } = {}) {
   const filename = path.join(__dirname, "..", "Screens", "Driver", "CompanyDriverDashboard.js");
   const { code } = babel.transformSync(fs.readFileSync(filename, "utf8"), {
@@ -26,7 +26,7 @@ function fixture({ database = "E_Shopping", rideDriver = { serviceModes: { deliv
   let storageRead = async () => "token";
   const react = {
     createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
-    useContext: () => ({ user: {}, logout: () => {} }),
+    useContext: () => ({ user, logout: () => {} }),
     useCallback: (fn) => fn,
     useState: (initial) => {
       const index = stateIndex++;
@@ -99,8 +99,11 @@ function fixture({ database = "E_Shopping", rideDriver = { serviceModes: { deliv
       child.props?.children?.includes("Reroute")));
   const combinedStop = (index) => nodes(render()).find((node) =>
     node.props?.accessibilityLabel === `Open combined route stop ${index}`);
+  const deliveryRoute = () => nodes(render()).find((node) =>
+    node.type === "TouchableOpacity" && nodes(node).some((child) =>
+      child.props?.children?.includes("Route to Delivery ➔")));
   return {
-    pending, actions, alerts, timers, button, text, claim, reject, reroute, combinedStop, navigations,
+    pending, actions, alerts, timers, button, text, claim, reject, reroute, combinedStop, deliveryRoute, navigations,
     focus: () => focused(),
     setStorageRead: (read) => { storageRead = read; },
     expireDeadline: () => {
@@ -133,7 +136,7 @@ async function finishClaimRecovery(f) {
   assert.equal(f.claim().props.disabled, false);
 }
 
-test("mobile combined cart plan groups shared-store pickups and disables drop-offs until destination collection is complete", async () => {
+test("mobile blocks combined and individual drop-off routes until all cart pickups are complete", async () => {
   const f = fixture();
   f.button();
   f.focus();
@@ -149,6 +152,11 @@ test("mobile combined cart plan groups shared-store pickups and disables drop-of
   assert.match(f.text(), /Combined accepted cart route/);
   assert.equal(f.combinedStop(1).props.disabled, false);
   assert.equal(f.combinedStop(2).props.disabled, true);
+  assert.equal(f.deliveryRoute().props.disabled, true);
+  f.deliveryRoute().props.onPress();
+  assert.equal(f.navigations.length, 0);
+  assert.match(f.alerts[0][1], /all products.*customer cart/);
+  assert.match(f.text(), /for this customer cart before starting any drop-off/);
   const oldCount = f.pending.length;
   const refresh = f.button().props.onPress();
   await new Promise(setImmediate);
@@ -158,6 +166,7 @@ test("mobile combined cart plan groups shared-store pickups and disables drop-of
   } });
   await refresh;
   assert.equal(f.combinedStop(1).props.disabled, false);
+  assert.equal(f.deliveryRoute().props.disabled, false);
   f.combinedStop(1).props.onPress();
   assert.equal(f.navigations[0][0], "DeliveryRoute");
   assert.equal(f.navigations[0][1].request.dropoffReady, true);
@@ -303,8 +312,9 @@ test("reject uses the same deadline and releases its action state", async () => 
   const f = fixture();
   await loadOffer(f);
   f.reject().props.onPress();
-  assert.equal(f.actions.length, 0, "Final rejection requires confirmation");
-  assert.match(f.alerts.at(-1)[1], /stop rerouting/);
+  assert.equal(f.actions.length, 0, "Rejection requires confirmation");
+  assert.match(f.alerts.at(-1)[1], /stay available for other drivers/);
+  assert.match(f.alerts.at(-1)[1], /flagged for Admin review without pausing delivery/);
   const reject = f.alerts.at(-1)[2].find((choice) => choice.text === "Reject").onPress();
   await new Promise(setImmediate);
   assert.match(f.actions[0].url, /company-reject$/);
@@ -318,7 +328,7 @@ test("reject uses the same deadline and releases its action state", async () => 
   assert.equal(f.alerts.at(-1)[0], "Unable to respond");
 });
 
-test("reroute uses its own endpoint rather than final rejection", async () => {
+test("reroute uses its own endpoint", async () => {
   const f = fixture();
   await loadOffer(f);
   const reroute = f.reroute().props.onPress();
@@ -335,7 +345,7 @@ test("driver dashboard shows dispatch eligibility and distinguishes failed reque
   f.focus();
   await new Promise(setImmediate);
   for (const request of f.pending) {
-    if (request.url.includes("my-deliveries")) request.resolve({ data: {
+    if (request.url.includes("available-deliveries")) request.resolve({ data: {
       orders: [], driverEligibility: { message: "Your driver profile is offline/unavailable." },
     } });
     else if (request.url.includes("/queue")) request.reject(new Error("Queue request failed"));
@@ -345,4 +355,67 @@ test("driver dashboard shows dispatch eligibility and distinguishes failed reque
   assert.match(f.text(), /offline\/unavailable/);
   assert.match(f.text(), /Active routes could not be verified/);
   assert.match(f.text(), /Queue request failed/);
+});
+
+test("offline company backlog keeps claim disabled but permits rejection and rerouting", async () => {
+  const f = fixture();
+  f.button(); f.focus();
+  await new Promise(setImmediate);
+  for (const request of f.pending) request.resolve({ data: {
+    orders: [{ _id: "queued-order", items: [], sharedAssignment: true, canClaim: false, canRespond: true }],
+    queue: [],
+  } });
+  await new Promise(setImmediate);
+  assert.match(f.pending[0].url, /drivers\/me\/available-deliveries$/);
+  assert.ok(f.claim());
+  assert.equal(f.claim().props.disabled, true);
+  assert.equal(f.reject().props.disabled, false);
+  assert.equal(f.reroute().props.disabled, false);
+  assert.match(f.text(), /Queued until you are online/);
+});
+
+test("partner drivers claim shared assignments through the authenticated driver endpoint without company or ride controls", async () => {
+  const f = fixture({ user: { isDriver: true, isCompanyOwnedDriver: false } });
+  f.button(); f.focus();
+  await new Promise(setImmediate);
+  for (const request of f.pending) request.resolve({ data: {
+    orders: [{ _id: "available-order", items: [], sharedAssignment: true, canClaim: true, canRespond: false }],
+    queue: [],
+  } });
+  await new Promise(setImmediate);
+  assert.doesNotMatch(f.text(), /RIDE SERVICE|Open ride assignments/);
+  assert.equal(f.reject(), undefined);
+  assert.equal(f.reroute(), undefined);
+  const claim = f.claim().props.onPress();
+  await new Promise(setImmediate);
+  assert.match(f.actions[0].url, /drivers\/me\/available-deliveries\/available-order\/claim$/);
+  f.actions[0].resolve({ data: { success: true } });
+  await claim;
+  assert.equal(f.claim(), undefined);
+});
+
+test("mobile navigation exposes the delivery dashboard to company and partner drivers, not customers or admins", () => {
+  const filename = path.join(__dirname, "..", "Navigators", "Main.js");
+  const { code } = babel.transformSync(fs.readFileSync(filename, "utf8"), {
+    filename, configFile: false, babelrc: false,
+    plugins: ["@babel/plugin-transform-react-jsx", "@babel/plugin-transform-modules-commonjs"],
+  });
+  for (const user of [{ isDriver: true, isCompanyOwnedDriver: true }, { isDriver: true },
+    {}, null, { isDriver: true, isAdmin: true }]) {
+    const exports = {};
+    vm.runInNewContext(code, { exports, require: (name) => {
+      if (name === "react") return {
+        createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
+        useContext: () => ({ user }),
+      };
+      if (name === "@react-navigation/bottom-tabs") return {
+        createBottomTabNavigator: () => ({ Navigator: "Tabs", Screen: "Tab" }),
+      };
+      if (name === "../Context/store/Auth") return { AuthContext: {},
+        isDriverUser: (profile) => profile?.isDriver === true, isCompanyStoreUser: () => false };
+      return {};
+    } });
+    const tabs = exports.default().props.children.flat(Infinity).filter(Boolean);
+    assert.equal(tabs.some((tab) => tab.props.name === "AdminDriver"), Boolean(user?.isDriver && !user.isAdmin));
+  }
 });
