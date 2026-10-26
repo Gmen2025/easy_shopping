@@ -121,6 +121,10 @@ const DeliveryRouteScreen = () => {
   };
 
   const saveDeliveryStatus = async (deliveryStatus) => {
+    if (deliveryStatus === "Delivered" && request.dropoffReady === false) {
+      setStatusError("Collect all products for this destination first. Refresh your delivery queue after the remaining pickups.");
+      return false;
+    }
     setStatusError("");
     try {
       await updateDeliveryStatus(request, deliveryStatus);
@@ -485,6 +489,10 @@ const DeliveryRouteScreen = () => {
                   style={styles.secondaryAction}
                   onPress={async () => {
                     if (await saveDeliveryStatus("Picked Up")) {
+                      if (typeof request.dropoffReady === "boolean") {
+                        navigation.navigate(exitRouteName);
+                        return;
+                      }
                       navigation.navigate("DeliveryProgress", {
                         request,
                         orderStatus: "Picked Up",
@@ -517,6 +525,7 @@ const DeliveryRouteScreen = () => {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.primaryAction}
+                  disabled={request.dropoffReady === false}
                   onPress={async () => {
                     if (deliveryRouteStarted) {
                       if (await saveDeliveryStatus("Delivered")) {
@@ -528,7 +537,8 @@ const DeliveryRouteScreen = () => {
                     setDeliveryRouteStarted(true);
                   }}
                 >
-                  <Text style={styles.primaryActionText}>{deliveryRouteStarted ? "Confirm delivery" : "Start delivery route"}</Text>
+                  <Text style={styles.primaryActionText}>{request.dropoffReady === false ? "Collect remaining destination products first" :
+                    deliveryRouteStarted ? "Confirm delivery" : "Start delivery route"}</Text>
                 </TouchableOpacity>
               </>
             )}

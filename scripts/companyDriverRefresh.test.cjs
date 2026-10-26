@@ -20,6 +20,7 @@ function fixture({ database = "E_Shopping", rideDriver = { serviceModes: { deliv
   const pending = [];
   const actions = [];
   const alerts = [];
+  const navigations = [];
   const timers = new Map();
   let timerId = 0;
   let storageRead = async () => "token";
@@ -78,7 +79,7 @@ function fixture({ database = "E_Shopping", rideDriver = { serviceModes: { deliv
   const render = () => {
     stateIndex = 0;
     refIndex = 0;
-    return exports.default({ navigation: {} });
+    return exports.default({ navigation: { navigate: (...args) => navigations.push(args) } });
   };
   const nodes = (value) => !value || typeof value !== "object" ? []
     : Array.isArray(value) ? value.flatMap(nodes)
@@ -96,8 +97,10 @@ function fixture({ database = "E_Shopping", rideDriver = { serviceModes: { deliv
   const reroute = () => nodes(render()).find((node) =>
     node.type === "TouchableOpacity" && nodes(node).some((child) =>
       child.props?.children?.includes("Reroute")));
+  const combinedStop = (index) => nodes(render()).find((node) =>
+    node.props?.accessibilityLabel === `Open combined route stop ${index}`);
   return {
-    pending, actions, alerts, timers, button, text, claim, reject, reroute,
+    pending, actions, alerts, timers, button, text, claim, reject, reroute, combinedStop, navigations,
     focus: () => focused(),
     setStorageRead: (read) => { storageRead = read; },
     expireDeadline: () => {
@@ -129,6 +132,36 @@ async function finishClaimRecovery(f) {
   assert.ok(f.claim(), "Claim spinner should be replaced by the claim label");
   assert.equal(f.claim().props.disabled, false);
 }
+
+test("mobile combined cart plan groups shared-store pickups and disables drop-offs until destination collection is complete", async () => {
+  const f = fixture();
+  f.button();
+  f.focus();
+  await new Promise(setImmediate);
+  const queue = [{ orderId: "a", cartRouteVersion: 1, checkoutGroup: "cart", deliveryStatus: "Picked Up",
+    dropoffReady: false, pendingPickupOrderIds: ["b"], store: { name: "Shared store" } }];
+  const routeStops = [
+    { key: "pickup", type: "pickup", name: "Shared store", orderIds: ["b", "other-customer"], requires: [] },
+    { key: "dropoff", type: "dropoff", name: "Home", orderIds: ["a"], requires: ["pickup"] },
+  ];
+  for (const request of f.pending) request.resolve({ data: { orders: [], queue, routeStops } });
+  await new Promise(setImmediate);
+  assert.match(f.text(), /Combined accepted cart route/);
+  assert.equal(f.combinedStop(1).props.disabled, false);
+  assert.equal(f.combinedStop(2).props.disabled, true);
+  const oldCount = f.pending.length;
+  const refresh = f.button().props.onPress();
+  await new Promise(setImmediate);
+  for (const request of f.pending.slice(oldCount)) request.resolve({ data: {
+    orders: [], queue: [{ ...queue[0], dropoffReady: true, pendingPickupOrderIds: [] }],
+    routeStops: [{ ...routeStops[1], requires: [] }],
+  } });
+  await refresh;
+  assert.equal(f.combinedStop(1).props.disabled, false);
+  f.combinedStop(1).props.onPress();
+  assert.equal(f.navigations[0][0], "DeliveryRoute");
+  assert.equal(f.navigations[0][1].request.dropoffReady, true);
+});
 
 test("driver dashboard explains disabled ride modes and missing passenger setup", async () => {
   const f = fixture({ rideDriver: { approvalStatus: "approved", isAvailable: true,

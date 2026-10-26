@@ -120,6 +120,37 @@ function harness(request, { resumeId, database = "E_ShopUSA", params = {}, excha
 const freshExchange = () => ({ enabled: true, active: true, birrPerUsd: 3, revision: 5, source: "manual",
   appliedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 86400000).toISOString() });
 
+test("cart route pricing charges once and vehicle selection updates every store in the mobile checkout", async () => {
+  const current = { label: "Home", address1: "Main", city: "Town", zip: "12345", country: "USA", phone: "123" };
+  const deliveries = ["a", "b", "c"].map((key) => ({ key, store: { _id: key, name: key }, address: current,
+    lines: [], cargo: {}, vehicle: "car", distanceKm: 10, deliveryFee: 3.34,
+    pricingGroup: { key: "cart-route-v1", kind: "cart-route" },
+    vehicleOptions: [{ type: "car", fee: 10.01 }, { type: "van", fee: 20.02 }] }));
+  const { calculateDeliveryPricing } = load("assets\\common\\deliveryPricing.js", {});
+  assert.equal(calculateDeliveryPricing(deliveries).deliveryFee, 10.01);
+  assert.equal(Object.values(calculateDeliveryPricing(deliveries).byKey).reduce((sum, row) => sum + Math.round(row.deliveryFee * 100), 0), 1001);
+  assert.throws(() => calculateDeliveryPricing(deliveries, { a: "van" }), /one vehicle for the entire cart/);
+  const ui = harness(async (route, options) => {
+    if (route === "delivery-current-address") return current;
+    if (route === "delivery-addresses" || route === "delivery-bank-accounts") return [];
+    if (route === "checkouts/quote") return { _id: "cart-route", kind: "products", cart: options.data.cart,
+      itemsSubtotal: 30, deliveryFee: 10.01, totalPrice: 40.01, deliveries,
+      expiresAt: new Date(Date.now() + 600000).toISOString(),
+      cartRoute: { version: 1, distanceKm: 10, stops: [{ key: "pickup:a", type: "pickup", name: "Store A" },
+        { key: "dropoff:home", type: "dropoff", name: "Home" }] } };
+    throw new Error(route);
+  });
+  await ui.start();
+  await ui.calculate();
+  assert.match(text(ui.render()), /One delivery route for your complete cart/);
+  assert.match(text(ui.render()), /Combined total: \$40.01/);
+  const pickers = nodes(ui.render()).filter((node) => node.type === "Picker" && node.props.selectedValue === "car");
+  assert.equal(pickers.length, 3);
+  pickers[0].props.onValueChange("van");
+  assert.equal(nodes(ui.render()).filter((node) => node.type === "Picker" && node.props.selectedValue === "van").length, 3);
+  assert.match(text(ui.render()), /Combined total: \$50.02/);
+});
+
 for (const database of ["E_ShopUSA", "E_Shopping"]) {
   for (const failure of [false, true]) {
     test(`payment checkout fails closed with no enabled methods or a settings failure (${database}, ${failure})`, async () => {

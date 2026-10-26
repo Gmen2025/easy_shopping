@@ -94,6 +94,8 @@ const normalizeQueueEntry = (entry = {}) => {
       : "",
     revealed: Boolean(entry.dropoffRevealed),
     deliveryStatus: entry.deliveryStatus,
+    dropoffReady: entry.dropoffReady,
+    pendingPickupOrderIds: entry.pendingPickupOrderIds,
     deliveryMode: entry.deliveryMode || entry.rawPayload?.deliveryMode,
     scheduledDeliveryDate:
       entry.scheduledDeliveryDate ||
@@ -111,6 +113,7 @@ const CompanyDriverDashboard = ({ navigation }) => {
   const { formatPrice } = useCurrency();
   const [orders, setOrders] = useState([]);
   const [queue, setQueue] = useState([]);
+  const [routeStops, setRouteStops] = useState([]);
   const [completedToday, setCompletedToday] = useState([]);
   const [dashboard, setDashboard] = useState(null);
   const [selectedPeriod, setSelectedPeriod] = useState("daily");
@@ -171,6 +174,7 @@ const CompanyDriverDashboard = ({ navigation }) => {
         throw new Error("The server returned an invalid active-route response.");
       }
       setQueue(Array.isArray(response.data?.queue) ? response.data.queue : []);
+      setRouteStops(response.data?.routeStops || []);
     } catch (error) {
       setQueueError(error?.response?.data?.message || error?.message || "Unable to load active routes.");
       if (!background) Alert.alert("Unable to load active deliveries", error?.response?.data?.message || "Please try again.");
@@ -342,6 +346,10 @@ const CompanyDriverDashboard = ({ navigation }) => {
           <Text style={styles.orderBadge}>Order #{String(item._id).slice(-6).toUpperCase()}</Text>
           <Text style={styles.payoutText}>Fee: {formatPrice(item.deliveryFee || 0)}</Text>
         </View>
+        {item.cartRoute ? <View><Text style={styles.locationTitle}>Complete customer cart assignment</Text>
+          <Text>Claim all pickup stores and drop-offs together. This fee covers the entire cart.</Text>
+          {item.cartRoute.stops.map((stop, index) => <Text key={stop.key}>{index + 1}. {stop.type === "pickup" ? "Pickup" : "Drop-off"}: {stop.name}</Text>)}
+        </View> : null}
         {item.deliveryMode === "SCHEDULED" ||
         item.scheduledFor ||
         item.scheduledDeliveryDate ||
@@ -484,6 +492,8 @@ const CompanyDriverDashboard = ({ navigation }) => {
           </View>
         </View>
 
+        {item.dropoffReady === false ? <Text>Collect the remaining {item.pendingPickupOrderIds?.length || 0} pickup order(s)
+          for this destination before confirming drop-off.</Text> : null}
         <TouchableOpacity style={styles.routeBtn} onPress={() => startRoute(item)}>
           <Text style={styles.routeBtnText}>
             {item.deliveryStatus === "Picked Up" ? "Route to Delivery ➔" : "Route to Pickup ➔"}
@@ -493,6 +503,8 @@ const CompanyDriverDashboard = ({ navigation }) => {
     );
   };
 
+  const activeAssignments = new Set(queue.map((entry) =>
+    entry.cartRouteVersion === 1 ? entry.checkoutGroup : entry.orderId)).size;
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
@@ -553,7 +565,7 @@ const CompanyDriverDashboard = ({ navigation }) => {
 
           <View style={styles.badgeRow}>
             <View style={[styles.badge, queue.length > 0 && styles.badgeActive]}>
-              <Text style={styles.badgeText}>{queue.length} Active Route(s)</Text>
+              <Text style={styles.badgeText}>{activeAssignments} Active Route(s)</Text>
             </View>
             <View style={[styles.badge, orders.length > 0 && styles.badgePending]}>
               <Text style={styles.badgeText}>{orders.length} Unassigned</Text>
@@ -633,7 +645,7 @@ const CompanyDriverDashboard = ({ navigation }) => {
                       <Text style={styles.incomeMetricLabel}>Distance</Text>
                     </View>
                     <View style={styles.incomeMetric}>
-                      <Text style={styles.incomeMetricValue}>{queue.length}</Text>
+                      <Text style={styles.incomeMetricValue}>{activeAssignments}</Text>
                       <Text style={styles.incomeMetricLabel}>Active now</Text>
                     </View>
                   </View>
@@ -677,6 +689,16 @@ const CompanyDriverDashboard = ({ navigation }) => {
             {/* Active Queue Section */}
             <View style={styles.sectionContainer}>
               <Text style={styles.sectionHeaderTitle}>Your Route ({queue.length})</Text>
+              {routeStops.length ? <View style={styles.card}><Text style={styles.locationTitle}>Combined accepted cart route</Text>
+                <Text>One store visit can collect products for several accepted carts. Customer prices do not change.</Text>
+                {routeStops.map((stop, index) => <TouchableOpacity key={stop.key} accessibilityRole="button"
+                  accessibilityLabel={`Open combined route stop ${index + 1}`}
+                  disabled={stop.type === "dropoff" && stop.requires.length > 0}
+                  onPress={() => {
+                    const entry = queue.find((order) => order.orderId === stop.orderIds[0]);
+                    if (entry) startRoute(entry);
+                  }}><Text>{index + 1}. {stop.type === "pickup" ? "Pickup" : "Drop-off"}: {stop.name} ({stop.orderIds.length} store order(s))</Text></TouchableOpacity>)}
+              </View> : null}
               {queueError ? <Text accessibilityRole="alert" style={styles.helperText}>Active routes could not be verified: {queueError}</Text> : null}
               {queue.length === 0 && !queueError ? (
                 <View style={styles.emptyCard}>

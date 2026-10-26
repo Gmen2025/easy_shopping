@@ -10,9 +10,13 @@ export const calculateDeliveryPricing = (deliveries, selections = {}) => {
     if (vehicle && delivery.vehicleOptions?.length && !option) {
       throw new Error("Choose one of the suitable vehicles offered for this delivery.");
     }
-    const key = JSON.stringify([delivery.pricingGroup?.key || delivery.key, option?.type || vehicle || ""]);
+    const route = delivery.pricingGroup?.kind === "cart-route";
+    const key = JSON.stringify([delivery.pricingGroup?.key || delivery.key, route ? "cart" : option?.type || vehicle || ""]);
     if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push({ delivery, fee: option?.fee ?? delivery.deliveryFee ?? 0 });
+    if (route && groups.get(key).some((member) => member.vehicle !== (option?.type || vehicle))) {
+      throw new Error("Choose one vehicle for the entire cart route.");
+    }
+    groups.get(key).push({ delivery, fee: option?.fee ?? delivery.deliveryFee ?? 0, vehicle: option?.type || vehicle });
   }
   const byKey = {};
   let total = 0;

@@ -2,6 +2,33 @@
 
 A full-featured React Native e-commerce mobile application built with Expo, featuring secure payments, order management, and admin capabilities.
 
+## Cart-route delivery
+
+Mobile and website share the backend's new grouped product checkout behavior in
+USA and Ethio: one fixed delivery fee for the customer's pickup stores and
+drop-off addresses. It includes one vehicle base fee, route distance and one
+speed surcharge, never driver travel to the first store or another customer's
+detours. Changing any vehicle selector applies to the whole cart. Receipt amounts
+on store orders are allocated shares, not additional delivery charges.
+
+Company drivers claim a complete cart after all stores accept it, then can batch
+several accepted carts within the cart-count and conservative combined vehicle
+capacity limits. Shared stores appear once in the operational stop list. Confirm
+each collected store order; after pickup the cart route returns to the refreshed
+queue so destination readiness reflects every collected product. A drop-off
+unlocks only after all its own products are picked up; unrelated addresses may
+still await collection. Unknown package measurements require manual vehicle
+selection and disable multi-cart batching.
+
+Deploy the matching backend first and release both clients. Saved legacy quotes
+and orders retain their previous rules. Geographic multi-start route ordering is
+a heuristic, priced with actual road legs, not guaranteed shortest-road routing.
+Live driver navigation and batching never reprice a reserved cart.
+US-to-Ethiopia shipping uses this for the US store-to-hub leg only; international
+tariffs remain separate.
+
+Focused validation: `node --test scripts\multiDeliveryCheckout.test.cjs scripts\companyDriverRefresh.test.cjs scripts\orderTracking.test.cjs`.
+
 ## Optional store logos
 
 **Admin > Company Stores** supports an optional image on both Create and Edit.

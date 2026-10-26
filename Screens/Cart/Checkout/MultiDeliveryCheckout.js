@@ -445,6 +445,14 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
       {quote && step > 1 ? <>
         {step === 2 || service ? <>
         <Text>Quote expires {new Date(quote.expiresAt).toLocaleTimeString()}.</Text>
+        {quote.cartRoute ? <View style={styles.card}>
+          <Text style={styles.heading}>One delivery route for your complete cart</Text>
+          <Text>Billable road distance: {(/usa/i.test(database) ? quote.cartRoute.distanceKm / 1.609344 : quote.cartRoute.distanceKm).toFixed(2)} {/usa/i.test(database) ? "mi" : "km"}.
+            One base fee and delivery-speed surcharge for the entire route.</Text>
+          <Text>Driver travel to the first pickup and detours for other customers are not charged.
+            Your reserved fee stays fixed. A drop-off can finish once all products for that address are collected.</Text>
+          {quote.cartRoute.stops.map((stop, index) => <Text key={stop.key}>{index + 1}. {stop.type === "pickup" ? "Pickup" : "Drop-off"}: {stop.name}</Text>)}
+        </View> : null}
         <Text>Delivery speed: {deliveryModeLabel(deliveryMode)}
           {deliveryMode === "SCHEDULED" && scheduledDate
             ? ` - ${getUpcomingDeliveryDays().find((day) => day.value === scheduledDate)?.label || scheduledDate}`
@@ -458,8 +466,9 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
             <Text>{line.quantity} x {line.name}</Text>
             <PackageMeasurements size={line.packageSize} />
           </View>)}
-          <Text>Road distance: {(/usa/i.test(database) ? delivery.distanceKm / 1.609344 : delivery.distanceKm).toFixed(2)} {/usa/i.test(database) ? "mi" : "km"}</Text>
-          {delivery.pricingGroup ? <Text>
+          {!quote.cartRoute ? <Text>Road distance: {(/usa/i.test(database) ? delivery.distanceKm / 1.609344 : delivery.distanceKm).toFixed(2)} {/usa/i.test(database) ? "mi" : "km"}</Text> : null}
+          {quote.cartRoute ? <Text>Allocated share of the single cart route fee: {formatPrice(pricing.byKey[delivery.key].deliveryFee)}.
+            This is not an additional store delivery charge.</Text> : delivery.pricingGroup ? <Text>
             {pricing.byKey[delivery.key].storeCount > 1
               ? `Shared delivery fee: ${formatPrice(pricing.byKey[delivery.key].sharedFee)} for ${pricing.byKey[delivery.key].storeCount} nearby stores using the same vehicle type, priced from ${pricing.byKey[delivery.key].storeName}. This store's share: ${formatPrice(pricing.byKey[delivery.key].deliveryFee)}.`
               : `Delivery fee for this store: ${formatPrice(pricing.byKey[delivery.key].deliveryFee)} (once for all its products).`}
@@ -474,9 +483,10 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
             : "Car delivery is unavailable for this load or disabled in USA vehicle settings. Choose one of the suitable vehicles below."}</Text> : null}
           <Picker selectedValue={selections[delivery.key] || ""} enabled={!busy}
             accessibilityLabel={`Delivery vehicle for ${delivery.store.name}`}
-            onValueChange={(value) => setSelections((previous) => ({ ...previous, [delivery.key]: value }))}>
+            onValueChange={(value) => setSelections((previous) => quote.cartRoute ?
+              Object.fromEntries(quote.deliveries.map((entry) => [entry.key, value])) : ({ ...previous, [delivery.key]: value }))}>
             {delivery.requiresVehicleSelection || !delivery.vehicle ? <Picker.Item label="Choose a vehicle..." value="" /> : null}
-            {delivery.vehicleOptions.map((option) => <Picker.Item key={option.type} label={`${option.type === "car" ? "Car" : option.type} - ${formatPrice(option.fee)}${delivery.pricingGroup ? " before nearby-store sharing" : ""}`} value={option.type} />)}
+            {delivery.vehicleOptions.map((option) => <Picker.Item key={option.type} label={`${option.type === "car" ? "Car" : option.type} - ${formatPrice(option.fee)}${quote.cartRoute ? " entire cart route" : delivery.pricingGroup ? " before nearby-store sharing" : ""}`} value={option.type} />)}
           </Picker>
         </View>)}
         <DeliveryWindow value={quote} />

@@ -70,6 +70,9 @@ export const DeliveryPricingReceipt = ({ value }) => {
   const group = value.deliveryPricingGroup;
   if (!group) return null;
   const fee = value.deliveryFee;
+  if (group.kind === "cart-route") return <Text>Cart route delivery fee share: {formatPrice(fee)}.
+    Complete cart route fee: {formatPrice(group.deliveryFee)}. This is an allocated share, not an extra charge per store.
+    Driver travel to the first pickup and other customer detours are excluded.</Text>;
   return <Text>{group.storeCount > 1
     ? `Delivery fee share: ${formatPrice(fee)}. Shared across ${group.storeCount} stores within ${group.radiusMeters} meters using ${group.vehicle}, priced from ${group.storeName}. Shared total: ${formatPrice(group.deliveryFee)}.`
     : `Delivery fee: ${formatPrice(fee)} (once for all products from this store).`}</Text>;
@@ -96,7 +99,8 @@ export const DeliverySummary = ({ group }) => {
     <Text style={styles.heading}>Combined total: {formatPrice(group.totalPrice)}</Text>
     <ExchangeReceipt value={group} />
     {group.kind === "service" ? <Text selectable>Service request: {group.serviceRequest}</Text> :
-      <Text>{group.deliveries?.some((delivery) => delivery.pricingGroup)
+      <Text>{group.cartRoute ? "One fixed delivery fee for the customer's pickup stores and drop-off addresses. Driver travel to the first pickup and detours for other customers are excluded. Fee shares are allocated across store orders for receipts/refunds; they are not extra charges. One driver accepts the cart. Each destination can be delivered once all its products are picked up."
+        : group.deliveries?.some((delivery) => delivery.pricingGroup)
         ? "Delivery is priced once per store and destination. Stores within 500 meters of each other share one fee when the same vehicle type is selected, using the nearest store's road distance to the drop-off. Different vehicle types or distant stores are charged separately. Shared fees are split equally between store orders for refunds. Pickups remain separately tracked."
         : "Each pickup/destination pair is a separate delivery, not one combined driver route."}</Text>}
   </View>;
