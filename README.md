@@ -62,6 +62,9 @@ does not change schedules or fees. Any enabled vehicle that fits the measured
 combined load may carry a batch, regardless of its billed vehicle. Unknown-size
 packages still require the explicitly selected vehicle. Normal availability,
 capacity, approval and pickup safeguards remain enforced.
+The store's **Order products** details also show the saved delivery-window start
+and end in the device's local time, alongside the scheduled date. Older scheduled
+orders without a valid saved window explicitly show **Delivery window not recorded**.
 
 Dispatching stores can **Reroute to another driver**, keeping all batch packages
 together. **Admin > Store requests** shows company offers, assigned drivers and

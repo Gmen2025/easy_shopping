@@ -123,3 +123,31 @@ test("missing orders, removed products and absent prices are explicit, not zero-
   assert.match(product, /Unit price: Unavailable/);
   assert.match(product, /Line total: Unavailable/);
 });
+
+test("store order product info shows both saved delivery-window endpoints without requiring a scheduled date", () => {
+  const component = loadComponent("Screens\\Store\\CompanyStoreOrderDetails.js");
+  const start = "2026-10-29T13:00:00.000Z";
+  const end = "2026-10-29T15:00:00.000Z";
+  for (const deliveryMode of ["SCHEDULED", "STANDARD", "EXPRESS"]) {
+    const tree = component({ route: { params: { order: {
+      _id: "order123456", deliveryMode, deliveryWindowStart: start, deliveryWindowEnd: end, orderItems: [],
+    } } } });
+    const header = text(tree.props.ListHeaderComponent);
+    assert.match(header, /Delivery window:/);
+    assert.ok(header.includes(new Date(start).toLocaleString()));
+    assert.ok(header.includes(new Date(end).toLocaleString()));
+    assert.doesNotMatch(header, /Invalid Date|not recorded/);
+  }
+});
+
+test("scheduled product info explicitly handles missing or invalid windows without inventing times", () => {
+  const component = loadComponent("Screens\\Store\\CompanyStoreOrderDetails.js");
+  for (const fields of [{}, { deliveryWindowStart: "invalid", deliveryWindowEnd: "2026-10-29T15:00:00Z" },
+    { deliveryWindowStart: "2026-10-29T13:00:00Z" }]) {
+    const tree = component({ route: { params: { order: {
+      _id: "order123456", deliveryMode: "SCHEDULED", orderItems: [], ...fields,
+    } } } });
+    assert.match(text(tree.props.ListHeaderComponent), /Delivery window not recorded/);
+    assert.doesNotMatch(text(tree.props.ListHeaderComponent), /Invalid Date|1970/);
+  }
+});

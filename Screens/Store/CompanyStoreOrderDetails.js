@@ -21,6 +21,10 @@ const CompanyStoreOrderDetails = ({ route }) => {
   const money = (value) => Number.isFinite(value) ? formatPrice(value) : "Unavailable";
   const date = order.dateOrdered ? new Date(order.dateOrdered) : null;
   const scheduledDate = formatScheduledDeliveryDate(order);
+  const windowStart = order.deliveryWindowStart ? new Date(order.deliveryWindowStart) : null;
+  const windowEnd = order.deliveryWindowEnd ? new Date(order.deliveryWindowEnd) : null;
+  const hasWindow = windowStart && windowEnd &&
+    Number.isFinite(windowStart.getTime()) && Number.isFinite(windowEnd.getTime());
 
   return (
     <FlatList
@@ -49,6 +53,11 @@ const CompanyStoreOrderDetails = ({ route }) => {
           </Text> : null}
           <Text style={styles.detail}>Ordered: {date && !Number.isNaN(date.getTime()) ? date.toLocaleString() : "Unavailable"}</Text>
           {scheduledDate ? <Text style={styles.detail}>Scheduled delivery: {scheduledDate}</Text> : null}
+          {hasWindow ? <Text style={styles.detail}>
+            Delivery window: {windowStart.toLocaleString()} - {windowEnd.toLocaleString()}
+          </Text> : order.deliveryMode === "SCHEDULED" || scheduledDate ? <Text style={styles.detail}>
+            Delivery window not recorded.
+          </Text> : null}
           <Text style={styles.sectionTitle}>Products for your store</Text>
           <Text style={styles.note}>Assigned orders show all products. Mixed-store fulfillments show only products associated with your store.</Text>
         </View>
