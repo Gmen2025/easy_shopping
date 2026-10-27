@@ -413,7 +413,8 @@ const CompanyDriverDashboard = ({ navigation }) => {
         </View>
 
         {/* Actions */}
-        {item.canClaim === false ? <Text>Queued until you are online with an eligible vehicle and enough capacity. Refresh after updating your availability.</Text> : null}
+        {item.upcoming ? <Text>Upcoming scheduled delivery. Claiming opens when every package's delivery window starts.</Text> :
+          item.canClaim === false ? <Text>Queued until you are online with an eligible vehicle and enough capacity. Refresh after updating your availability.</Text> : null}
         <View style={styles.cardActionsRow}>
           {item.canRespond !== false ? <><TouchableOpacity
             style={styles.rejectBtn}
