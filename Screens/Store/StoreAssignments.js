@@ -46,7 +46,9 @@ const StoreAssignments = ({ route, navigation } = {}) => {
         `${scope}/assignments/${order._id}/drivers/${decision === "driver-assign" ? "assign" : "reroute"}`,
         { method: "post", ...(decision === "driver-assign" ? { data: { driverId: driverIds[order._id]?.trim() } } : {}) });
       else await storeRequest(`${scope}/assignments/${order._id}/${decision}`, { method: "post" });
-      setSelectedIds((current) => current.filter((key) => key !== order._id));
+      setSelectedIds((current) => decision === "ready"
+        ? current.includes(order._id) ? current : [...current, order._id]
+        : current.filter((key) => key !== order._id));
       const result = await storeRequest(`${scope}/assignments`);
       if (!Array.isArray(result)) throw new Error("The server returned an invalid assignment list.");
       setOrders(result);
@@ -73,12 +75,13 @@ const StoreAssignments = ({ route, navigation } = {}) => {
     <FlatList style={styles.screen} contentContainerStyle={styles.content}
       data={orders} keyExtractor={(order) => order._id}
       refreshing={loading} onRefresh={() => { setLoading(true); setRefreshKey((value) => value + 1); }}
-      ListHeaderComponent={<View><Text style={styles.title}>{admin ? "Admin store assignments & rejections" : "Store assignments"}</Text><Text>Claiming and rerouting do not need Admin review. Rerouting offers another eligible store a chance to accept. Only rejected fallback requests wait for Admin review. Default-store requests stay listed even while offline. Open your store and ensure matching stock/prices before claiming. Mark claimed packages ready, then select packages from one store with the same vehicle for batch dispatch. Single-package dispatch is also allowed.</Text>
+      ListHeaderComponent={<View><Text style={styles.title}>{admin ? "Admin store assignments & rejections" : "Store assignments"}</Text><Text>Claiming and rerouting do not need Admin review. Rerouting offers another eligible store a chance to accept. Only rejected fallback requests wait for Admin review. Default-store requests stay listed even while offline. Open your store and ensure matching stock/prices before claiming. Claim the order, prepare its package, then mark it ready. Marking ready automatically selects it for dispatch. Dispatch selected sends ready packages from one store with the same vehicle. Single-package dispatch is also allowed.</Text>
         <Text>Driver routing tries nearby available drivers, the nearest available company driver, then an eligible offline company driver. Batches stay together and can reroute before pickup.</Text>
         {admin ? <Text>Admin can override ownership and online status to claim, prepare, dispatch or assign an approved compatible driver. Stock, capacity, payment and pickup safeguards remain enforced. Cancel and reconcile any required refund before deleting paid orders.</Text> : null}
         <TouchableOpacity style={styles.button} disabled={Boolean(actingId) || !selectedIds.length || Boolean(error) ||
           selected.length !== selectedIds.length || selected.some((order) => !selectable(order))}
           onPress={dispatchSelected}><Text>Dispatch selected ({selectedIds.length})</Text></TouchableOpacity>
+        {!selectedIds.length ? <Text>Nothing selected. Claim an order, prepare it, then tap Mark package ready to select it automatically. Already-ready packages can be selected below.</Text> : null}
         {error ? <Text style={styles.warning}>{error}</Text> : null}</View>}
       ListEmptyComponent={loading ? <ActivityIndicator /> : <Text>No active assignments.</Text>}
       renderItem={({ item: order }) => {
@@ -106,7 +109,7 @@ const StoreAssignments = ({ route, navigation } = {}) => {
           <Text>Deliver to: {order.shippingAddress1}, {order.city}, {order.zip}</Text>
           {(order.orderItems || []).map((line) => <Text key={line._id}>{line.quantity} x {line.product?.name || "Product"} - {line.unitPrice != null || line.product?.price != null ? formatPrice(line.unitPrice ?? line.product.price) : "Price unavailable"}</Text>)}
           <Text>Products: {formatPrice(order.itemsSubtotal)}</Text>
-          <Text>{rejected ? `Rejected - Admin review | ${order.fulfillmentStatus}` : fallback ? "Default-store fallback - awaiting a decision (no expiry)" : order.fulfillmentStatus === "accepted" ? "Accepted - prepare for pickup" : order.fulfillmentStatus === "pending" ? `Respond within ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}` : `Delivery status: ${order.deliveryStatus} | ${order.fulfillmentStatus || order.status}`}</Text>
+          <Text>{rejected ? `Rejected - Admin review | ${order.fulfillmentStatus}` : fallback ? "Default-store fallback - awaiting a decision (no expiry)" : order.fulfillmentStatus === "accepted" ? order.storeDispatchBatch ? "Dispatched to drivers" : order.storeReadyAt ? "Ready for dispatch" : "Claimed - prepare the package, then tap Mark package ready" : order.fulfillmentStatus === "pending" ? `Respond within ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}` : `Delivery status: ${order.deliveryStatus} | ${order.fulfillmentStatus || order.status}`}</Text>
           {admin ? <View style={styles.actions}>
             {active ? <>
               {order.fulfillmentStatus !== "accepted" ? <TouchableOpacity style={styles.button} disabled={Boolean(actingId)}
@@ -149,7 +152,7 @@ const StoreAssignments = ({ route, navigation } = {}) => {
           {!admin && !fallback && order.fulfillmentStatus === "accepted" && active ? <TouchableOpacity style={styles.button}
             disabled={Boolean(actingId)} onPress={() => respond(order, "reroute")}><Text>Reroute</Text></TouchableOpacity> : null}
           {!admin && (fallback || order.fulfillmentStatus === "pending") ? <View style={styles.actions}>
-            <TouchableOpacity style={styles.button} disabled={Boolean(actingId) || (!fallback && seconds === 0)} onPress={() => respond(order, "accept")}><Text>{fallback ? "Claim & prepare" : "Accept & prepare"}</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.button} disabled={Boolean(actingId) || (!fallback && seconds === 0)} onPress={() => respond(order, "accept")}><Text>{fallback ? "Claim order" : "Accept order"}</Text></TouchableOpacity>
             {fallback ? <TouchableOpacity style={styles.button} disabled={Boolean(actingId)} onPress={() => respond(order, "reroute")}><Text>Reroute</Text></TouchableOpacity> : null}
             <TouchableOpacity style={styles.button} disabled={Boolean(actingId)} onPress={() => Alert.alert("Reject assignment?", fallback ? "This order will wait for Admin to claim, reroute, or cancel and delete it after refund review. This does not cancel payment or issue a refund." : "The entire order will move to another eligible store.", [
               { text: "Cancel", style: "cancel" }, { text: "Reject", style: "destructive", onPress: () => respond(order, "reject") },

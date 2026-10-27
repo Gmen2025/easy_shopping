@@ -66,7 +66,7 @@ const fallbackOrder = () => ({
 
 test("default-store fallback cards have Claim, Reroute and final Reject without an expired deadline", () => {
   const f = fixture(fallbackOrder());
-  assert.equal(f.button("Claim & prepare").props.disabled, false);
+  assert.equal(f.button("Claim order").props.disabled, false);
   assert.ok(f.button("Reroute"));
   assert.ok(f.button("Reject"));
   assert.match(f.text(f.render()), /awaiting a decision \(no expiry\)/);
@@ -76,7 +76,7 @@ test("default-store fallback cards have Claim, Reroute and final Reject without 
 
 test("ordinary timed assignments still disable acceptance at the deadline", () => {
   const f = fixture({ ...fallbackOrder(), fallbackStore: null, fulfillmentStatus: "pending", fulfillmentDeadline: new Date(0) });
-  assert.equal(f.button("Accept & prepare").props.disabled, true);
+  assert.equal(f.button("Accept order").props.disabled, true);
   assert.equal(f.button("Reroute"), undefined);
 });
 
@@ -85,7 +85,7 @@ test("fallback claim guards duplicate taps and uses the authenticated store assi
   let release;
   f.setRequest((resource) => resource.endsWith("/accept")
     ? new Promise((resolve) => { release = resolve; }) : Promise.resolve([]));
-  const button = f.button("Claim & prepare");
+  const button = f.button("Claim order");
   const claim = button.props.onPress();
   await button.props.onPress();
   assert.equal(f.calls.length, 1);
@@ -105,23 +105,44 @@ test("fallback reroute is distinct from final rejection, which requires confirma
   assert.equal(f.calls[2][0], "me/assignments/order123456/reject");
 });
 
-test("accepted packages must be marked ready, then can be dispatched singly without a reason", async () => {
+test("claiming stays separate from preparation; marking ready automatically enables single-package dispatch", async () => {
+  const order = { ...fallbackOrder(), storeRouteVersion: 1, deliveryStatus: "Pending" };
+  const f = fixture(order);
+  f.setRequest(async (resource) => {
+    if (resource.endsWith("/accept")) {
+      order.fallbackStore = null;
+      order.store = "store1";
+      order.fulfillmentStatus = "accepted";
+    }
+    if (resource.endsWith("/ready")) order.storeReadyAt = new Date().toISOString();
+    return resource === "me/assignments" ? [order] : { success: true };
+  });
+  assert.equal(f.headerButton("Dispatch selected (0)").props.disabled, true);
+  await f.button("Claim order").props.onPress();
+  assert.equal(f.headerButton("Dispatch selected (0)").props.disabled, true);
+  assert.match(f.text(f.render()), /Claimed - prepare the package/);
+  assert.equal(f.button("Select for dispatch"), undefined);
+  await f.button("Mark package ready").props.onPress();
+  assert.equal(f.headerButton("Dispatch selected (1)").props.disabled, false);
+  assert.ok(f.button("Selected"));
+  f.button("Selected").props.onPress();
+  assert.equal(f.headerButton("Dispatch selected (0)").props.disabled, true);
+  f.button("Select for dispatch").props.onPress();
+  await f.headerButton("Dispatch selected (1)").props.onPress();
+  assert.equal(f.calls[4][0], "me/dispatch-batches");
+  assert.equal(JSON.stringify(f.calls[4][1].data), JSON.stringify({ orderIds: [order._id] }));
+  assert.match(f.alerts[0][1], /stay queued if no driver/);
+});
+
+test("failed preparation never selects a package or enables dispatch", async () => {
   const order = { ...fallbackOrder(), fallbackStore: null, storeRouteVersion: 1, store: "store1",
     fulfillmentStatus: "accepted", deliveryStatus: "Pending" };
   const f = fixture(order);
-  assert.ok(f.button("Mark package ready"));
-  assert.equal(f.button("Select for dispatch"), undefined);
+  f.setRequest(async () => { throw new Error("Package changed. Refresh assignments."); });
   await f.button("Mark package ready").props.onPress();
-  assert.equal(f.calls[0][0], "me/assignments/order123456/ready");
-  order.storeReadyAt = new Date().toISOString();
-  const ready = fixture(order);
-  assert.equal(ready.headerButton("Dispatch selected (0)").props.disabled, true);
-  ready.button("Select for dispatch").props.onPress();
-  assert.equal(ready.headerButton("Dispatch selected (1)").props.disabled, false);
-  await ready.headerButton("Dispatch selected (1)").props.onPress();
-  assert.equal(ready.calls[0][0], "me/dispatch-batches");
-  assert.equal(JSON.stringify(ready.calls[0][1].data), JSON.stringify({ orderIds: [order._id] }));
-  assert.match(ready.alerts[0][1], /stay queued if no driver/);
+  assert.equal(f.headerButton("Dispatch selected (0)").props.disabled, true);
+  assert.equal(f.button("Select for dispatch"), undefined);
+  assert.equal(f.alerts[0][1], "Package changed. Refresh assignments.");
 });
 
 test("released packages show their durable batch and cannot be released again; failed release is explicit", async () => {
@@ -147,8 +168,12 @@ test("Admin can claim rejected requests, reroute, then prepare and dispatch usin
   await f.button("Admin reroute").props.onPress();
   assert.equal(f.calls[2][0], "admin/assignments/order123456/reroute");
   const accepted = fixture({ ...order, adminReviewRequired: undefined, fulfillmentStatus: "accepted", store: "default-store" }, { admin: true });
+  const prepared = { ...order, adminReviewRequired: undefined, fulfillmentStatus: "accepted", store: "default-store",
+    storeReadyAt: new Date().toISOString() };
+  accepted.setRequest(async (resource) => resource === "admin/assignments" ? [prepared] : { success: true });
   await accepted.button("Mark package ready").props.onPress();
   assert.equal(accepted.calls[0][0], "admin/assignments/order123456/ready");
+  assert.equal(accepted.headerButton("Dispatch selected (1)").props.disabled, false);
   const ready = fixture({ ...order, adminReviewRequired: undefined, fulfillmentStatus: "accepted", store: "default-store",
     storeReadyAt: new Date().toISOString() }, { admin: true });
   ready.button("Select for dispatch").props.onPress();
