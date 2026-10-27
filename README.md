@@ -55,9 +55,13 @@ going online with a compatible vehicle and enough capacity. Company drivers may
 claim, reroute or reject their offer, or release an accepted batch before pickup.
 Rejection stays visible to Admin without blocking delivery or changing payment.
 Prepared, dispatched scheduled batches appear as **Upcoming scheduled delivery**
-to the designated compatible company driver, even offline. Claim, Reject and
-Reroute remain unavailable until every package's delivery window opens.
-Upcoming visibility does not override the order's required vehicle.
+to the designated compatible company driver, even offline. Drivers may claim
+immediately, before the delivery window, or reject/reroute before pickup.
+Store cards and batch offers display saved delivery windows; early claiming
+does not change schedules or fees. Any enabled vehicle that fits the measured
+combined load may carry a batch, regardless of its billed vehicle. Unknown-size
+packages still require the explicitly selected vehicle. Normal availability,
+capacity, approval and pickup safeguards remain enforced.
 
 Dispatching stores can **Reroute to another driver**, keeping all batch packages
 together. **Admin > Store requests** shows company offers, assigned drivers and

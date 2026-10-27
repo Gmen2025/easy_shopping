@@ -64,6 +64,16 @@ const fallbackOrder = () => ({
   itemsSubtotal: 20,
 });
 
+test("dispatched store cards show the saved delivery window and immediate claim guidance", () => {
+  const f = fixture({ ...fallbackOrder(), fallbackStore: null, storeDispatchBatch: "batch",
+    deliveryWindowStart: "2026-10-29T13:00:00Z", deliveryWindowEnd: "2026-10-29T15:00:00Z" });
+  const text = f.text(f.render());
+  assert.match(text, /Delivery window:/);
+  assert.ok(text.includes(new Date("2026-10-29T13:00:00Z").toLocaleString()));
+  assert.ok(text.includes(new Date("2026-10-29T15:00:00Z").toLocaleString()));
+  assert.match(text, /Drivers may claim this batch now/);
+});
+
 test("default-store fallback cards have Claim, Reroute and final Reject without an expired deadline", () => {
   const f = fixture(fallbackOrder());
   assert.equal(f.button("Claim order").props.disabled, false);

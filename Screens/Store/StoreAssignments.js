@@ -102,13 +102,17 @@ const StoreAssignments = ({ route, navigation } = {}) => {
           <Text style={styles.heading}>Order #{order._id.slice(-6).toUpperCase()}</Text>
           <Text>{store?.name}</Text><Text>{store?.address}</Text><Text selectable>Store ID: {store?.storeId || store?._id}</Text>
           {order.checkoutGroup ? <Text selectable>Combined checkout: {order.checkoutGroup}</Text> : null}
-          {order.requiredVehicle ? <Text>Delivery vehicle: {order.requiredVehicle}</Text> : null}
+          {order.requiredVehicle ? <Text>{order.storeDispatchBatch ? "Priced vehicle" : "Delivery vehicle"}: {order.requiredVehicle}</Text> : null}
           {order.driver ? <Text>Assigned driver: {String(order.driver)}</Text> : order.companyOfferDriver ? <Text>Company-driver offer: {String(order.companyOfferDriver)} (persists offline)</Text> : null}
           {driverRejections.length ? <Text>Driver rejection - Admin review ({driverRejections.length}). Payment is unchanged; rejection does not block delivery.</Text> : null}
           {admin ? driverRejections.map((response, index) => <Text key={response._id || index}>
             Rejected by driver {String(response.driver)}{response.respondedAt ? ` at ${new Date(response.respondedAt).toLocaleString()}` : ""}
           </Text>) : null}
           <Text>Deliver to: {order.shippingAddress1}, {order.city}, {order.zip}</Text>
+          {order.deliveryWindowStart && order.deliveryWindowEnd ? <Text>
+            Delivery window: {new Date(order.deliveryWindowStart).toLocaleString()} - {new Date(order.deliveryWindowEnd).toLocaleString()}
+          </Text> : null}
+          {order.storeDispatchBatch ? <Text>Drivers may claim this batch now, including before its delivery window. The saved delivery schedule and fee stay unchanged.</Text> : null}
           {(order.orderItems || []).map((line) => <Text key={line._id}>{line.quantity} x {line.product?.name || "Product"} - {line.unitPrice != null || line.product?.price != null ? formatPrice(line.unitPrice ?? line.product.price) : "Price unavailable"}</Text>)}
           <Text>Products: {formatPrice(order.itemsSubtotal)}</Text>
           <Text>{rejected ? `Rejected - Admin review | ${order.fulfillmentStatus}` : fallback ? "Default-store fallback - awaiting a decision (no expiry)" : order.fulfillmentStatus === "accepted" ? order.storeDispatchBatch ? "Dispatched to drivers" : order.storeReadyAt ? "Ready for dispatch" : "Claimed - prepare the package, then tap Mark package ready" : order.fulfillmentStatus === "pending" ? `Respond within ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}` : `Delivery status: ${order.deliveryStatus} | ${order.fulfillmentStatus || order.status}`}</Text>

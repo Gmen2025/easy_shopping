@@ -138,21 +138,26 @@ async function finishClaimRecovery(f) {
   assert.equal(f.claim().props.disabled, false);
 }
 
-test("upcoming scheduled offers explain the time gate and disable claim and responses", async () => {
+test("upcoming scheduled batches display package windows and permit early claim and responses", async () => {
   const f = fixture();
   f.button();
   f.focus();
   await new Promise(setImmediate);
   for (const request of f.pending) request.resolve({ data: {
-    orders: [{ _id: "upcoming", items: [], upcoming: true, canClaim: false, canRespond: false }],
+    orders: [{ _id: "upcoming", items: [], upcoming: true, canClaim: true, canRespond: true,
+      packageDeliveryWindows: [{ orderId: "package123456", deliveryWindowStart: "2026-10-29T13:00:00Z",
+        deliveryWindowEnd: "2026-10-29T15:00:00Z" }] }],
     queue: [],
   } });
   await new Promise(setImmediate);
   assert.match(f.text(), /Upcoming scheduled delivery/);
+  assert.match(f.text(), /You may claim now/);
+  assert.match(f.text(), /Delivery window:/);
+  assert.match(f.text(), /123456/);
   assert.doesNotMatch(f.text(), /Queued until you are online/);
-  assert.equal(f.claim().props.disabled, true);
-  assert.equal(f.reject(), undefined);
-  assert.equal(f.reroute(), undefined);
+  assert.equal(f.claim().props.disabled, false);
+  assert.ok(f.reject());
+  assert.ok(f.reroute());
 });
 
 test("mobile blocks combined and individual drop-off routes until all cart pickups are complete", async () => {

@@ -354,6 +354,7 @@ const CompanyDriverDashboard = ({ navigation }) => {
           <Text style={styles.payoutText}>Fee: {formatPrice(item.deliveryFee || 0)}</Text>
         </View>
         {item.cartRoute ? <View><Text style={styles.locationTitle}>{item.storeDispatchBatch ? "Store delivery batch" : "Complete customer cart assignment"}</Text>
+          {item.storeDispatchBatch ? <Text>Priced vehicle: {item.requiredVehicle}. Your configured vehicle may carry this batch if it fits the combined load. The saved fee does not change.</Text> : null}
           <Text>{item.storeDispatchBatch ? "Claim all ready packages in this store batch together. Collect every package before starting drop-offs. The fee is the sum of saved package fees." :
             "Claim all pickup stores and drop-offs together. This fee covers the entire cart."}</Text>
           {item.cartRoute.stops.map((stop, index) => <Text key={stop.key}>{index + 1}. {stop.type === "pickup" ? "Pickup" : "Drop-off"}: {stop.name}</Text>)}
@@ -413,8 +414,14 @@ const CompanyDriverDashboard = ({ navigation }) => {
         </View>
 
         {/* Actions */}
-        {item.upcoming ? <Text>Upcoming scheduled delivery. Claiming opens when every package's delivery window starts.</Text> :
-          item.canClaim === false ? <Text>Queued until you are online with an eligible vehicle and enough capacity. Refresh after updating your availability.</Text> : null}
+        {(item.packageDeliveryWindows || []).map((entry) => <View key={entry.orderId}>
+          <Text>Package #{String(entry.orderId).slice(-6).toUpperCase()}</Text>
+          {entry.deliveryWindowStart && entry.deliveryWindowEnd ? <Text>
+            Delivery window: {new Date(entry.deliveryWindowStart).toLocaleString()} - {new Date(entry.deliveryWindowEnd).toLocaleString()}
+          </Text> : <Text>Delivery window not recorded.</Text>}
+        </View>)}
+        {item.upcoming ? <Text>Upcoming scheduled delivery. You may claim now; the saved delivery windows and fee stay unchanged.</Text> : null}
+        {item.canClaim === false ? <Text>Queued until you are online with an eligible vehicle and enough capacity. Refresh after updating your availability.</Text> : null}
         <View style={styles.cardActionsRow}>
           {item.canRespond !== false ? <><TouchableOpacity
             style={styles.rejectBtn}
