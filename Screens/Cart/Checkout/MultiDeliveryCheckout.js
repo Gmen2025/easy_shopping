@@ -16,7 +16,7 @@ import { exchangeRequest, rateIsActive, usdAmount, usdText, usdInactiveMessage, 
 import usePaymentAvailability from "../../../assets/common/usePaymentAvailability";
 import { PAYMENT_UNAVAILABLE } from "../../../assets/common/paymentSettings";
 import { deliveryMethodOptions, deliveryModeLabel, getDeliverySettings } from "../../../assets/common/delivery";
-import { calculateDeliveryPricing } from "../../../assets/common/deliveryPricing";
+import { calculateDeliveryPricing, selectDeliveryVehicle } from "../../../assets/common/deliveryPricing";
 
 const ADDRESS_FIELDS = [
   ["label", "Address label"], ["address1", "Street address"], ["address2", "Apartment / unit (optional)"],
@@ -445,6 +445,13 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
       {quote && step > 1 ? <>
         {step === 2 || service ? <>
         <Text>Quote expires {new Date(quote.expiresAt).toLocaleTimeString()}.</Text>
+        {quote.storeRoutes?.map((route) => <View key={route.storeId} style={styles.card}>
+          <Text style={styles.heading}>Delivery route from {route.storeName}</Text>
+          <Text>One base fee and speed surcharge per store, plus the road route from this store through its drop-offs.
+            Separate stores are charged separately. Driver travel to pickup and batching detours do not add customer charges.</Text>
+          <Text>Store route: {(/usa/i.test(database) ? route.distanceKm / 1.609344 : route.distanceKm).toFixed(2)} {/usa/i.test(database) ? "mi" : "km"}</Text>
+          {route.stops.map((stop, index) => <Text key={stop.key}>{index + 1}. {stop.type === "pickup" ? "Pickup" : "Drop-off"}: {stop.name}</Text>)}
+        </View>)}
         {quote.cartRoute ? <View style={styles.card}>
           <Text style={styles.heading}>One delivery route for your complete cart</Text>
           <Text>Billable road distance: {(/usa/i.test(database) ? quote.cartRoute.distanceKm / 1.609344 : quote.cartRoute.distanceKm).toFixed(2)} {/usa/i.test(database) ? "mi" : "km"}.
@@ -467,7 +474,11 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
             <PackageMeasurements size={line.packageSize} />
           </View>)}
           {!quote.cartRoute ? <Text>Road distance: {(/usa/i.test(database) ? delivery.distanceKm / 1.609344 : delivery.distanceKm).toFixed(2)} {/usa/i.test(database) ? "mi" : "km"}</Text> : null}
-          {quote.cartRoute ? <Text>Allocated share of the single cart route fee: {formatPrice(pricing.byKey[delivery.key].deliveryFee)}.
+          {delivery.defaultFallback ? <Text>Queued for the default store after purchase, even if it is offline. The store must claim and prepare it before dispatch.</Text> : null}
+          {delivery.pricingGroup?.kind === "store-route" ? <Text>
+            This drop-off's delivery share: {formatPrice(pricing.byKey[delivery.key].deliveryFee)}.
+            Complete route from this store: {formatPrice(pricing.byKey[delivery.key].sharedFee)}. Additional drop-offs extend this store's route, not a second base fee.
+          </Text> : quote.cartRoute ? <Text>Allocated share of the single cart route fee: {formatPrice(pricing.byKey[delivery.key].deliveryFee)}.
             This is not an additional store delivery charge.</Text> : delivery.pricingGroup ? <Text>
             {pricing.byKey[delivery.key].storeCount > 1
               ? `Shared delivery fee: ${formatPrice(pricing.byKey[delivery.key].sharedFee)} for ${pricing.byKey[delivery.key].storeCount} nearby stores using the same vehicle type, priced from ${pricing.byKey[delivery.key].storeName}. This store's share: ${formatPrice(pricing.byKey[delivery.key].deliveryFee)}.`
@@ -483,10 +494,9 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
             : "Car delivery is unavailable for this load or disabled in USA vehicle settings. Choose one of the suitable vehicles below."}</Text> : null}
           <Picker selectedValue={selections[delivery.key] || ""} enabled={!busy}
             accessibilityLabel={`Delivery vehicle for ${delivery.store.name}`}
-            onValueChange={(value) => setSelections((previous) => quote.cartRoute ?
-              Object.fromEntries(quote.deliveries.map((entry) => [entry.key, value])) : ({ ...previous, [delivery.key]: value }))}>
+            onValueChange={(value) => setSelections((previous) => selectDeliveryVehicle(quote.deliveries, previous, delivery, value))}>
             {delivery.requiresVehicleSelection || !delivery.vehicle ? <Picker.Item label="Choose a vehicle..." value="" /> : null}
-            {delivery.vehicleOptions.map((option) => <Picker.Item key={option.type} label={`${option.type === "car" ? "Car" : option.type} - ${formatPrice(option.fee)}${quote.cartRoute ? " entire cart route" : delivery.pricingGroup ? " before nearby-store sharing" : ""}`} value={option.type} />)}
+            {delivery.vehicleOptions.map((option) => <Picker.Item key={option.type} label={`${option.type === "car" ? "Car" : option.type} - ${formatPrice(option.fee)}${delivery.pricingGroup?.kind === "store-route" ? " complete store route" : quote.cartRoute ? " entire cart route" : delivery.pricingGroup ? " before nearby-store sharing" : ""}`} value={option.type} />)}
           </Picker>
         </View>)}
         <DeliveryWindow value={quote} />

@@ -2,6 +2,7 @@ import React from "react";
 import { createStackNavigator } from "@react-navigation/stack";
 
 import AdminDashboard from "../Screens/Admin/AdminDashboard";
+import StoreAssignments from "../Screens/Store/StoreAssignments";
 import Products from "../Screens/Admin/Products";
 import Orders from "../Screens/Admin/Orders";
 import Categories from "../Screens/Admin/Categories";
@@ -30,6 +31,7 @@ const Stack = createStackNavigator();
 function MyStack() {
   return (
     <Stack.Navigator initialRouteName="AdminDashboard">
+      <Stack.Screen name="AdminStoreAssignments" component={StoreAssignments} initialParams={{ admin: true }} options={{ title: "Store requests & rejections" }} />
       <Stack.Screen name="RideSettings" component={RideSettings} options={{ title: "Ride fares, drivers & payments" }} />
       <Stack.Screen name="ExchangeRateSettings" component={ExchangeRateSettings} options={{ title: "Cross-currency daily rate" }} />
       <Stack.Screen name="InternationalShippingSettings" component={InternationalShippingSettings} options={{ title: "USA to Ethiopia shipping" }} />

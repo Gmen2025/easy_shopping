@@ -293,6 +293,7 @@ const CompanyDriverDashboard = ({ navigation }) => {
       await submitDeliveryAction(order._id, action);
       setOrders((current) => current.filter((item) => item._id !== order._id));
       loadOrders();
+      loadQueue();
     } catch (error) {
       Alert.alert("Unable to respond", error?.response?.data?.message || error.message || "Please try again.");
       loadOrders();
@@ -352,8 +353,9 @@ const CompanyDriverDashboard = ({ navigation }) => {
           <Text style={styles.orderBadge}>Order #{String(item._id).slice(-6).toUpperCase()}</Text>
           <Text style={styles.payoutText}>Fee: {formatPrice(item.deliveryFee || 0)}</Text>
         </View>
-        {item.cartRoute ? <View><Text style={styles.locationTitle}>Complete customer cart assignment</Text>
-          <Text>Claim all pickup stores and drop-offs together. This fee covers the entire cart.</Text>
+        {item.cartRoute ? <View><Text style={styles.locationTitle}>{item.storeDispatchBatch ? "Store delivery batch" : "Complete customer cart assignment"}</Text>
+          <Text>{item.storeDispatchBatch ? "Claim all ready packages in this store batch together. Collect every package before starting drop-offs. The fee is the sum of saved package fees." :
+            "Claim all pickup stores and drop-offs together. This fee covers the entire cart."}</Text>
           {item.cartRoute.stops.map((stop, index) => <Text key={stop.key}>{index + 1}. {stop.type === "pickup" ? "Pickup" : "Drop-off"}: {stop.name}</Text>)}
         </View> : null}
         {item.deliveryMode === "SCHEDULED" ||
@@ -501,6 +503,18 @@ const CompanyDriverDashboard = ({ navigation }) => {
 
         {item.dropoffReady === false ? <Text>Collect the remaining {item.pendingPickupOrderIds?.length || 0} pickup order(s)
           for this customer cart before starting any drop-off.</Text> : null}
+        {companyDriver && item.canRerouteBeforePickup ? <View>
+          <TouchableOpacity style={styles.routeBtn} disabled={Boolean(actingId)} onPress={() => Alert.alert(
+            "Reroute accepted delivery?", "Release the entire batch to another driver before pickup. Payment and fees stay unchanged.", [
+              { text: "Cancel", style: "cancel" },
+              { text: "Reroute", onPress: () => respondToOffer({ ...item, _id: item.orderId }, "reroute") },
+            ])}><Text>Reroute accepted delivery</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.routeBtn} disabled={Boolean(actingId)} onPress={() => Alert.alert(
+            "Reject accepted delivery?", "Release the entire batch before pickup and flag it for Admin review. Payment stays unchanged.", [
+              { text: "Cancel", style: "cancel" },
+              { text: "Reject", style: "destructive", onPress: () => respondToOffer({ ...item, _id: item.orderId }, "reject") },
+            ])}><Text>Reject accepted delivery</Text></TouchableOpacity>
+        </View> : null}
         <TouchableOpacity style={styles.routeBtn}
           disabled={item.deliveryStatus === "Picked Up" && item.dropoffReady === false}
           onPress={() => startRoute(item)}>

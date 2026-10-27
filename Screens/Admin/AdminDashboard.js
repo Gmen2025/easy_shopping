@@ -30,6 +30,7 @@ const QUICK_ACTIONS = [
   { label: "Orders", icon: "shopping-bag", route: "Orders" },
   { label: "Inventory", icon: "cubes", route: "LowStock" },
   { label: "Delivery", icon: "truck", route: "DeliverySettings" },
+  { label: "Store requests", icon: "inbox", route: "AdminStoreAssignments" },
   { label: "Vehicles", icon: "car", route: "VehicleDeliverySettings" },
   { label: "Rides", icon: "taxi", route: "RideSettings" },
   { label: "FX Rate", icon: "dollar", route: "ExchangeRateSettings" },

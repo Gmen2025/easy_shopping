@@ -70,6 +70,9 @@ export const DeliveryPricingReceipt = ({ value }) => {
   const group = value.deliveryPricingGroup;
   if (!group) return null;
   const fee = value.deliveryFee;
+  if (group.kind === "store-route") return <Text>This drop-off's share: {formatPrice(fee)}.
+    Complete route from {group.storeName}: {formatPrice(group.deliveryFee)}. One base fee per store;
+    additional drop-offs extend that store's road route. Batching adds no customer charge.</Text>;
   if (group.kind === "cart-route") return <Text>Cart route delivery fee share: {formatPrice(fee)}.
     Complete cart route fee: {formatPrice(group.deliveryFee)}. This is an allocated share, not an extra charge per store.
     Driver travel to the first pickup and other customer detours are excluded.</Text>;
@@ -99,7 +102,8 @@ export const DeliverySummary = ({ group }) => {
     <Text style={styles.heading}>Combined total: {formatPrice(group.totalPrice)}</Text>
     <ExchangeReceipt value={group} />
     {group.kind === "service" ? <Text selectable>Service request: {group.serviceRequest}</Text> :
-      <Text>{group.cartRoute ? "One fixed delivery fee for the customer's pickup stores and drop-off addresses. Driver travel to the first pickup and detours for other customers are excluded. Fee shares are allocated across store orders for receipts/refunds; they are not extra charges. One driver accepts the cart. Each destination can be delivered once all its products are picked up."
+      <Text>{group.storeRoutes?.length ? "Delivery is priced separately per store: store to first drop-off, then each additional drop-off. Each road leg is counted once, with one base fee and speed surcharge per store. Drop-off shares total the store route fee. Stores claim, prepare and dispatch ready packages together or singly. Batching does not add customer charges."
+        : group.cartRoute ? "One fixed delivery fee for the customer's pickup stores and drop-off addresses. Driver travel to the first pickup and detours for other customers are excluded. Fee shares are allocated across store orders for receipts/refunds; they are not extra charges. One driver accepts the cart. Each destination can be delivered once all its products are picked up."
         : group.deliveries?.some((delivery) => delivery.pricingGroup)
         ? "Delivery is priced once per store and destination. Stores within 500 meters of each other share one fee when the same vehicle type is selected, using the nearest store's road distance to the drop-off. Different vehicle types or distant stores are charged separately. Shared fees are split equally between store orders for refunds. Pickups remain separately tracked."
         : "Each pickup/destination pair is a separate delivery, not one combined driver route."}</Text>}

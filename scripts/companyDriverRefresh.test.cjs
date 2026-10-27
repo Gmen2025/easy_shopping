@@ -102,8 +102,10 @@ function fixture({ database = "E_Shopping", user = { isDriver: true, isCompanyOw
   const deliveryRoute = () => nodes(render()).find((node) =>
     node.type === "TouchableOpacity" && nodes(node).some((child) =>
       child.props?.children?.includes("Route to Delivery ➔")));
+  const acceptedResponse = (label) => nodes(render()).find((node) =>
+    node.type === "TouchableOpacity" && nodes(node).some((child) => child.props?.children?.includes(label)));
   return {
-    pending, actions, alerts, timers, button, text, claim, reject, reroute, combinedStop, deliveryRoute, navigations,
+    pending, actions, alerts, timers, button, text, claim, reject, reroute, combinedStop, deliveryRoute, acceptedResponse, navigations,
     focus: () => focused(),
     setStorageRead: (read) => { storageRead = read; },
     expireDeadline: () => {
@@ -372,6 +374,29 @@ test("offline company backlog keeps claim disabled but permits rejection and rer
   assert.equal(f.reject().props.disabled, false);
   assert.equal(f.reroute().props.disabled, false);
   assert.match(f.text(), /Queued until you are online/);
+});
+
+test("accepted company batches expose confirmed pre-pickup reroute and refresh the active queue afterward", async () => {
+  const f = fixture();
+  f.button(); f.focus();
+  await new Promise(setImmediate);
+  for (const request of f.pending) request.resolve({ data: {
+    orders: [], queue: [{ orderId: "accepted", deliveryStatus: "Driver Assigned", canRerouteBeforePickup: true, items: [] }],
+  } });
+  await new Promise(setImmediate);
+  f.acceptedResponse("Reroute accepted delivery").props.onPress();
+  const action = f.alerts[0][2].find((item) => item.text === "Reroute").onPress();
+  await new Promise(setImmediate);
+  assert.match(f.actions[0].url, /orders\/accepted\/company-reroute$/);
+  f.actions[0].resolve({ data: { success: true } });
+  await action;
+  await new Promise(setImmediate);
+  const refreshes = f.pending.slice(4);
+  assert.ok(refreshes.some((entry) => entry.url.endsWith("/queue")));
+  for (const request of refreshes) request.resolve({ data: { orders: [], queue: [] } });
+  await new Promise(setImmediate);
+  assert.equal(f.acceptedResponse("Reroute accepted delivery"), undefined);
+  assert.equal(f.acceptedResponse("Reject accepted delivery"), undefined);
 });
 
 test("partner drivers claim shared assignments through the authenticated driver endpoint without company or ride controls", async () => {

@@ -178,6 +178,36 @@ for (const database of ["E_ShopUSA", "E_Shopping"]) {
   }
 }
 
+test("per-store checkout displays road routes and changing vehicles updates only that store's drop-offs", async () => {
+  const current = { label: "Home", address1: "Main", city: "Town", zip: "12345", country: "USA", phone: "123" };
+  const ui = harness(async (resource, options) => {
+    if (resource === "delivery-current-address") return current;
+    if (resource === "delivery-addresses" || resource === "delivery-bank-accounts") return [];
+    if (resource === "checkouts/quote") return {
+      _id: "store-routes", cart: options.data.cart, itemsSubtotal: 30, deliveryFee: 20.02, totalPrice: 50.02,
+      expiresAt: new Date(Date.now() + 600000).toISOString(),
+      storeRoutes: ["Store1", "Store2"].map((name) => ({ storeId: name, storeName: name, distanceKm: 5,
+        stops: [{ key: name, type: "pickup", name }, { key: `${name}-home`, type: "dropoff", name: "Home" }] })),
+      deliveries: ["a", "b", "c"].map((key, index) => ({
+        key, store: { _id: index < 2 ? "Store1" : "Store2", name: index < 2 ? "Store1" : "Store2" },
+        address: current, lines: [], cargo: {}, vehicle: "car", distanceKm: 5,
+        pricingGroup: { kind: "store-route", key: index < 2 ? "store-route:1" : "store-route:2" },
+        vehicleOptions: [{ type: "car", fee: 10.01 }, { type: "van", fee: 20.03 }],
+      })),
+    };
+    throw new Error(`Unexpected request ${resource}`);
+  });
+  await ui.start(); await ui.calculate();
+  assert.match(text(ui.render()), /Delivery route from Store1/);
+  assert.match(text(ui.render()), /Separate stores are charged separately/);
+  assert.match(text(ui.render()), /Combined total: \$50.02/);
+  const picker = nodes(ui.render()).find((node) => node.props.accessibilityLabel === "Delivery vehicle for Store1");
+  picker.props.onValueChange("van");
+  const pickers = nodes(ui.render()).filter((node) => node.props.accessibilityLabel?.startsWith("Delivery vehicle for "));
+  assert.deepEqual(pickers.map((node) => node.props.selectedValue), ["van", "van", "car"]);
+  assert.match(text(ui.render()), /Combined total: \$60.04/);
+});
+
 test("delivery pricing previews exact shared cents, separate vehicle types and unchanged legacy quotes", () => {
   const { calculateDeliveryPricing } = load("assets\\common\\deliveryPricing.js", {});
   const deliveries = ["a", "b", "c"].map((key, index) => ({

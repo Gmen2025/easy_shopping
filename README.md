@@ -2,9 +2,64 @@
 
 A full-featured React Native e-commerce mobile application built with Expo, featuring secure payments, order management, and admin capabilities.
 
-## Cart-route delivery
+## Per-store delivery and dispatch
 
-Mobile and website share the backend's new grouped product checkout behavior in
+New mobile and website product checkouts price each store separately:
+store -> first drop-off -> additional drop-offs, using actual road legs and the
+existing configured vehicle rates. One base fee and speed surcharge apply per
+store, not per product or destination. Selecting a vehicle updates all destinations
+from that store only. Destination shares add up exactly to the store route fee.
+Driver travel to pickup and batching detours do not add customer charges.
+
+Nearest eligible stores receive paid/activated orders and may accept or reject.
+Rejections/timeouts try other nearby eligible stores, then the default store.
+Default fallback requests persist without expiry even while offline. Matching
+default-store stock can be quoted when no open store can supply it. The default
+must open and claim before preparing. Claiming and rerouting do not need Admin
+approval. Rerouting offers other eligible stores a timed chance to accept; only
+explicit fallback rejection enters Admin review without cancelling payment.
+
+In **Store assignments**, accept/claim, **Mark package ready**, select packages
+from the same store using the same vehicle, then **Dispatch selected**. Single
+dispatch needs no reason. Known combined cargo must fit the vehicle; unknown
+measurements require single-package dispatch. Each durable batch is offered to
+one driver and stays queued if nobody is available. All packages in a batch must
+be picked up before drop-offs. Other stores in the checkout dispatch independently.
+
+Claimed requests may be rerouted before dispatch. **Admin > Store requests** also
+supports direct claim for the assigned/default eligible store, reroute, preparation
+and batch/single dispatch. Admin rerouting reopens eligible store attempts, with
+an offline default queue when no alternative is available. Rejected requests stay
+listed for review, including after cancellation. Use **Payment, cancellation &
+refunds** to cancel through the checkout and reconcile any required refund before
+deleting a rejected paid order. The server enforces these payment safeguards.
+
+### Driver fallback and Admin override
+
+New store batches try nearby available partners, then the nearest available company
+driver (without a radius limit), then the nearest eligible offline company driver.
+Offline offers persist in the designated driver's list. Normal claiming requires
+going online with a compatible vehicle and enough capacity. Company drivers may
+claim, reroute or reject their offer, or release an accepted batch before pickup.
+Rejection stays visible to Admin without blocking delivery or changing payment.
+
+Dispatching stores can **Reroute to another driver**, keeping all batch packages
+together. **Admin > Store requests** shows company offers, assigned drivers and
+rejection history. Enter an approved driver's ID and use **Admin assign / dispatch
+to driver** to override ownership, online status, proximity and previous refusal.
+Admin may also claim/dispatch from closed approved stores. Stock, matching prices,
+vehicle/capacity, payment/refund, scheduled windows and pickup/completion safeguards
+still apply. Reassignment is blocked after any pickup; physical package handover
+is not implemented. Admin assignment does not switch a driver's online status on.
+
+Deploy the backend and website changes with this app. Existing saved quotes and
+orders retain their original rules, described in the legacy section below.
+US-to-Ethiopia orders apply per-store pricing to US store-to-hub routes only.
+Focused validation: `node --test scripts\multiDeliveryCheckout.test.cjs scripts\storeAssignments.test.cjs scripts\storeRoutePricing.test.cjs scripts\companyDriverRefresh.test.cjs`.
+
+### Legacy cart-route delivery
+
+Previously saved mobile and website grouped product checkouts retain this behavior in
 USA and Ethio: one fixed delivery fee for the customer's pickup stores and
 drop-off addresses. It includes one vehicle base fee, route distance and one
 speed surcharge, never driver travel to the first store or another customer's
