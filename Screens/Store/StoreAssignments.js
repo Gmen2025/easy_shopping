@@ -15,6 +15,7 @@ const StoreAssignments = ({ route, navigation } = {}) => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedIds, setSelectedIds] = useState([]);
   const [driverIds, setDriverIds] = useState({});
+  const [preparationVehicles, setPreparationVehicles] = useState({});
   const actionInFlight = useRef(false);
   const { formatPrice } = useCurrency();
   useFocusEffect(useCallback(() => {
@@ -45,7 +46,8 @@ const StoreAssignments = ({ route, navigation } = {}) => {
       else if (decision === "driver-reroute" || decision === "driver-assign") await storeRequest(
         `${scope}/assignments/${order._id}/drivers/${decision === "driver-assign" ? "assign" : "reroute"}`,
         { method: "post", ...(decision === "driver-assign" ? { data: { driverId: driverIds[order._id]?.trim() } } : {}) });
-      else await storeRequest(`${scope}/assignments/${order._id}/${decision}`, { method: "post" });
+      else await storeRequest(`${scope}/assignments/${order._id}/${decision}`, { method: "post",
+        ...(decision === "enable-preparation" ? { data: { vehicle: preparationVehicles[order._id] } } : {}) });
       setSelectedIds((current) => decision === "ready"
         ? current.includes(order._id) ? current : [...current, order._id]
         : current.filter((key) => key !== order._id));
@@ -137,6 +139,19 @@ const StoreAssignments = ({ route, navigation } = {}) => {
                   { text: "Cancel", style: "cancel" }, { text: "Assign", onPress: () => respond(order, "driver-assign") },
                 ])}><Text>Admin assign / dispatch to driver</Text></TouchableOpacity>
             </> : null}
+          </View> : null}
+          {!order.storeRouteVersion && !fallback && order.fulfillmentStatus === "accepted" && active ? <View style={styles.actions}>
+            <Text>This order uses the older delivery workflow, which hides preparation controls. Enable store preparation first; saved fees and payments will not change. For an older cart, all active packages must be claimed and free of driver assignments, and upgrade together.</Text>
+            {!order.requiredVehicle ? <View><Text>Choose a delivery vehicle for packages without a saved vehicle. Unknown-size packages can only be dispatched singly.</Text>
+              {["motorcycle", "car", "van", "truck"].map((vehicle) => <TouchableOpacity key={vehicle} style={styles.button}
+                accessibilityRole="radio" accessibilityState={{ checked: preparationVehicles[order._id] === vehicle }}
+                disabled={Boolean(actingId)} onPress={() => setPreparationVehicles((current) => ({ ...current, [order._id]: vehicle }))}>
+                <Text>{preparationVehicles[order._id] === vehicle ? `Selected vehicle: ${vehicle}` : `Use ${vehicle}`}</Text>
+              </TouchableOpacity>)}</View> : null}
+            <TouchableOpacity style={styles.button} disabled={Boolean(actingId) || !order.requiredVehicle && !preparationVehicles[order._id]}
+              onPress={() => Alert.alert("Enable store preparation?", "This upgrades all active packages in an older cart together. Stores will mark their packages ready and dispatch separately. Saved fees, payment records and stock reservations stay unchanged.", [
+                { text: "Cancel", style: "cancel" }, { text: "Enable", onPress: () => respond(order, "enable-preparation") },
+              ])}><Text>Enable store preparation</Text></TouchableOpacity>
           </View> : null}
           {order.storeRouteVersion === 1 && !fallback && order.fulfillmentStatus === "accepted" ? <View style={styles.actions}>
             {order.storeDispatchBatch ? <Text selectable>Dispatched batch: {String(order.storeDispatchBatch)} | {order.deliveryStatus}.

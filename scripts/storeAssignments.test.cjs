@@ -227,3 +227,49 @@ test("dispatching stores can reoffer a rejected batch and Admin can assign it to
   assert.equal(pickedUp.button("Reroute to another driver"), undefined);
   assert.equal(pickedUp.input(), undefined);
 });
+
+test("older accepted orders explain missing controls and explicitly upgrade before marking ready", async () => {
+  for (const admin of [false, true]) {
+    const scope = admin ? "admin" : "me";
+    const order = { ...fallbackOrder(), fallbackStore: null, store: "store1",
+      fulfillmentStatus: "accepted", deliveryStatus: "Pending" };
+    const f = fixture(order, { admin });
+    assert.equal(f.button("Mark package ready"), undefined);
+    assert.match(f.text(f.render()), /older delivery workflow/);
+    assert.equal(f.button("Enable store preparation").props.disabled, true);
+    f.button("Use car").props.onPress();
+    assert.equal(f.button("Enable store preparation").props.disabled, false);
+    f.setRequest(async (resource) => {
+      if (resource.endsWith("/enable-preparation")) {
+        order.storeRouteVersion = 1;
+        order.requiredVehicle = "car";
+      }
+      if (resource.endsWith("/ready")) order.storeReadyAt = new Date().toISOString();
+      return resource === `${scope}/assignments` ? [order] : { success: true };
+    });
+    f.button("Enable store preparation").props.onPress();
+    assert.equal(f.calls.length, 0, "Upgrading requires confirmation");
+    await f.alerts[0][2].find((item) => item.text === "Enable").onPress();
+    assert.equal(f.calls[0][0], `${scope}/assignments/order123456/enable-preparation`);
+    assert.equal(f.calls[0][1].data.vehicle, "car");
+    assert.equal(f.button("Enable store preparation"), undefined);
+    assert.ok(f.button("Mark package ready"));
+    assert.equal(f.headerButton("Dispatch selected (0)").props.disabled, true);
+    await f.button("Mark package ready").props.onPress();
+    assert.equal(f.headerButton("Dispatch selected (1)").props.disabled, false);
+  }
+});
+
+test("older assigned deliveries cannot upgrade and failed upgrades keep preparation controls gated", async () => {
+  const order = { ...fallbackOrder(), fallbackStore: null, store: "store1", requiredVehicle: "car",
+    fulfillmentStatus: "accepted", deliveryStatus: "Pending" };
+  const assigned = fixture({ ...order, driver: "driver1" });
+  assert.equal(assigned.button("Enable store preparation"), undefined);
+  const f = fixture(order);
+  assert.equal(f.button("Enable store preparation").props.disabled, false);
+  f.setRequest(async () => { throw new Error("All active cart packages must be claimed"); });
+  f.button("Enable store preparation").props.onPress();
+  await f.alerts[0][2].find((item) => item.text === "Enable").onPress();
+  assert.equal(f.button("Mark package ready"), undefined);
+  assert.equal(f.alerts[1][1], "All active cart packages must be claimed");
+});

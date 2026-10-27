@@ -29,6 +29,15 @@ measurements require single-package dispatch. Each durable batch is offered to
 one driver and stays queued if nobody is available. All packages in a batch must
 be picked up before drop-offs. Other stores in the checkout dispatch independently.
 
+If an accepted older order shows no **Mark package ready** button, use
+**Enable store preparation** first (select a delivery vehicle if none was saved).
+This explicitly upgrades the order without changing saved fees, payment records
+or inventory reservations. Older cart-wide orders upgrade all active packages
+together; all stores must have claimed them and no driver may be assigned or have
+picked up a package. Afterward, **Mark package ready** appears and automatically
+selects the package. Unknown-size packages must be dispatched singly. Deploy the
+backend upgrade endpoint with both clients; older orders are not migrated automatically.
+
 Claimed requests may be rerouted before dispatch. **Admin > Store requests** also
 supports direct claim for the assigned/default eligible store, reroute, preparation
 and batch/single dispatch. Admin rerouting reopens eligible store attempts, with
