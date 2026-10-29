@@ -193,7 +193,9 @@ test("header provides country, notification, menu and cart controls without drop
     "../assets/common/baseUrl": "https://example.invalid/",
     "../assets/common/databaseConfig": { COUNTRY_DB_MAP: {}, getDatabaseNameFromStorage: async () => "E_ShopUSA" },
     "./CartIcon": "CartIcon",
+    "../assets/addugenet-header.png": "header-logo",
   });
+
   const props = { onNavigate: (...args) => routes.push(args), notificationCount: 3 };
   let tree = h.render(component, props);
   assert.match(text(tree), /Addu Genet Eshop/);
@@ -211,4 +213,41 @@ test("header provides country, notification, menu and cart controls without drop
   tree = h.render(component, props);
   assert.ok(nodes(tree).some((node) => node.type === "Modal" && node.props.visible));
   assert.ok(nodes(tree).some((node) => text(node) === "Mark all as read"));
+});
+
+test("header places the supplied logo between brand text and country controls at phone and tablet sizes", () => {
+  for (const width of [320, 375, 390, 500, 768]) {
+    const h = hooks(), routes = [];
+    const component = load("Shared\\Header.js", {
+      react: h.react, "react-native": { ...native, useWindowDimensions: () => ({ width }) },
+      "react-native-safe-area-context": { SafeAreaView: "SafeAreaView" },
+      "../Context/store/Auth": { AuthContext: {} }, "react-native-vector-icons/FontAwesome5": "Icon",
+      axios: {}, "@react-native-async-storage/async-storage": {},
+      "../assets/common/baseUrl": "https://example.invalid/",
+      "../assets/common/databaseConfig": { COUNTRY_DB_MAP: {}, getDatabaseNameFromStorage: async () => "E_Shopping" },
+      "./CartIcon": "CartIcon", "../assets/addugenet-header.png": "header-logo",
+    });
+    const tree = h.render(component, { onNavigate: (...args) => routes.push(args) });
+    const brand = labeled(tree, "Addu Genet Eshop home");
+    const logo = nodes(brand).find((node) => node.type === "Image");
+    const title = nodes(brand).find((node) => node.type === "Text" && text(node) === "Addu Genet Eshop");
+    const country = labeled(tree, "Shopping country: Ethiopia. Change country");
+    assert.equal(logo.props.source, "header-logo");
+    assert.equal(logo.props.resizeMode, "contain");
+    assert.equal(logo.props.accessible, false);
+    const logoStyle = Object.assign({}, ...logo.props.style.filter(Boolean));
+    assert.equal(logoStyle.width, width < 500 ? 32 : 40);
+    assert.equal(logoStyle.height, logoStyle.width);
+    assert.equal(title.props.numberOfLines, width < 390 ? 2 : 1);
+    assert.equal(text(brand).includes("Global Products"), width >= 390);
+    assert.equal(text(country).includes("Ethio"), width >= 390);
+    assert.ok(nodes(tree).indexOf(title) < nodes(tree).indexOf(logo));
+    assert.ok(nodes(tree).indexOf(logo) < nodes(tree).indexOf(country));
+    brand.props.onPress();
+    assert.equal(routes[0][0], "Home");
+    assert.equal(routes[0][1].screen, "Home Screen");
+    assert.ok(labeled(tree, "Open shopping menu"));
+    assert.ok(labeled(tree, "Open cart"));
+    assert.ok(labeled(tree, "Notifications, 0 unread"));
+  }
 });

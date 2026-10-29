@@ -3,6 +3,7 @@ import {
     StyleSheet, 
     View, 
     Text, 
+    Image,
     Alert,
     TouchableOpacity,
     TouchableWithoutFeedback,
@@ -41,6 +42,7 @@ const Header = ({
 }) => {
     const { width } = useWindowDimensions();
     const compact = width < 500;
+    const narrow = width < 390;
     const [menuVisible, setMenuVisible] = useState(false);
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     const [isNotificationModalVisible, setIsNotificationModalVisible] = useState(false);
@@ -237,13 +239,18 @@ const Header = ({
                     style={styles.menuButton} onPress={() => setMenuVisible(true)}>
                     <Icon name="bars" size={compact ? 19 : 24} color="#111111" />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.brand} accessibilityRole="button" accessibilityLabel="Addu Genet Eshop home"
+                <TouchableOpacity style={[styles.brand, compact && styles.compactBrand]} accessibilityRole="button" accessibilityLabel="Addu Genet Eshop home"
                     onPress={() => onNavigate("Home", { screen: "Home Screen" })}>
-                    {!compact ? <Icon name="shopping-bag" size={32} color="#111111" /> : null}
                     <View style={styles.brandCopy}>
-                        <Text style={[styles.brandTitle, compact && { fontSize: 14 }]} numberOfLines={1}>Addu Genet Eshop</Text>
-                        <Text style={[styles.brandTagline, compact && { fontSize: 8 }]} numberOfLines={1}>Global Products  -  Local Access</Text>
+                        <Text style={[styles.brandTitle, compact && { fontSize: 14 }]} numberOfLines={narrow ? 2 : 1}>Addu Genet Eshop</Text>
+                        {!narrow && <Text style={[styles.brandTagline, compact && { fontSize: 8 }]} numberOfLines={1}>Global Products  -  Local Access</Text>}
                     </View>
+                    <Image
+                        source={require("../assets/addugenet-header.png")}
+                        style={[styles.brandLogo, compact && styles.compactBrandLogo]}
+                        resizeMode="contain"
+                        accessible={false}
+                    />
                 </TouchableOpacity>
                 <View style={styles.rightContainer}>
                     <TouchableOpacity
@@ -256,7 +263,7 @@ const Header = ({
                         <Text style={styles.selectedCountryText}>
                             {countries.find(c => c.value === selectedCountry)?.flag}
                         </Text>
-                        <Text style={styles.countryCode}>{selectedCountry}</Text>
+                        {!narrow && <Text style={styles.countryCode}>{selectedCountry}</Text>}
                         <Icon 
                             name={isDropdownVisible ? "chevron-up" : "chevron-down"} 
                             size={10} 
@@ -416,13 +423,17 @@ const styles = StyleSheet.create({
         elevation: 1000,
     },
     menuButton: { width: 28, minHeight: 44, justifyContent: "center" },
-    brand: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, marginHorizontal: 6 },
-    brandCopy: { flexShrink: 1 },
+    brand: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 10, marginHorizontal: 6 },
+    compactBrand: { gap: 6 },
+    brandCopy: { flex: 1, minWidth: 0 },
+    brandLogo: { width: 40, height: 40, borderRadius: 9, flexShrink: 0 },
+    compactBrandLogo: { width: 32, height: 32, borderRadius: 7 },
     brandTitle: { fontSize: 22, fontWeight: "800", color: "#111111" },
     brandTagline: { fontSize: 11, marginTop: 3, color: "#111111" },
     menuItem: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 18, paddingVertical: 15 },
     rightContainer: {
         flexDirection: 'row',
+        flexShrink: 0,
         alignItems: 'center',
         justifyContent: 'flex-end',
         gap: 8,

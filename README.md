@@ -2,6 +2,12 @@
 
 A full-featured React Native e-commerce mobile application built with Expo, featuring secure payments, order management, and admin capabilities.
 
+The shared header shows the Addugenet icon between the shop title and country
+dropdown (32px on phones, 40px on larger screens). Below 390px, the title can
+wrap to two lines and the tagline/country abbreviation are hidden to preserve
+space for the logo and controls. The flag and accessible country selector remain
+available; menu, home, notifications and cart behavior are unchanged.
+
 ## Per-store delivery and dispatch
 
 New mobile and website product checkouts price each store separately:
