@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, Pressable, Switch, Alert } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { View, Text, TextInput, Pressable, Switch, Alert } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/FontAwesome";
 import QRCode from "react-native-qrcode-svg";
-import { securityRequest } from "../../assets/common/authApi";
+import { linkGoogleAccount, securityRequest } from "../../assets/common/authApi";
+import { getSocialLoginSetting } from "../../assets/common/authFeatures";
 import { authErrorMessage } from "../../assets/common/authFlow";
 import {
   AuthPage, AuthBrand, AuthButton, BackButton, VerificationCode, authStyles as styles,
@@ -21,6 +22,10 @@ export default function SecuritySettings({ navigation }) {
   const [savedCodes, setSavedCodes] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [password, setPassword] = useState("");
+  const [googleEnabled, setGoogleEnabled] = useState(false);
+  const [notice, setNotice] = useState("");
+  const operationRunning = useRef(false);
 
   useEffect(() => navigation.addListener("beforeRemove", (event) => {
     if ((step === "success" || step === "recoveryCodes") && !savedCodes) {
@@ -32,14 +37,22 @@ export default function SecuritySettings({ navigation }) {
   useFocusEffect(useCallback(() => {
     let active = true;
     setBusy(true);
-    securityRequest("security")
-      .then((data) => { if (active) setSecurity(data); })
-      .catch((requestError) => { if (active) setError(authErrorMessage(requestError)); })
-      .finally(() => { if (active) setBusy(false); });
+    Promise.all([
+      securityRequest("security").then((data) => { if (active) setSecurity(data); }),
+      getSocialLoginSetting().then((availability) => {
+        if (active) setGoogleEnabled(availability.providers.google);
+      }),
+    ])
+      .catch((requestError) => {
+        if (active) { setGoogleEnabled(false); setError(authErrorMessage(requestError)); }
+      })
+      .finally(() => { if (active && !operationRunning.current) setBusy(false); });
     return () => { active = false; };
   }, []));
 
   const run = async (action) => {
+    if (operationRunning.current) return;
+    operationRunning.current = true;
     setBusy(true);
     setError("");
     try {
@@ -47,6 +60,7 @@ export default function SecuritySettings({ navigation }) {
     } catch (requestError) {
       setError(authErrorMessage(requestError));
     } finally {
+      operationRunning.current = false;
       setBusy(false);
     }
   };
@@ -60,6 +74,7 @@ export default function SecuritySettings({ navigation }) {
       setBackup(false);
       setError("");
       setOperationChallenge(null);
+      setPassword("");
     }
   };
 
@@ -79,6 +94,7 @@ export default function SecuritySettings({ navigation }) {
     setStep(nextStep);
     setCode("");
     setBackup(false);
+    setPassword("");
   };
 
   const enable = () => run(async () => {
@@ -93,6 +109,8 @@ export default function SecuritySettings({ navigation }) {
     setOperationChallenge(null);
     setCode("");
     setBackup(false);
+    setPassword("");
+    setNotice("");
     setStep(target);
     if (security.method === "email") {
       setOperationChallenge(await securityRequest("2fa/send-code", {}));
@@ -102,7 +120,16 @@ export default function SecuritySettings({ navigation }) {
   const confirmSensitiveAction = () => run(async () => {
     const payload = { code: code.trim(), useBackupCode: backup,
       ...(operationChallenge?.challengeId ? { challengeId: operationChallenge.challengeId } : {}) };
-    if (step === "disable") {
+    if (step === "linkGoogle") {
+      const result = await linkGoogleAccount({ ...payload, password });
+      setPassword("");
+      setCode("");
+      setOperationChallenge(null);
+      if (!result) { setNotice("Google linking was cancelled. Your account was not changed."); setStep("settings"); return; }
+      setSecurity(await securityRequest("security"));
+      setNotice("Google is linked. You can now sign in with Google to this same account.");
+      setStep("settings");
+    } else if (step === "disable") {
       await securityRequest("2fa/disable", payload);
       setSecurity((previous) => ({ ...previous, enabled: false, method: null, backupCodesRemaining: 0 }));
       setStep("settings");
@@ -149,13 +176,41 @@ export default function SecuritySettings({ navigation }) {
               typeof provider === "string" ? provider : provider.provider).join(", ") :
               "No social provider is linked to this account."}
           </Text>
+          {googleEnabled && security && !security.providers?.includes("google") ?
+            <AuthButton title="Link Google account" secondary icon="google" disabled={busy}
+              onPress={() => startSensitiveAction("linkGoogle")} /> : null}
         </View>
+        {notice ? <Text accessibilityRole="alert" style={styles.subtitle}>{notice}</Text> : null}
+        <AuthButton title="Refresh security settings" secondary disabled={busy}
+          onPress={() => run(async () => {
+            setSecurity(await securityRequest("security"));
+            setGoogleEnabled(false);
+            setGoogleEnabled((await getSocialLoginSetting()).providers.google);
+          })} />
         <View style={[styles.card, { backgroundColor: "#EEF4FA" }]}>
           <Text style={{ color: "#45608A", lineHeight: 22 }}>
             {security?.enabled ? "Your account is protected with two-factor authentication. Keep your backup codes somewhere safe." :
               "After setup, a verification code will be required when you sign in. Backup codes help if you lose access to your second factor."}
           </Text>
         </View>
+      </>}
+      {step === "linkGoogle" && <>
+        <Text style={styles.title}>Link Google account</Text>
+        <Text style={styles.subtitle}>Enter your current password, then choose the Google account
+          with the same email. Your profile and orders stay on this account.</Text>
+        <TextInput style={styles.input} accessibilityLabel="Current account password"
+          placeholder="Current account password" secureTextEntry autoCapitalize="none"
+          autoCorrect={false} editable={!busy} value={password} onChangeText={setPassword} />
+        {security?.enabled ? <>
+          <Text style={styles.subtitle}>Verify your current second factor before linking.</Text>
+          <VerificationCode value={code} onChangeText={setCode} backup={backup} disabled={busy} />
+          <AuthButton title={backup ? "Use verification code" : "Use a backup code"} secondary disabled={busy}
+            onPress={() => { setBackup(!backup); setCode(""); }} />
+          {security.method === "email" && !backup ? <AuthButton title="Send verification email" secondary disabled={busy}
+            onPress={() => run(async () => setOperationChallenge(await securityRequest("2fa/send-code", {})))} /> : null}
+        </> : null}
+        <AuthButton title="Verify & authorize Google" icon="google" busy={busy}
+          disabled={!password || (security?.enabled && !codeValid)} onPress={confirmSensitiveAction} />
       </>}
       {step === "setup" && <>
         <AuthBrand security />
@@ -234,7 +289,10 @@ export default function SecuritySettings({ navigation }) {
       </>}
       {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
       {step === "settings" && !security && <AuthButton title="Retry" busy={busy}
-        onPress={() => run(async () => setSecurity(await securityRequest("security")))} />}
+        onPress={() => run(async () => {
+          const [data, availability] = await Promise.all([securityRequest("security"), getSocialLoginSetting()]);
+          setSecurity(data); setGoogleEnabled(availability.providers.google);
+        })} />}
     </AuthPage>
   );
 }

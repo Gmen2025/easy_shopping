@@ -76,7 +76,7 @@ export const attachDatabaseInterceptor = () => {
       return config;
     }
 
-    const dbName = await getDatabaseNameFromStorage();
+    const dbName = config.headers?.["x-database-name"] || await getDatabaseNameFromStorage();
 
     config.headers = {
       ...(config.headers || {}),

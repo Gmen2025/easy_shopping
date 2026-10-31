@@ -159,6 +159,18 @@ Focused validation: `node --test scripts\store-logo.test.cjs`.
 
 ## Social sign-in and optional two-factor authentication
 
+If Google/Apple/Facebook returns `account_conflict`, the provider email already
+belongs to an account in the selected store. Use that account's original sign-in
+method (email/password for an email-registered account). To enable Google for the
+same account, open **Profile > Security Settings > Link Google account** while
+signed in. Enter your current password and, if enabled, your current 2FA code,
+then choose the same-email Google account. Google must be enabled by Admin.
+This preserves your account and orders; automatic email-based linking is still
+blocked. Deploy the backend linking endpoints before updating the app. Apple
+and Facebook linking are not provided. Never delete your account to work around
+an account conflict. After an interrupted linking request, refresh Security
+Settings to check whether Google was linked before retrying.
+
 The login screen uses the yellow-and-white Addu Genet design, with email,
 Google, Apple, and Facebook entry points. Provider account selection happens
 in the provider's real browser UI, not an imitation account picker.

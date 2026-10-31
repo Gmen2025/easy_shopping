@@ -67,6 +67,26 @@ test("resend countdown never goes negative and rounds up", () => {
   assert.equal(flow.resendSecondsRemaining(60000, 61000), 0);
 });
 
+test("social callback errors explain account conflicts and configuration without exposing URL details", () => {
+  for (const [code, message] of [
+    ["account_conflict", /account with this email already exists.*method you used to create it.*cannot automatically link/],
+    ["social_login_disabled", /Social sign-in is disabled/],
+    ["email_required", /did not share an email address/],
+    ["provider_unavailable", /not configured on the server/],
+    ["link_email_mismatch", /same email as your existing account/],
+    ["link_expired", /account security changed/],
+    ["social_auth_failed", /Social sign-in was not completed/],
+    ["unknown_sensitive_detail", /Social sign-in was not completed/],
+  ]) {
+    assert.throws(() => flow.parseSocialCallback(
+      `addugeneteshop://auth?error=${code}&code=must-not-exchange`, "addugeneteshop://auth"
+    ), message);
+  }
+  assert.throws(() => flow.parseSocialCallback(
+    "otherapp://auth?error=account_conflict", "addugeneteshop://auth"
+  ), /did not match this app/);
+});
+
 test("backend string and JSON errors are visible", () => {
   assert.equal(flow.authErrorMessage({ response: { data: "Verify your email" } }), "Verify your email");
   assert.equal(flow.authErrorMessage({ response: { data: { message: "Code expired" } } }), "Code expired");
@@ -181,6 +201,131 @@ test("browser sign-in uses S256 PKCE, database context and a code-only exchange"
   assert.equal(posts[0].body.code, "one-use-handoff");
   assert.equal(posts[0].body.databaseName, "E_ShopUSA");
   assert.ok(posts[0].url.endsWith("users/auth/social/exchange"));
+});
+
+test("Google linking uses protected POSTs, keeps password out of the browser and never creates a login session", async () => {
+  const crypto = require("node:crypto");
+  for (const scenario of ["success", "cancel", "changed-session", "changed-store", "wrong-url", "unconfirmed", "conflict"]) {
+    const requests = [];
+    let token = "existing-session", database = "E_ShopUSA", browserCalls = 0;
+    const api = load("assets\\common\\authApi.js", {
+      axios: { post: async (url, body, config) => {
+        requests.push({ url, body, config });
+        if (url.endsWith("social/link/start")) {
+          return { data: { authorizationUrl: scenario === "wrong-url" ? "https://evil.invalid/auth" :
+            "https://accounts.google.com/o/oauth2/v2/auth?state=opaque-state" } };
+        }
+        assert.ok(url.endsWith("social/link/exchange"));
+        if (scenario === "conflict") throw new Error("Google is linked to another account");
+        return { data: scenario === "unconfirmed" ? {} : { linked: true, provider: "google" } };
+      } },
+      "@react-native-async-storage/async-storage": { getItem: async () => token },
+      "expo-crypto": {
+        getRandomBytesAsync: async () => new Uint8Array(32).fill(17),
+        digestStringAsync: async (_algorithm, text) => crypto.createHash("sha256").update(text).digest("base64"),
+        CryptoDigestAlgorithm: { SHA256: "SHA256" }, CryptoEncoding: { BASE64: "base64" },
+      },
+      "expo-web-browser": { openAuthSessionAsync: async (url) => {
+        browserCalls++;
+        assert.ok(!url.includes("password") && !url.includes(token));
+        if (scenario === "cancel") return { type: "cancel" };
+        if (scenario === "changed-session") token = "other-session";
+        if (scenario === "changed-store") database = "E_Shopping";
+        return { type: "success", url: "addugeneteshop://auth?code=link-handoff" };
+      } },
+      "expo-constants": { expoConfig: { extra: {} } },
+      "react-native": { Platform: { OS: "android" } },
+      expo: { requireOptionalNativeModule: () => ({}) },
+      "./baseUrl": { __esModule: true, default: "https://api.example/api/v1/" },
+      "./databaseConfig": { getDatabaseNameFromStorage: async () => database },
+      "./authFlow": flow,
+      "./authFeatures": { getSocialLoginSetting: async () => ({ providers: { google: true } }) },
+    });
+    const proof = { password: "current-password", code: "123456", challengeId: "management-challenge" };
+    if (scenario === "success") assert.equal((await api.linkGoogleAccount(proof)).linked, true);
+    else if (scenario === "cancel") assert.equal(await api.linkGoogleAccount(proof), null);
+    else await assert.rejects(api.linkGoogleAccount(proof));
+    assert.equal(requests[0].body.password, "current-password");
+    assert.equal(requests[0].body.code, "123456");
+    assert.equal(requests[0].body.databaseName, "E_ShopUSA");
+    assert.equal(requests[0].config.headers.Authorization, "Bearer existing-session");
+    assert.equal(requests[0].config.headers["x-database-name"], "E_ShopUSA");
+    assert.equal(requests[0].body.codeVerifier, undefined);
+    if (["success", "unconfirmed", "conflict"].includes(scenario)) {
+      assert.equal(requests[1].body.password, undefined);
+      assert.equal(requests[1].body.code, "link-handoff");
+      assert.equal(requests[1].body.codeVerifier.length, 64);
+      assert.equal(requests[1].config.headers.Authorization, "Bearer existing-session");
+    } else assert.equal(requests.length, 1, "No final exchange after cancellation or changed context");
+    assert.equal(browserCalls, scenario === "wrong-url" ? 0 : 1);
+  }
+});
+
+test("Axios database interceptor preserves the store pinned by an authenticated linking request", async () => {
+  let intercept;
+  const interceptor = load("assets\\common\\attachDatabaseInterceptor.js", {
+    axios: { interceptors: { request: { use: (handler) => { intercept = handler; } } } },
+    "./baseUrl": { __esModule: true, default: "https://api.example/api/v1/" },
+    "./databaseConfig": { getDatabaseNameFromStorage: async () => "E_Shopping" },
+  }, { global: { fetch: async () => ({}) } });
+  interceptor.attachDatabaseInterceptor();
+  const request = await intercept({
+    url: "https://api.example/api/v1/users/auth/social/link/exchange", method: "post",
+    headers: { "x-database-name": "E_ShopUSA" }, data: { code: "link-code" },
+  });
+  assert.equal(request.headers["x-database-name"], "E_ShopUSA");
+  assert.equal(new URL(request.url).searchParams.get("db"), "E_ShopUSA");
+  assert.equal(request.data.databaseName, "E_ShopUSA");
+  const ordinary = await intercept({ url: "https://api.example/api/v1/users/auth/security" });
+  assert.equal(ordinary.headers["x-database-name"], "E_Shopping");
+});
+
+test("Security Settings offers Google linking only when enabled and confirms the original account ownership", async () => {
+  const state = [];
+  let index = 0, focus, linked = false;
+  const proofs = [];
+  const react = {
+    createElement: (type, props, ...children) => ({ type, props, children }),
+    useCallback: (fn) => fn, useEffect: () => {},
+    useRef: (initial) => ({ current: initial }),
+    useState: (initial) => {
+      const slot = index++;
+      if (state.length <= slot) state.push(initial);
+      return [state[slot], (value) => { state[slot] = typeof value === "function" ? value(state[slot]) : value; }];
+    },
+  };
+  const { default: Settings } = load("Screens\\User\\SecuritySettings.js", {
+    react,
+    "react-native": { View: "View", Text: "Text", TextInput: "Input", Pressable: "Pressable", Switch: "Switch", Alert: {} },
+    "@react-navigation/native": { useFocusEffect: (fn) => { focus = fn; } },
+    "react-native-vector-icons/FontAwesome": { __esModule: true, default: "Icon" },
+    "react-native-qrcode-svg": { __esModule: true, default: "QRCode" },
+    "../../assets/common/authApi": {
+      securityRequest: async () => ({ enabled: false, method: null, providers: linked ? ["google"] : [] }),
+      linkGoogleAccount: async (proof) => { proofs.push(proof); linked = true; return { linked: true, provider: "google" }; },
+    },
+    "../../assets/common/authFeatures": { getSocialLoginSetting: async () => ({ providers: { google: true } }) },
+    "../../assets/common/authFlow": flow,
+    "../../Shared/AuthUI": { AuthPage: "Page", AuthBrand: "Brand", AuthButton: "Button",
+      BackButton: "Back", VerificationCode: "Code", authStyles: {} },
+  });
+  const render = () => { index = 0; return Settings({ navigation: {} }); };
+  const find = (node, type, label) => {
+    if (!node || typeof node !== "object") return;
+    if (node.type === type && (!label || node.props?.title === label || node.props?.accessibilityLabel === label)) return node;
+    return node.children?.flat(Infinity).map((child) => find(child, type, label)).find(Boolean);
+  };
+  render();
+  focus();
+  await new Promise(setImmediate);
+  await find(render(), "Button", "Link Google account").props.onPress();
+  const input = find(render(), "Input", "Current account password");
+  assert.equal(input.props.secureTextEntry, true);
+  assert.equal(find(render(), "Button", "Verify & authorize Google").props.disabled, true);
+  input.props.onChangeText("current-password");
+  await find(render(), "Button", "Verify & authorize Google").props.onPress();
+  assert.equal(proofs[0].password, "current-password");
+  assert.equal(find(render(), "Button", "Link Google account"), undefined, "Linked providers cannot be linked again");
 });
 
 for (const missing of ["ExpoCrypto", "ExpoWebBrowser"]) {

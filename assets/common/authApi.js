@@ -12,17 +12,18 @@ if (Platform.OS === "web") {
   require("expo-web-browser").maybeCompleteAuthSession();
 }
 
-export const securityRequest = async (path, body) => {
-  const token = await AsyncStorage.getItem("token");
+export const securityRequest = async (path, body, session) => {
+  const token = session?.token || await AsyncStorage.getItem("token");
   if (!token) throw new Error("Your session has expired. Please sign in again.");
-  const config = { headers: { Authorization: `Bearer ${token}` }, timeout: 20000 };
+  const config = { headers: { Authorization: `Bearer ${token}`,
+    ...(session ? { "x-database-name": session.database } : {}) }, timeout: 20000 };
   const response = body === undefined
     ? await axios.get(`${baseUrl}users/auth/${path}`, config)
     : await axios.post(`${baseUrl}users/auth/${path}`, body, config);
   return response.data;
 };
 
-export const socialSignIn = async (provider) => {
+const socialBrowserFlow = async (provider, linkProof) => {
   if (!["google", "apple", "facebook"].includes(provider)) {
     throw new Error("Unsupported sign-in provider.");
   }
@@ -54,15 +55,41 @@ export const socialSignIn = async (provider) => {
   );
   const codeChallenge = digest.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   const db = await getDatabaseNameFromStorage();
-  const url = `${baseUrl}users/auth/social/start?${new URLSearchParams({
+  const session = linkProof ? { token: await AsyncStorage.getItem("token"), database: db } : null;
+  if (linkProof && !session.token) throw new Error("Your session has expired. Please sign in again.");
+  const url = linkProof ? (await securityRequest("social/link/start", {
+    ...linkProof, provider, redirectUri, codeChallenge, databaseName: db,
+  }, session)).authorizationUrl : `${baseUrl}users/auth/social/start?${new URLSearchParams({
     provider, redirectUri, codeChallenge, db,
   })}`;
+  if (linkProof && (typeof url !== "string" || new URL(url).origin !== "https://accounts.google.com" ||
+      new URL(url).pathname !== "/o/oauth2/v2/auth")) {
+    throw new Error("The server returned an invalid Google linking URL.");
+  }
   const result = await WebBrowser.openAuthSessionAsync(url, redirectUri);
   if (result.type === "cancel" || result.type === "dismiss") return null;
   if (result.type !== "success") throw new Error("The sign-in browser could not complete authentication.");
   const code = parseSocialCallback(result.url, redirectUri);
+  if (linkProof) {
+    if (await AsyncStorage.getItem("token") !== session.token || await getDatabaseNameFromStorage() !== db) {
+      throw new Error("Your account or store changed. Start Google linking again.");
+    }
+    const linked = await securityRequest("social/link/exchange", { code, codeVerifier, databaseName: db }, session);
+    if (linked?.linked !== true || linked.provider !== "google") {
+      throw new Error("The server did not confirm Google linking. Refresh Security Settings before trying again.");
+    }
+    return linked;
+  }
   const response = await axios.post(`${baseUrl}users/auth/social/exchange`, {
     code, codeVerifier, databaseName: db,
   }, { timeout: 20000 });
   return response.data;
+};
+
+export const socialSignIn = (provider) => socialBrowserFlow(provider);
+export const linkGoogleAccount = (proof) => {
+  if (!proof || typeof proof.password !== "string" || !proof.password) {
+    throw new Error("Enter your current account password to link Google.");
+  }
+  return socialBrowserFlow("google", proof);
 };

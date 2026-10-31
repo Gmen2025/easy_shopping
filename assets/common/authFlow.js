@@ -33,9 +33,19 @@ export const parseSocialCallback = (callbackUrl, redirectUri) => {
     throw new Error("The sign-in callback did not match this app.");
   }
   if (callback.searchParams.has("error")) {
-    if (callback.searchParams.get("error") === "social_login_disabled") {
+    const error = callback.searchParams.get("error");
+    if (error === "social_login_disabled")
       throw new Error("Social sign-in is disabled. Please use email sign-in.");
-    }
+    if (error === "account_conflict")
+      throw new Error("An account with this email already exists in this store. Sign in using the method you used to create it. Google, Apple, and Facebook sign-in cannot automatically link to an existing email/password account. To add Google, sign in first, then open Profile > Security Settings > Link Google account.");
+    if (error === "email_required")
+      throw new Error("Your sign-in provider did not share an email address. Allow email access or use email sign-in.");
+    if (error === "provider_unavailable")
+      throw new Error("This sign-in provider is not configured on the server. Please use email sign-in and contact support.");
+    if (error === "link_email_mismatch")
+      throw new Error("Choose the Google account with the same email as your existing account.");
+    if (error === "link_expired")
+      throw new Error("Your account security changed. Start Google linking again.");
     throw new Error("Social sign-in was not completed. Check your provider configuration or try email sign-in.");
   }
   const code = callback.searchParams.get("code");
