@@ -159,6 +159,11 @@ Focused validation: `node --test scripts\store-logo.test.cjs`.
 
 ## Social sign-in and optional two-factor authentication
 
+If sign-in reports that the attempt "expired or was already used"
+(`invalid_state`), close old sign-in tabs and start a fresh sign-in. Repeated
+provider redirects, such as Facebook's "Continue as …" page, are handled by the
+backend once it is deployed.
+
 If Google/Apple/Facebook returns `account_conflict`, the provider email already
 belongs to an account in the selected store. Use that account's original sign-in
 method (email/password for an email-registered account). To enable Google for the

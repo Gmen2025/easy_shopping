@@ -75,6 +75,7 @@ test("social callback errors explain account conflicts and configuration without
     ["provider_unavailable", /not configured on the server/],
     ["link_email_mismatch", /same email as your existing account/],
     ["link_expired", /account security changed/],
+    ["invalid_state", /expired or was already used/],
     ["social_auth_failed", /Social sign-in was not completed/],
     ["unknown_sensitive_detail", /Social sign-in was not completed/],
   ]) {

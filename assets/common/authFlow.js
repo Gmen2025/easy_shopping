@@ -46,6 +46,8 @@ export const parseSocialCallback = (callbackUrl, redirectUri) => {
       throw new Error("Choose the Google account with the same email as your existing account.");
     if (error === "link_expired")
       throw new Error("Your account security changed. Start Google linking again.");
+    if (error === "invalid_state")
+      throw new Error("This sign-in attempt expired or was already used. Close any old sign-in tabs and try again.");
     throw new Error("Social sign-in was not completed. Check your provider configuration or try email sign-in.");
   }
   const code = callback.searchParams.get("code");
