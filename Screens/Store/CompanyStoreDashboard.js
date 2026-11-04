@@ -168,6 +168,9 @@ const CompanyStoreDashboard = ({ navigation }) => {
   const dashboardHeader = (
     <>
       <View style={styles.salesRow}>
+        <TouchableOpacity style={styles.retryButton} onPress={() => navigation.navigate("IncomeDashboard", { kind: "store" })}>
+          <Text style={styles.retryText}>Income, balance & payout requests</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.retryButton} onPress={() => navigation.navigate("StoreManagement")}>
           <Text style={styles.retryText}>My store & inventory</Text>
         </TouchableOpacity>
@@ -210,7 +213,7 @@ const CompanyStoreDashboard = ({ navigation }) => {
                 <Text style={styles.salesValue}>{formatPrice(period.sales)}</Text>
               </View>
               <View style={styles.earningsBlock}>
-                <Text style={styles.earningsLabel}>Company earnings</Text>
+                <Text style={styles.earningsLabel}>Gross fulfillment sales</Text>
                 <Text style={styles.earningsValue}>{formatPrice(period.earnings)}</Text>
               </View>
             </View>
@@ -277,16 +280,9 @@ const CompanyStoreDashboard = ({ navigation }) => {
           <Text style={styles.sectionTitle}>Earnings & operations</Text>
           <View style={styles.financeCard}>
             <View style={styles.financeRow}>
-              <Text style={styles.financeLabel}>Available balance</Text>
-              <Text style={styles.financePrimary}>{formatPrice(dashboard.payouts?.available || 0)}</Text>
-            </View>
-            <View style={styles.financeRow}>
-              <Text style={styles.financeLabel}>Paid out</Text>
-              <Text style={styles.financeValue}>{formatPrice(dashboard.payouts?.paidOut || 0)}</Text>
-            </View>
-            <View style={styles.financeRow}>
-              <Text style={styles.financeLabel}>Pending payout</Text>
-              <Text style={styles.financeValue}>{formatPrice(dashboard.payouts?.pending || 0)}</Text>
+              <TouchableOpacity onPress={() => navigation.navigate("IncomeDashboard", { kind: "store" })}>
+                <Text style={styles.retryText}>View collected income, platform fees & available balance</Text>
+              </TouchableOpacity>
             </View>
             <View style={styles.financeRow}>
               <Text style={styles.financeLabel}>Pending orders</Text>

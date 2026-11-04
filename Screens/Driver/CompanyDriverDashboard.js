@@ -543,6 +543,11 @@ const CompanyDriverDashboard = ({ navigation }) => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <TouchableOpacity style={styles.refreshLink} accessibilityRole="button"
+          accessibilityLabel="Driver income, balance and payouts"
+          onPress={() => navigation.navigate("IncomeDashboard", { kind: "driver" })}>
+          <Text style={styles.refreshLinkText}>Delivery & ride income, balance and payout requests</Text>
+        </TouchableOpacity>
         {/* Header Block */}
         {companyDriver ? <View style={[styles.headerCard, styles.rideServiceCard]}>
           <Text style={styles.headerTitle}>RIDE SERVICE</Text>
@@ -624,7 +629,7 @@ const CompanyDriverDashboard = ({ navigation }) => {
               <View style={styles.incomeHeadingRow}>
                 <View>
                   <Text style={styles.incomeEyebrow}>DELIVERY INCOME</Text>
-                  <Text style={styles.incomeTitle}>Earnings overview</Text>
+                  <Text style={styles.incomeTitle}>Gross delivery activity</Text>
                 </View>
                 {loadingDashboard && <ActivityIndicator color="#8A6C09" size="small" />}
               </View>

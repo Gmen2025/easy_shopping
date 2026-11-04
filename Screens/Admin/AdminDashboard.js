@@ -16,6 +16,7 @@ import axios from "axios";
 import baseUrl from "../../assets/common/baseUrl";
 import { useCurrency } from "../../assets/common/currency";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
+import OwnershipReport from "../../Shared/OwnershipReport";
 
 const PERIODS = [
   { key: "daily", label: "24 Hours" },
@@ -37,6 +38,7 @@ const QUICK_ACTIONS = [
   { label: "US Shipping", icon: "plane", route: "InternationalShippingSettings" },
   { label: "Payments", icon: "credit-card", route: "DeliveryCheckouts" },
   { label: "Payouts", icon: "money", route: "Payouts" },
+  { label: "Income & ownership", icon: "line-chart", route: "FinanceAccounts" },
 ];
 
 const AdminDashboard = ({ navigation }) => {
@@ -147,6 +149,8 @@ const AdminDashboard = ({ navigation }) => {
           </TouchableOpacity>
         ))}
       </ScrollView>
+
+      <OwnershipReport period={selectedPeriod} navigation={navigation} />
 
       {error ? (
         <TouchableOpacity style={styles.errorBox} onPress={() => loadDashboard()}>

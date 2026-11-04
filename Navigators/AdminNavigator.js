@@ -19,6 +19,8 @@ import ServiceRequests from "../Screens/Service/ServiceRequests";
 import Drivers from "../Screens/Admin/Drivers";
 import StoreOwners from "../Screens/Admin/StoreOwners";
 import Payouts from "../Screens/Admin/Payouts";
+import FinanceAccounts from "../Screens/Admin/FinanceAccounts";
+import IncomeDashboard from "../Screens/Finance/IncomeDashboard";
 import AssignRoles from "../Screens/Admin/AssignRoles";
 import AdminStores from "../Screens/Admin/AdminStores";
 import AdminDrivers from "../Screens/Admin/AdminDrivers";
@@ -31,6 +33,8 @@ const Stack = createStackNavigator();
 function MyStack() {
   return (
     <Stack.Navigator initialRouteName="AdminDashboard">
+      <Stack.Screen name="FinanceAccounts" component={FinanceAccounts} options={{ title: "Store & driver income" }} />
+      <Stack.Screen name="IncomeDashboard" component={IncomeDashboard} options={{ title: "Account income & controls" }} />
       <Stack.Screen name="AdminStoreAssignments" component={StoreAssignments} initialParams={{ admin: true }} options={{ title: "Store requests & rejections" }} />
       <Stack.Screen name="RideSettings" component={RideSettings} options={{ title: "Ride fares, drivers & payments" }} />
       <Stack.Screen name="ExchangeRateSettings" component={ExchangeRateSettings} options={{ title: "Cross-currency daily rate" }} />
@@ -194,7 +198,7 @@ function MyStack() {
       <Stack.Screen
         name="Payouts"
         component={Payouts}
-        options={{ title: "Store Payouts", headerTintColor: "#e6c20eff", headerTitleAlign: "center", headerTitleStyle: { color: "#e6c20eff" } }}
+        options={{ title: "Store & Driver Payouts", headerTintColor: "#e6c20eff", headerTitleAlign: "center", headerTitleStyle: { color: "#e6c20eff" } }}
       />
       <Stack.Screen
         name="AssignRoles"

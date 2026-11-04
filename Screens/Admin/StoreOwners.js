@@ -97,7 +97,10 @@ export default function StoreOwners(props) {
     const status = item.approvalStatus || "approved";
     return <View style={styles.row}>
       <View style={styles.details}>
-        <Text style={styles.name}>{item.name}</Text>
+        <TouchableOpacity onPress={() => props.navigation.navigate("IncomeDashboard", { kind: "store", accountId: item._id, admin: true })}>
+          <Text style={styles.name}>{item.name}</Text>
+          <Text style={styles.detail}>Open income, products & payout controls</Text>
+        </TouchableOpacity>
         <Text style={styles.detail}>{item.email || "No email"}</Text>
         {item.phone ? <Text style={styles.detail}>{item.phone}</Text> : null}
         <Text style={styles.status}>{status}</Text>

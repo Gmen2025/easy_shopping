@@ -7,7 +7,7 @@ import axios from "axios";
 import baseUrl from "../../assets/common/baseUrl";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 
-const Drivers = () => {
+const Drivers = ({ navigation }) => {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState("");
@@ -216,7 +216,10 @@ const Drivers = () => {
     return (
       <View style={styles.driverRow}>
         <View style={styles.driverDetails}>
-          <Text style={styles.name}>{item.name}</Text>
+          <TouchableOpacity onPress={() => navigation.navigate("Admin", { screen: "IncomeDashboard", params: { kind: "driver", accountId: item._id, admin: true } })}>
+            <Text style={styles.name}>{item.name}</Text>
+            <Text style={styles.detail}>Open income & payout controls</Text>
+          </TouchableOpacity>
           <Text style={styles.detail}>{item.email}</Text>
           {item.phone ? <Text style={styles.detail}>{item.phone}</Text> : null}
           <Text style={[styles.status, { color: getStatusColor(status) }]}>{status}</Text>

@@ -37,7 +37,7 @@ const emptyForm = {
   password: "",
 };
 
-const AdminStores = () => {
+const AdminStores = ({ navigation }) => {
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -304,7 +304,10 @@ const AdminStores = () => {
     <View style={styles.row}>
       <StoreLogo name={item.name} logo={item.logo} size={48} />
       <View style={styles.details}>
-        <Text style={styles.name}>{item.name}</Text>
+        <TouchableOpacity onPress={() => navigation.navigate("IncomeDashboard", { kind: "store", accountId: item._id, admin: true })}>
+          <Text style={styles.name}>{item.name}</Text>
+          <Text style={styles.detail}>Income, products & payout controls</Text>
+        </TouchableOpacity>
         <Text style={styles.detail}>{item.address}</Text>
         <Text style={styles.detail}>{item.email}</Text>
         {item.phone ? <Text style={styles.detail}>{item.phone}</Text> : null}

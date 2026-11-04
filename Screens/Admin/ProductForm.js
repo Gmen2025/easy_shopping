@@ -213,7 +213,9 @@ const ProductForm = (props) => {
     try {
       const res = await axios.put(`${baseUrl}products/${item._id}`, payload, config);
       if (res.status === 200 || res.status === 201) {
-        Toast.show({ topOffset: 60, type: 'success', text1: 'Product edited successfully' });
+        Toast.show({ topOffset: 60, type: res.data?.notificationWarnings?.length ? 'error' : 'success',
+          text1: 'Product edited successfully',
+          text2: res.data?.notificationWarnings?.length ? 'Owner notification failed. Please notify the owner manually.' : undefined });
         setTimeout(() => props.navigation.navigate('Products'), 500);
       }
     } catch (err) {

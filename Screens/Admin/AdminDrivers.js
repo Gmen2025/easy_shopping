@@ -36,7 +36,7 @@ const emptyForm = {
   zip: "",
 };
 
-const AdminDrivers = () => {
+const AdminDrivers = ({ navigation }) => {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -346,7 +346,10 @@ const AdminDrivers = () => {
   const renderDriver = ({ item }) => (
     <View style={styles.row}>
       <View style={styles.details}>
-        <Text style={styles.name}>{item.name}</Text>
+        <TouchableOpacity onPress={() => navigation.navigate("IncomeDashboard", { kind: "driver", accountId: item._id, admin: true })}>
+          <Text style={styles.name}>{item.name}</Text>
+          <Text style={styles.detail}>Income & payout controls</Text>
+        </TouchableOpacity>
         <Text style={styles.detail}>{item.email}</Text>
         {item.phone ? <Text style={styles.detail}>{item.phone}</Text> : null}
         {item.vehicleType ? <Text style={styles.detail}>{item.vehicleType}</Text> : null}

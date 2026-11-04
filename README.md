@@ -8,6 +8,44 @@ wrap to two lines and the tagline/country abbreviation are hidden to preserve
 space for the logo and controls. The flag and accessible country selector remain
 available; menu, home, notifications and cart behavior are unchanged.
 
+## Ownership reporting and income
+
+The mobile screens use the same financial API as the separate React website. **Admin > Sales
+dashboard > Ownership & income** separates AdduGenet-owned sales, deliveries and
+rides, independent operators' platform fees, and service fulfillment income.
+Service fulfillment belongs entirely to AdduGenet. ETB and USD are never added
+together. Unassigned income is explicitly held for accounting review.
+
+Open **Stores & drivers** or a store/driver name to inspect an account dashboard,
+change ownership, set percentage or fixed platform fees per income category, and
+enable payout requests. A fixed fee uses the transaction's currency and is capped
+at the transaction amount. Changes apply to future completions, not existing
+income allocations. Store dashboards list catalog products and store-specific
+stock; admin edits notify linked owners through the website inbox and mobile
+push where available. Shared catalog edits do not change store-specific prices.
+
+Store owners (including independent stores) and drivers open **Income, balance &
+payout requests** to see net income, fees, balances and payment history. Stores
+with multiple locations can switch location. Only confirmed collected non-cash
+earnings are available, after refunds and already paid/reserved payouts. Cash
+already received is shown separately and is never paid twice.
+
+**No payout transfer provider is connected.** Weekly requests are queued on
+Monday UTC (with restart recovery); early requests and admin manual requests also
+reserve available funds for manual payment. **Queue Weekly Requests** does not
+send money. Admin must transfer funds, enter the real transfer reference and
+confirm the transfer before marking a request paid. Automatic transfers remain
+unavailable until a provider is integrated; a balance check alone is not payment.
+Requests above the available balance enter unreserved admin review. Admin can
+reject them or confirm payment once sufficient collected funds are available;
+review never permits an overdraw. Cash transaction totals require reconciliation
+and are excluded from available funds.
+
+Deploy the matching backend and website updates before distributing the
+mobile update. Existing completed records are imported on first financial access
+using their saved amounts and current ownership/fee settings; review historical
+allocations before enabling payouts. Previous paid records remain in history.
+
 ## Per-store delivery and dispatch
 
 New mobile and website product checkouts price each store separately:

@@ -5,6 +5,7 @@ import {
   FlatList,
   Modal,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -31,6 +32,7 @@ export default function Payouts() {
   const [referenceInput, setReferenceInput] = useState("");
   const [notesInput, setNotesInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [confirmedTransferred, setConfirmedTransferred] = useState(false);
 
   const loadPayouts = useCallback(async () => {
     setLoading(true);
@@ -38,7 +40,7 @@ export default function Payouts() {
       const token = await AsyncStorage.getItem("token");
       const currentDb = await getDatabaseNameFromStorage();
       setDbName(currentDb);
-      const response = await axios.get(`${baseUrl}stores/admin/payouts`, {
+      const response = await axios.get(`${baseUrl}finance/admin/payouts`, {
         headers: {
           Authorization: `Bearer ${token}`,
           "x-database-name": currentDb,
@@ -61,24 +63,30 @@ export default function Payouts() {
   const openActionModal = (payout, action) => {
     setSelectedPayout(payout);
     setActionType(action);
-    setReferenceInput(payout.reference || (action === "paid" ? `TXN-${Date.now()}` : ""));
+    setReferenceInput(payout.reference || "");
+    setConfirmedTransferred(false);
     setNotesInput(payout.adminNotes || "");
     setModalVisible(true);
   };
 
   const handleUpdatePayout = async () => {
     if (!selectedPayout) return;
+    if (actionType === "paid" && (!confirmedTransferred || !referenceInput.trim())) {
+      Alert.alert("Transfer confirmation required", "Transfer the funds manually, enter the actual payment reference, and confirm the transfer.");
+      return;
+    }
     setSubmitting(true);
     try {
       const token = await AsyncStorage.getItem("token");
       const targetDb = selectedPayout.databaseName || dbName;
       const response = await axios.put(
-        `${baseUrl}stores/admin/payouts/${selectedPayout._id || selectedPayout.id}`,
+        `${baseUrl}finance/admin/payouts/${selectedPayout._id || selectedPayout.id}`,
         {
           databaseName: targetDb,
           status: actionType,
           reference: referenceInput.trim(),
           adminNotes: notesInput.trim(),
+          confirmedTransferred,
         },
         {
           headers: {
@@ -92,12 +100,13 @@ export default function Payouts() {
         setPayouts((prev) =>
           prev.map((p) =>
             (p._id || p.id) === (selectedPayout._id || selectedPayout.id)
-              ? { ...p, ...response.data.payout }
+              ? { ...p, ...response.data.payout, store: p.store, driver: p.driver }
               : p
           )
         );
         setModalVisible(false);
-        Alert.alert("Success", `Payout marked as ${actionType}.`);
+        Alert.alert(response.data.notification?.error ? "Saved; notification failed" : "Success",
+          response.data.notification?.error || `Payout marked as ${actionType}.`);
       }
     } catch (error) {
       Alert.alert("Action failed", error?.response?.data?.message || "Could not update payout status.");
@@ -108,25 +117,21 @@ export default function Payouts() {
 
   const triggerWeeklyBatch = () => {
     const isUSA = dbName.toUpperCase().includes("USA");
-    const currency = isUSA ? "USD" : "ETB";
-
     Alert.alert(
-      "Process Weekly Batch Payouts",
-      `Calculate available balances and generate weekly settlement payouts for all active stores in ${isUSA ? "USA (USD)" : "Ethiopia (ETB)"}?`,
+      "Queue Weekly Payout Requests",
+      `Reserve available collected balances for enabled stores and drivers in ${isUSA ? "USA" : "Ethiopia"}? No money will be transferred. Admin must pay and confirm each transfer.`,
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Process Settlements",
+          text: "Queue Requests",
           onPress: async () => {
             setProcessingBatch(true);
             try {
               const token = await AsyncStorage.getItem("token");
               const response = await axios.post(
-                `${baseUrl}stores/admin/payouts/batch-weekly`,
+                `${baseUrl}finance/admin/payouts/batch-weekly`,
                 {
                   databaseName: dbName,
-                  status: "paid",
-                  adminNotes: `Weekly platform settlement processed on ${new Date().toLocaleDateString()}`,
                 },
                 {
                   headers: {
@@ -138,7 +143,7 @@ export default function Payouts() {
 
               if (response.data?.success) {
                 Alert.alert(
-                  "Weekly Settlements Completed",
+                  "Weekly Requests Queued",
                   response.data.message || `Processed ${response.data.totalPayouts} payouts.`
                 );
                 loadPayouts();
@@ -158,7 +163,7 @@ export default function Payouts() {
   };
 
   const filteredPayouts = payouts.filter((item) => {
-    if (activeTab === "pending") return item.status === "pending" || item.status === "processing";
+    if (activeTab === "pending") return ["pending", "processing", "review_required"].includes(item.status);
     if (activeTab === "paid") return item.status === "paid";
     if (activeTab === "early") return item.payoutType === "early_request";
     if (activeTab === "weekly") return item.payoutType === "weekly";
@@ -166,25 +171,26 @@ export default function Payouts() {
   });
 
   const pendingCount = payouts.filter(
-    (p) => p.status === "pending" || p.status === "processing"
+    (p) => ["pending", "processing", "review_required"].includes(p.status)
   ).length;
 
   const renderPayoutItem = ({ item }) => {
-    const isPending = item.status === "pending" || item.status === "processing";
+    const isPending = ["pending", "processing", "review_required"].includes(item.status);
     const isPaid = item.status === "paid";
     const isRejected = item.status === "rejected";
     const isEarly = item.payoutType === "early_request";
     const currency = item.currency || (dbName.toUpperCase().includes("USA") ? "USD" : "ETB");
     const formattedAmount = currency === "USD" ? `$${Number(item.amount).toFixed(2)}` : `${Number(item.amount).toFixed(2)} ETB`;
-    const storeName = item.store?.name || "Unknown Store";
-    const storeAccount = item.accountDetails || item.store?.bankAccount || item.store?.phone || "No account details";
+    const participant = item.driver || item.store;
+    const storeName = participant?.name || "Unavailable account";
+    const storeAccount = item.accountDetails || participant?.bankAccount || participant?.phone || "No account details";
 
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <View style={{ flex: 1 }}>
             <Text style={styles.storeName}>{storeName}</Text>
-            <Text style={styles.storeDetail}>{item.store?.phone || item.store?.email || ""}</Text>
+            <Text style={styles.storeDetail}>{item.driver ? "Driver" : "Store"} - {participant?.phone || participant?.email || ""}</Text>
           </View>
           <View style={{ alignItems: "flex-end" }}>
             <Text style={styles.amountText}>{formattedAmount}</Text>
@@ -200,7 +206,7 @@ export default function Payouts() {
                   { color: isEarly ? "#92400e" : "#3730a3" },
                 ]}
               >
-                {isEarly ? "⚡ Early Request" : "📅 Weekly Settlement"}
+                {isEarly ? "⚡ Early Request" : item.payoutType === "manual" ? "Manual Payment" : "📅 Weekly Settlement"}
               </Text>
             </View>
           </View>
@@ -276,7 +282,7 @@ export default function Payouts() {
               onPress={() => openActionModal(item, "paid")}
             >
               <Icon name="check-circle" size={16} color="#fff" style={{ marginRight: 6 }} />
-              <Text style={styles.btnText}>Approve & Mark Paid</Text>
+              <Text style={styles.btnText}>Confirm Manual Payment</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -297,7 +303,8 @@ export default function Payouts() {
       {/* Top Banner with Stats & Weekly Batch Trigger */}
       <View style={styles.topBanner}>
         <View style={styles.bannerInfo}>
-          <Text style={styles.bannerTitle}>Store Payout Settlements</Text>
+          <Text style={styles.bannerTitle}>Store & Driver Payouts</Text>
+          <Text style={styles.bannerSubtitle}>No automatic transfer provider connected.</Text>
           <Text style={styles.bannerSubtitle}>
             Region: {dbName.toUpperCase().includes("USA") ? "USA (USD)" : "Ethiopia (ETB)"} • {pendingCount} Pending
           </Text>
@@ -312,7 +319,7 @@ export default function Payouts() {
           ) : (
             <>
               <Icon name="calendar-check-o" size={14} color="#fff" style={{ marginRight: 6 }} />
-              <Text style={styles.batchBtnText}>Run Weekly Batch</Text>
+              <Text style={styles.batchBtnText}>Queue Weekly Requests</Text>
             </>
           )}
         </TouchableOpacity>
@@ -363,10 +370,10 @@ export default function Payouts() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
-              {actionType === "paid" ? "Approve & Mark Paid" : "Reject Payout Request"}
+              {actionType === "paid" ? "Confirm Manual Payment" : "Reject Payout Request"}
             </Text>
             <Text style={styles.modalSubtitle}>
-              Store: {selectedPayout?.store?.name || "Store"} • Amount:{" "}
+              Account: {selectedPayout?.driver?.name || selectedPayout?.store?.name || "Unavailable"} • Amount:{" "}
               {selectedPayout?.amount} {selectedPayout?.currency || ""}
             </Text>
 
@@ -381,6 +388,10 @@ export default function Payouts() {
               onChangeText={setReferenceInput}
               placeholder="e.g. TXN-948274 or PO-SETTLE"
             />
+            {actionType === "paid" ? <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>I have transferred these funds manually.</Text>
+              <Switch value={confirmedTransferred} onValueChange={setConfirmedTransferred} disabled={submitting} />
+            </View> : null}
 
             <Text style={styles.inputLabel}>Admin Notes (Optional):</Text>
             <TextInput

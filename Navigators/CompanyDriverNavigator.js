@@ -6,6 +6,7 @@ import DeliveryRouteScreen from "../Screens/Driver/DeliveryRouteScreen";
 import DeliveryProgressScreen from "../Screens/Driver/DeliveryProgressScreen";
 import DriverRides from "../Screens/Driver/DriverRides";
 import DriverRideTrip from "../Screens/Driver/DriverRideTrip";
+import IncomeDashboard from "../Screens/Finance/IncomeDashboard";
 
 const Stack = createStackNavigator();
 
@@ -13,6 +14,7 @@ const CompanyDriverNavigator = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="CompanyDriverHome" component={CompanyDriverDashboard} />
+      <Stack.Screen name="IncomeDashboard" component={IncomeDashboard} initialParams={{ kind: "driver" }} options={{ headerShown: true, title: "Driver income & payouts" }} />
       <Stack.Screen name="DriverRides" component={DriverRides} />
       <Stack.Screen name="DriverRideTrip" component={DriverRideTrip} />
       <Stack.Screen name="DeliveryRoute" component={DeliveryRouteScreen} />
