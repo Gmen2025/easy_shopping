@@ -4,10 +4,14 @@ import baseUrl from "./baseUrl";
 import { getDatabaseNameFromStorage } from "./databaseConfig";
 
 export async function financeRequest(path, { method = "get", data } = {}) {
+  return operatorRequest(`finance/${path}`, { method, data });
+}
+
+export async function operatorRequest(path, { method = "get", data } = {}) {
   const [token, database] = await Promise.all([AsyncStorage.getItem("token"), getDatabaseNameFromStorage()]);
   if (!token) throw new Error("Sign in to view financial information.");
   const response = await axios({
-    url: `${baseUrl}finance/${path}`, method, data, timeout: 30000,
+    url: `${baseUrl}${path}`, method, data, timeout: 30000,
     headers: { Authorization: `Bearer ${token}`, "x-database-name": database },
   });
   return response.data;

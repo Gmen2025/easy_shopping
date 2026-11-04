@@ -24,6 +24,23 @@ income allocations. Store dashboards list catalog products and store-specific
 stock; admin edits notify linked owners through the website inbox and mobile
 push where available. Shared catalog edits do not change store-specific prices.
 
+The admin account directory filters **All / AdduGenet-owned / Independent** and
+**Stores / owners / Drivers**, and searches both the business and linked user.
+Tap any account to open its full business workspace: overview, profile, owner
+locations, orders, assignments, fulfillment products and reviews for stores;
+delivery queue/offers, completed deliveries, ride trip/offers/payments and the
+separate commission wallet for drivers. These reuse the operator dashboard data
+with explicit admin account scope, never another user's token. Operational
+claim/dispatch/pickup/ride actions remain with the operator.
+
+Use **Add products** to create an approved product for the selected store (with
+images), or add an existing catalog product to migrated inventory. New products
+and their inventory are saved together. Existing listings must be edited rather
+than overwritten, preserving reservations. **Send notification** targets only the
+linked owner/driver inbox and attempts mobile push. Missing linked users or
+notification failures are reported explicitly. Income, product edits and payout
+controls remain available from the workspace.
+
 Store owners (including independent stores) and drivers open **Income, balance &
 payout requests** to see net income, fees, balances and payment history. Stores
 with multiple locations can switch location. Only confirmed collected non-cash

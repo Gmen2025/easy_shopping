@@ -8,6 +8,7 @@ export default function FinanceAccounts({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("all");
+  const [kind, setKind] = useState("all");
   const [search, setSearch] = useState("");
   const load = useCallback(async () => {
     setLoading(true);
@@ -17,15 +18,20 @@ export default function FinanceAccounts({ navigation }) {
     finally { setLoading(false); }
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
-  const filtered = accounts.filter((account) => (filter === "all" ||
+  const filtered = accounts.filter((account) => (kind === "all" || account.kind === kind) && (filter === "all" ||
     (filter === "owned" ? account.isCompanyOwned : !account.isCompanyOwned)) &&
-    `${account.name} ${account.kind} ${account.email}`.toLowerCase().includes(search.toLowerCase()));
+    `${account.name} ${account.kind} ${account.email} ${account.owner?.name || ""} ${account.owner?.email || ""}`.toLowerCase().includes(search.toLowerCase()));
   return <View style={styles.screen}>
-    <Text style={styles.heading}>Store & driver income</Text>
+    <Text style={styles.heading}>Stores, owners & drivers</Text>
     <TextInput style={styles.input} placeholder="Search name, store, driver or email" value={search} onChangeText={setSearch} />
     <View style={styles.filters}>
       {["all", "owned", "independent"].map((key) => <TouchableOpacity key={key} onPress={() => setFilter(key)} style={styles.button}>
         <Text style={{ color: filter === key ? "#0f766e" : "#475569", fontWeight: "700" }}>{key === "owned" ? "AdduGenet-owned" : key}</Text>
+      </TouchableOpacity>)}
+    </View>
+    <View style={styles.filters}>
+      {["all", "store", "driver"].map((key) => <TouchableOpacity key={key} onPress={() => setKind(key)} style={styles.button}>
+        <Text style={{ color: kind === key ? "#0f766e" : "#475569" }}>{key === "all" ? "All types" : key === "store" ? "Stores / owners" : "Drivers"}</Text>
       </TouchableOpacity>)}
     </View>
     {error ? <TouchableOpacity onPress={load}><Text style={styles.error}>{error} Tap to retry.</Text></TouchableOpacity> : null}
@@ -33,12 +39,13 @@ export default function FinanceAccounts({ navigation }) {
       keyExtractor={(item) => `${item.kind}:${item._id}`}
       ListEmptyComponent={<Text>No matching accounts.</Text>}
       renderItem={({ item }) => <TouchableOpacity style={styles.card}
-        accessibilityLabel={`Open ${item.name} income dashboard`}
-        onPress={() => navigation.navigate("IncomeDashboard", { kind: item.kind, accountId: item._id, admin: true })}>
+        accessibilityLabel={`Open ${item.name} business dashboard`}
+        onPress={() => navigation.navigate("AdminAccount", { kind: item.kind, accountId: item._id })}>
         <Text style={styles.name}>{item.name}</Text>
         <Text>{item.kind} - {item.isCompanyOwned ? "AdduGenet-owned" : "Independent"}</Text>
+        <Text>Account holder: {item.owner?.name || "No linked user"} {item.owner?.email}</Text>
         <Text>Payout requests {item.payoutsEnabled ? "enabled" : "disabled"} - {item.approvalStatus}</Text>
-        <Text style={styles.link}>View income, products, fees & payout access</Text>
+        <Text style={styles.link}>Open business dashboard, products, income & notifications</Text>
       </TouchableOpacity>} />}
   </View>;
 }

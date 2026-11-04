@@ -346,9 +346,9 @@ const AdminDrivers = ({ navigation }) => {
   const renderDriver = ({ item }) => (
     <View style={styles.row}>
       <View style={styles.details}>
-        <TouchableOpacity onPress={() => navigation.navigate("IncomeDashboard", { kind: "driver", accountId: item._id, admin: true })}>
+        <TouchableOpacity onPress={() => navigation.navigate("AdminAccount", { kind: "driver", accountId: item._id })}>
           <Text style={styles.name}>{item.name}</Text>
-          <Text style={styles.detail}>Income & payout controls</Text>
+          <Text style={styles.detail}>Business dashboard, income & notifications</Text>
         </TouchableOpacity>
         <Text style={styles.detail}>{item.email}</Text>
         {item.phone ? <Text style={styles.detail}>{item.phone}</Text> : null}

@@ -20,6 +20,7 @@ import Drivers from "../Screens/Admin/Drivers";
 import StoreOwners from "../Screens/Admin/StoreOwners";
 import Payouts from "../Screens/Admin/Payouts";
 import FinanceAccounts from "../Screens/Admin/FinanceAccounts";
+import AdminAccount from "../Screens/Admin/AdminAccount";
 import IncomeDashboard from "../Screens/Finance/IncomeDashboard";
 import AssignRoles from "../Screens/Admin/AssignRoles";
 import AdminStores from "../Screens/Admin/AdminStores";
@@ -33,7 +34,8 @@ const Stack = createStackNavigator();
 function MyStack() {
   return (
     <Stack.Navigator initialRouteName="AdminDashboard">
-      <Stack.Screen name="FinanceAccounts" component={FinanceAccounts} options={{ title: "Store & driver income" }} />
+      <Stack.Screen name="FinanceAccounts" component={FinanceAccounts} options={{ title: "Stores, owners & drivers" }} />
+      <Stack.Screen name="AdminAccount" component={AdminAccount} options={{ title: "Account business dashboard" }} />
       <Stack.Screen name="IncomeDashboard" component={IncomeDashboard} options={{ title: "Account income & controls" }} />
       <Stack.Screen name="AdminStoreAssignments" component={StoreAssignments} initialParams={{ admin: true }} options={{ title: "Store requests & rejections" }} />
       <Stack.Screen name="RideSettings" component={RideSettings} options={{ title: "Ride fares, drivers & payments" }} />

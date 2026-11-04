@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useFocusEffect } from "@react-navigation/native";
@@ -24,6 +24,12 @@ export default function IncomeDashboard({ navigation, route }) {
   const request = useRef(null);
   const loadRevision = useRef(0);
   const inFlight = useRef(false);
+  useEffect(() => {
+    setAccountId(route.params?.accountId || "me");
+    setData(null);
+    setEditingStock(null);
+    request.current = null;
+  }, [route.params?.accountId, kind]);
   const path = `accounts/${kind}/${accountId}`;
   const load = useCallback(async () => {
     const revision = ++loadRevision.current;
@@ -107,6 +113,7 @@ export default function IncomeDashboard({ navigation, route }) {
     {error ? <TouchableOpacity onPress={load}><Text style={styles.error}>{error} Tap to retry.</Text></TouchableOpacity> : null}
     {data ? <>
       <Text style={styles.title}>{data.account.name}</Text>
+      {admin ? <Button label="Open full business dashboard & notifications" onPress={() => navigation.navigate("AdminAccount", { kind, accountId: data.account._id })} /> : null}
       <Text>{data.account.isCompanyOwned ? "AdduGenet-owned: income belongs to AdduGenet" : "Independent: income after platform fees"}</Text>
       {data.locations.length > 1 ? <Picker selectedValue={data.account._id} enabled={!busy}
         onValueChange={(value) => { setData(null); setAccountId(value); }}>
@@ -166,12 +173,12 @@ export default function IncomeDashboard({ navigation, route }) {
         {data.products.map((product) => <View key={product._id} style={styles.item}>
           <Text>{product.name} - {product.price} - Stock {product.countInStock}</Text>
           {admin ? <Button label={`Edit ${product.name}`} disabled={busy}
-            onPress={() => navigation.navigate("ProductForm", { item: product })} /> : null}
+            onPress={() => navigation.navigate("ProductForm", { item: product, storeId: data.account._id })} /> : null}
         </View>)}
         {data.inventory.map((stock) => <View key={stock._id} style={styles.item}>
           <Text>{stock.product?.name || "Unavailable product"} - Price {stock.price} - Stock {stock.countInStock} - Reserved {stock.reserved}</Text>
           {admin && stock.product ? <>
-            <Button label="Edit shared product details" disabled={busy} onPress={() => navigation.navigate("ProductForm", { item: stock.product })} />
+            <Button label="Edit shared product details" disabled={busy} onPress={() => navigation.navigate("ProductForm", { item: stock.product, storeId: data.account._id })} />
             <Button label="Edit store price & stock" disabled={busy} onPress={() => setEditingStock({
               productId: stock.product._id, price: String(stock.price), countInStock: String(stock.countInStock), minStock: String(stock.minStock),
             })} />

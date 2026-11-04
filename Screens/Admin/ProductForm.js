@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -19,6 +19,8 @@ import axios from "axios";
 import CloudinaryUploader from "../../Shared/CloudinaryUploader";
 import * as ImagePicker from "expo-image-picker";
 import getImageUrl from "../../assets/common/getImageUrl";
+import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
+import { financeRequest } from "../../assets/common/finance";
 
 const FieldLabel = ({ label }) => (
   <View style={{ width: '90%', marginTop: 12, marginBottom: 2 }}>
@@ -45,9 +47,11 @@ const ProductForm = (props) => {
   const [richDescription, setRichDescription] = useState("");
   const [numReviews, setNumReviews] = useState(0);
   const [item, setItem] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
 
   useEffect(() => {
-    if (!props.route.params) {
+    if (!props.route.params?.item) {
       setItem(null);
       setSelectedImages([]);
       setBrand("");
@@ -76,10 +80,10 @@ const ProductForm = (props) => {
       setSelectedImages(existingUrls);
       setBrand(item.brand);
       setName(item.name);
-      setPrice(item.price ? item.price.toString() : "");
+      setPrice(item.price != null ? item.price.toString() : "");
       setDescription(item.description);
       setCategory(item.category?._id || "");
-      setCountInStock(item.countInStock ? item.countInStock.toString() : "");
+      setCountInStock(item.countInStock != null ? item.countInStock.toString() : "");
       setRating(item.rating ? item.rating.toString() : "");
       setRichDescription(item.richDescription ? item.richDescription : "");
       setNumReviews(item.numReviews ? item.numReviews.toString() : "");
@@ -93,8 +97,8 @@ const ProductForm = (props) => {
       .catch((err) => console.log(err));
 
     // Get Categories
-    axios
-      .get(`${baseUrl}categories`)
+    getDatabaseNameFromStorage()
+      .then((database) => axios.get(`${baseUrl}categories`, { headers: { "x-database-name": database } }))
       .then((res) => setCategories(res.data))
       .catch(() => setError("Failed to load categories"));
 
@@ -112,7 +116,7 @@ const ProductForm = (props) => {
     return () => {
       setCategories();
     };
-  }, []);
+  }, [props.route.params?.item, props.route.params?.storeId]);
 
   const pickImages = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -132,6 +136,10 @@ const ProductForm = (props) => {
   };
 
   const addProduct = async () => {
+  if (savingRef.current) return;
+  savingRef.current = true;
+  setSaving(true);
+  try {
   if (
     brand === "" ||
     name === "" ||
@@ -199,10 +207,12 @@ const ProductForm = (props) => {
     image: uploadedUrls[0] || '',
     images: uploadedUrls,
   };
+  const database = await getDatabaseNameFromStorage();
 
   const config = {
     headers: {
       'Content-Type': 'application/json',
+      'x-database-name': database,
       Authorization: `Bearer ${token}`,
     },
   };
@@ -216,7 +226,8 @@ const ProductForm = (props) => {
         Toast.show({ topOffset: 60, type: res.data?.notificationWarnings?.length ? 'error' : 'success',
           text1: 'Product edited successfully',
           text2: res.data?.notificationWarnings?.length ? 'Owner notification failed. Please notify the owner manually.' : undefined });
-        setTimeout(() => props.navigation.navigate('Products'), 500);
+        if (props.route.params?.storeId) props.navigation.goBack();
+        else setTimeout(() => props.navigation.navigate('Products'), 500);
       }
     } catch (err) {
       console.log('Product edit error:', err.response?.data || err.message);
@@ -226,15 +237,26 @@ const ProductForm = (props) => {
     // Add product
     console.log('Adding new product');
     try {
-      const res = await axios.post(`${baseUrl}products`, payload, config);
+      const storeId = props.route.params?.storeId;
+      const res = storeId ? { status: 201, data: await financeRequest(`accounts/store/${storeId}/products`, {
+        method: "post", data: { ...payload, price: Number(price), countInStock: Number(countInStock), minStock: 5 },
+      }) } : await axios.post(`${baseUrl}products`, payload, config);
       if (res.status === 200 || res.status === 201) {
-        Toast.show({ topOffset: 60, type: 'success', text1: 'Product added successfully' });
-        setTimeout(() => props.navigation.navigate('Products'), 500);
+        Toast.show({ topOffset: 60, type: res.data?.notification?.error ? 'error' : 'success', text1: 'Product added successfully',
+          text2: res.data?.notification?.error || (storeId ? 'Store owner notified.' : undefined) });
+        if (storeId) props.navigation.goBack();
+        else setTimeout(() => props.navigation.navigate('Products'), 500);
       }
     } catch (err) {
       console.log('Product add error:', err.response?.data || err.message);
-      Toast.show({ topOffset: 60, type: 'error', text1: 'Something went wrong', text2: 'Please try again' });
+      Toast.show({ topOffset: 60, type: 'error', text1: 'Product was not added', text2: err.response?.data?.message || err.message || 'Please try again' });
     }
+  }
+  } catch (failure) {
+    Toast.show({ topOffset: 60, type: 'error', text1: 'Product save failed', text2: failure.message });
+  } finally {
+    savingRef.current = false;
+    setSaving(false);
   }
   };
 
@@ -320,7 +342,7 @@ const ProductForm = (props) => {
 
       {error ? <Error message={error} /> : null}
 
-      <TouchableOpacity style={styles.submitBtn} onPress={() => addProduct()}>
+      <TouchableOpacity style={styles.submitBtn} disabled={saving} onPress={() => addProduct()}>
         <Icon name={isEditing ? "save" : "plus-circle"} size={18} color="#fff" style={{ marginRight: 8 }} />
         <Text style={styles.submitBtnText}>{isEditing ? "Save Changes" : "Add Product"}</Text>
       </TouchableOpacity>
