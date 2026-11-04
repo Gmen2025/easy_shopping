@@ -258,6 +258,18 @@ shopping,online store,buy,ecommerce,telebirr payment,delivery,ethiopia shop,mark
 
 ## What's New (Release Notes)
 
+### Store catalog and local pricing update
+
+Publish these notes only after deploying the matching backend and clients.
+
+- Store owners can publish products with multiple photos and create missing
+  shared categories.
+- Admins and store owners receive change notifications. Admins retain the
+  ability to edit or delete store-created catalog entries.
+- When enabled by Admin, home/search prices are hidden. Choose a location on
+  product details to see the nearest available store's price before purchasing.
+- The pricing option is off by default, preserving the existing shopping flow.
+
 ### Version 1.0.0 - Initial Release
 
 🎉 Welcome to AdduGenet EShop!

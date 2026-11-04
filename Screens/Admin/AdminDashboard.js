@@ -27,6 +27,7 @@ const PERIODS = [
 ];
 
 const QUICK_ACTIONS = [
+  { label: "Catalog pricing", icon: "map-marker", route: "CatalogSettings" },
   { label: "Products", icon: "cube", route: "Products" },
   { label: "Orders", icon: "shopping-bag", route: "Orders" },
   { label: "Inventory", icon: "cubes", route: "LowStock" },
@@ -135,6 +136,13 @@ const AdminDashboard = ({ navigation }) => {
           <Icon name="refresh" size={16} color="#8a6c09" />
         </TouchableOpacity>
       </View>
+
+      <TouchableOpacity style={styles.totalBand} accessibilityRole="button"
+        accessibilityLabel="Open Revenue and Expense Tracker"
+        onPress={() => navigation.navigate("FinancialManagement")}>
+        <Text style={styles.totalLabel}>Revenue and Expense Tracker</Text>
+        <Text style={styles.totalCaption}>Private business & personal ledgers, expenses, payments, assets, debts and statements</Text>
+      </TouchableOpacity>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.periodRow}>
         {PERIODS.map((item) => (

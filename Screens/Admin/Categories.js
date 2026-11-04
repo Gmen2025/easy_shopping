@@ -8,72 +8,86 @@ import {
   Dimensions,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
-import baseUrl from "../../assets/common/baseUrl";
-import axios from "axios";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { apiRequest, storeRequest } from "../../assets/common/storefront";
+import { catalogNotificationWarning } from "../../assets/common/catalog";
 
 var { width } = Dimensions.get("window");
 
-const CategoryItem = ({ item, onDelete }) => (
+const CategoryItem = ({ item, onDelete, onEdit, canEdit, saving }) => (
   <View style={styles.categoryCard}>
     <View style={styles.categoryIcon}>
       <Icon name="tag" size={14} color="#8a6c09" />
     </View>
     <Text style={styles.categoryName}>{item.name}</Text>
-    <TouchableOpacity style={styles.deleteBtn} onPress={() => onDelete(item._id)}>
+    {canEdit ? <>
+    <TouchableOpacity style={styles.deleteBtn} disabled={saving} onPress={() => onEdit(item)}>
+      <Icon name="pencil" size={14} color="#fff" />
+    </TouchableOpacity>
+    <TouchableOpacity style={styles.deleteBtn} disabled={saving} onPress={() => onDelete(item._id)}>
       <Icon name="trash" size={14} color="#fff" />
     </TouchableOpacity>
+    </> : null}
   </View>
 );
 
-const Categories = () => {
+const Categories = ({ route }) => {
+  const ownerStoreId = route?.params?.ownerStoreId;
   const [categories, setCategories] = useState([]);
   const [categoryName, setCategoryName] = useState("");
-  const [token, setToken] = useState();
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [editId, setEditId] = useState("");
+  const [error, setError] = useState("");
+  const request = (id, options) => ownerStoreId ?
+    storeRequest(`me/locations/${ownerStoreId}/categories${id ? `/${id}` : ""}`, options) :
+    apiRequest("categories", id || "", options);
+  const load = async () => {
+    setLoading(true); setError("");
+    try {
+      const response = await apiRequest("categories", "");
+      const entries = Array.isArray(response) ? response : response?.categories;
+      if (!Array.isArray(entries)) throw new Error("The shared category list could not be verified. Please retry.");
+      setCategories(entries);
+    } catch (failure) { setError(failure.response?.data?.message || failure.message); }
+    finally { setLoading(false); }
+  };
 
   useEffect(() => {
-    AsyncStorage.getItem("token")
-      .then((res) => setToken(res))
-      .catch((error) => console.log(error));
-
-    axios
-      .get(`${baseUrl}categories`)
-      .then((res) => {
-        setCategories(res.data);
-        setLoading(false);
-      })
-      .catch(() => {
-        alert("Error loading categories");
-        setLoading(false);
-      });
-
-    return () => {
-      setCategories([]);
-      setToken();
-    };
+    load();
   }, []);
 
-  const addCategory = () => {
-    if (!categoryName.trim()) return;
-    const config = { headers: { Authorization: `Bearer ${token}` } };
-    axios
-      .post(`${baseUrl}categories`, { name: categoryName.trim() }, config)
-      .then((res) => {
-        setCategories([...categories, res.data]);
-        setCategoryName("");
-      })
-      .catch(() => alert("Error adding category"));
+  const addCategory = async () => {
+    if (saving) return;
+    if (!categoryName.trim()) { setError("Enter a category name."); return; }
+    setSaving(true); setError("");
+    try {
+      const result = await request(editId, { method: editId ? "put" : "post", data: { name: categoryName.trim() } });
+      setCategoryName(""); setEditId("");
+      await load();
+      const warning = catalogNotificationWarning(result);
+      Alert.alert(warning ? "Saved with notification warning" : "Saved", warning || "Category ready to use.");
+    } catch (failure) { setError(failure.response?.data?.message || failure.message); }
+    finally { setSaving(false); }
   };
 
   const deleteCategory = (id) => {
-    const config = { headers: { Authorization: `Bearer ${token}` } };
-    axios
-      .delete(`${baseUrl}categories/${id}`, config)
-      .then(() => setCategories(categories.filter((item) => item._id !== id)))
-      .catch(() => alert("Error deleting category"));
+    Alert.alert("Delete category?", "A category used by products cannot be deleted. Reassign those products first.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: async () => {
+        setSaving(true); setError("");
+        try {
+          const result = await request(id, { method: "delete" });
+          setCategories((current) => current.filter((entry) => entry._id !== id));
+          if (editId === id) { setEditId(""); setCategoryName(""); }
+          const warning = catalogNotificationWarning(result);
+          Alert.alert(warning ? "Deleted with notification warning" : "Deleted", warning || "Category removed.");
+        } catch (failure) { setError(failure.response?.data?.message || failure.message); }
+        finally { setSaving(false); }
+      } },
+    ]);
   };
 
   return (
@@ -86,12 +100,15 @@ const Categories = () => {
         </Text>
       </View>
 
+      {ownerStoreId ? <Text style={{ padding: 14 }}>Company and store categories are shared. You can rename or delete only categories created by this location. Admin can manage all categories.</Text> : null}
+      {error ? <TouchableOpacity onPress={load}><Text accessibilityRole="alert" style={{ color: "#b91c1c", padding: 14 }}>{error} Tap to reload.</Text></TouchableOpacity> : null}
       {/* Add category bar */}
       <View style={styles.addBar}>
         <View style={styles.inputWrapper}>
           <Icon name="plus" size={13} color="#9e9e9e" style={{ marginRight: 8 }} />
           <TextInput
             value={categoryName}
+            editable={!saving}
             style={styles.input}
             placeholder="New category name…"
             placeholderTextColor="#bdbdbd"
@@ -103,12 +120,13 @@ const Categories = () => {
         <TouchableOpacity
           style={[styles.addBtn, !categoryName.trim() && styles.addBtnDisabled]}
           onPress={addCategory}
-          disabled={!categoryName.trim()}
+          disabled={saving || !categoryName.trim()}
         >
-          <Text style={styles.addBtnText}>Add</Text>
+          <Text style={styles.addBtnText}>{saving ? "Saving..." : editId ? "Save" : "Add"}</Text>
         </TouchableOpacity>
       </View>
 
+      {editId ? <TouchableOpacity disabled={saving} onPress={() => { setEditId(""); setCategoryName(""); }}><Text>Cancel category edit</Text></TouchableOpacity> : null}
       {/* List */}
       {loading ? (
         <View style={styles.spinner}>
@@ -118,7 +136,9 @@ const Categories = () => {
         <FlatList
           data={categories}
           renderItem={({ item }) => (
-            <CategoryItem item={item} onDelete={deleteCategory} />
+            <CategoryItem item={item} onDelete={deleteCategory} saving={saving}
+              canEdit={!ownerStoreId || String(item.createdByStore?._id || item.createdByStore || "") === ownerStoreId}
+              onEdit={(entry) => { setEditId(entry._id); setCategoryName(entry.name); }} />
           )}
           keyExtractor={(item) => item._id}
           contentContainerStyle={styles.list}

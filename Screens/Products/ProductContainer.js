@@ -25,12 +25,15 @@ import CategoriesFilter from "./CategoriesFilter";
 import AdvancedFilters from "./AdvancedFilters";
 import getImageUrl from "../../assets/common/getImageUrl";
 import Icon from "react-native-vector-icons/FontAwesome5";
+import useCatalogPricing from "../../assets/common/useCatalogPricing";
 
 if (Platform.OS === "android" && !global.nativeFabricUIManager && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 const ProductContainer = (props) => {
+  const pricing = useCatalogPricing();
+  const hidePrices = pricing.enabled !== false;
   const { width: screenWidth } = useWindowDimensions();
   const columns = screenWidth >= 700 ? 4 : 2;
   const listRef = useRef(null);
@@ -189,14 +192,14 @@ const ProductContainer = (props) => {
     }
 
     const minPrice = parseFloat(advancedFilters.minPrice);
-    if (!Number.isNaN(minPrice)) {
+    if (!hidePrices && !Number.isNaN(minPrice)) {
       currentProducts = currentProducts.filter(
         (item) => Number(item.price || 0) >= minPrice
       );
     }
 
     const maxPrice = parseFloat(advancedFilters.maxPrice);
-    if (!Number.isNaN(maxPrice)) {
+    if (!hidePrices && !Number.isNaN(maxPrice)) {
       currentProducts = currentProducts.filter(
         (item) => Number(item.price || 0) <= maxPrice
       );
@@ -221,9 +224,9 @@ const ProductContainer = (props) => {
       );
     }
 
-    if (advancedFilters.sortBy === "priceAsc") {
+    if (!hidePrices && advancedFilters.sortBy === "priceAsc") {
       currentProducts.sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
-    } else if (advancedFilters.sortBy === "priceDesc") {
+    } else if (!hidePrices && advancedFilters.sortBy === "priceDesc") {
       currentProducts.sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
     } else if (advancedFilters.sortBy === "ratingDesc") {
       currentProducts.sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0));
@@ -234,7 +237,7 @@ const ProductContainer = (props) => {
     }
 
     return currentProducts;
-  }, [products, selectedCategoryId, searchKeyword, advancedFilters]);
+  }, [products, selectedCategoryId, searchKeyword, advancedFilters, hidePrices]);
 
   const featuredProducts = useMemo(() => {
     const rankedProducts = [...products]
@@ -253,11 +256,12 @@ const ProductContainer = (props) => {
           return ratingDiff;
         }
 
-        return Number(b.price || 0) - Number(a.price || 0);
+        return hidePrices ? String(a.name || "").localeCompare(String(b.name || "")) :
+          Number(b.price || 0) - Number(a.price || 0);
       });
 
     return rankedProducts;
-  }, [products]);
+  }, [products, hidePrices]);
 
   const changeCtg = (ctg) => {
     if (ctg === "all") {
@@ -349,6 +353,7 @@ const ProductContainer = (props) => {
         </View>
       </TouchableOpacity>
       <AdvancedFilters
+        hidePrices={hidePrices}
         visible={showAdvancedFilters}
         filters={advancedFilters}
         brands={availableBrands}
@@ -356,6 +361,10 @@ const ProductContainer = (props) => {
         onReset={resetAdvancedFilters}
         onToggle={() => setShowAdvancedFilters(false)}
       />
+      {pricing.error ? <TouchableOpacity onPress={pricing.reload}>
+        <Text style={styles.errorText}>{pricing.error} Tap to retry pricing settings.</Text>
+      </TouchableOpacity> : pricing.enabled === null ? <Text>Loading pricing settings...</Text> :
+        pricing.enabled ? <Text style={styles.resultMeta}>Open a product to see the nearest available store's price.</Text> : null}
       {showCategories && featuredProducts.length > 0 ? (
         <View style={styles.featuredSection}>
           <Text style={styles.featuredTitle}>Featured Products</Text>
@@ -399,6 +408,7 @@ const ProductContainer = (props) => {
           <View style={styles.container}>
             {focus ? (
               <SearchedProducts
+                hidePrices={hidePrices}
                 productsFiltered={filteredProducts}
                 topContent={renderTopContent(false)}
                 clearSearchScreen={() => {
@@ -413,6 +423,7 @@ const ProductContainer = (props) => {
                   data={Array.isArray(filteredProducts) ? filteredProducts : []}
                   renderItem={({ item }) => (
                     <ProductList
+                      hidePrices={hidePrices}
                       item={item}
                       navigation={props.navigation}
                       columns={columns}

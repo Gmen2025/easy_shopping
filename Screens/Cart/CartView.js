@@ -13,6 +13,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 import { exchangeRequest, rateIsActive, usdAmount, usdText, usdInactiveMessage, birrAmount, etbText, exportInactiveMessage } from '../../assets/common/exchangeRate';
 import { CheckoutHeader } from '../../Shared/DeliveryCheckout';
+import useCatalogPricing from '../../assets/common/useCatalogPricing';
+import { getCatalogSettings, requiresStoreSelection } from '../../assets/common/catalog';
 //import { CheckoutProvider } from '../../Context/store/CheckoutContext'; // Import the CheckoutProvider
 
 // products data
@@ -27,6 +29,8 @@ const CartView = (props) => {
 
   const cartItems = useSelector((state) => state.cart.cartItems);
   const dispatch = useDispatch();
+  const pricing = useCatalogPricing();
+  const unresolvedPrices = requiresStoreSelection(cartItems, pricing.enabled !== false);
   const { formatPrice, currencySymbol } = useCurrency();
   const [checking, setChecking] = useState(false);
   const [regionReady, setRegionReady] = useState(false);
@@ -86,6 +90,11 @@ const CartView = (props) => {
     setChecking(true);
     try {
       const database = await getDatabaseNameFromStorage();
+      const settings = await getCatalogSettings();
+      if (requiresStoreSelection(cartItems, settings.nearestStorePricingEnabled)) {
+        await pricing.reload();
+        throw new Error("Nearest-store pricing is enabled. Remove main-catalog items and re-add them from product details after choosing your location.");
+      }
       if (cartItems.some((item) => sanitizeDatabaseName(item.databaseName || item.dbName) !== database)) {
         throw new Error("Your cart contains products from another region. Switch back or clear the cart before checking out.");
       }
@@ -116,6 +125,10 @@ return (
       <CheckoutHeader step={0} onBack={() => props.navigation.goBack()} title={`Your Cart (${productsData.length})`} />
     </View>
     {productsData.length ? <Button disabled={checking} onPress={handleClearCart}>Clear cart</Button> : null}
+    {pricing.error ? <Button onPress={pricing.reload}>{pricing.error} Retry pricing settings</Button> : null}
+    {unresolvedPrices ? <Text style={{ padding: 16, color: "#b45309" }}>
+      Main-catalog prices need verification. If nearest-store pricing is enabled, remove those items and re-add them from product details after choosing your location.
+    </Text> : null}
     {context.isAuthenticated ? <Button onPress={() => props.navigation.navigate("DeliveryCheckouts")}>My multi-delivery checkouts</Button> : null}
       </>}
       ListEmptyComponent={
@@ -139,19 +152,19 @@ return (
               <View style={styles.itemInfo}>
                 <Text style={styles.itemName}>{item.name}</Text>
                 {item.storefrontId ? <Text>{item.storefrontName || `Store ${item.storefrontId}`}</Text> : <Text>Main catalog</Text>}
-                <Text style={styles.itemPrice}>{formatPrice(item.price)}</Text>
+                <Text style={styles.itemPrice}>{!item.storefrontId && pricing.enabled !== false ? "Choose location on product details" : formatPrice(item.price)}</Text>
                 <View style={styles.quantity}>
                   <Button compact disabled={checking} accessibilityLabel={`Decrease ${item.name} quantity`}
                     onPress={() => handleDeductQuantity(item)}>-</Button>
                   <Text>{quantity}</Text>
-                  <Button compact disabled={checking} accessibilityLabel={`Increase ${item.name} quantity`}
+                  <Button compact disabled={checking || (!item.storefrontId && pricing.enabled !== false)} accessibilityLabel={`Increase ${item.name} quantity`}
                     onPress={() => dispatch(addToCart(item))}>+</Button>
                 </View>
               </View>
               <View style={styles.actions}>
                 <Button compact icon="delete-outline" disabled={checking} accessibilityLabel={`Remove ${item.name}`}
                   onPress={() => dispatch(removeFromCart({ cartKey: cartItemKey(item) }))}>Remove</Button>
-                <Text style={styles.lineTotal}>{formatPrice(item.price * quantity)}</Text>
+                {item.storefrontId || pricing.enabled === false ? <Text style={styles.lineTotal}>{formatPrice(item.price * quantity)}</Text> : null}
               </View>
             </View>
           );
@@ -168,7 +181,7 @@ return (
             <Picker.Item label={/usa/i.test(database) ? "Pay USD & deliver in USA" : "Pay in US dollars (USD)"} value="usd" />
           </Picker>
           {exchangeError ? <Text style={{ color: "#b91c1c" }}>{exchangeError}</Text> : null}
-          {paymentCurrency === (/usa/i.test(database) ? "etb" : "usd") ? rateIsActive(exchange) ? <>
+          {!unresolvedPrices && paymentCurrency === (/usa/i.test(database) ? "etb" : "usd") ? rateIsActive(exchange) ? <>
             <Text>Products estimate: {/usa/i.test(database) ?
               etbText(birrAmount(productsData.reduce((sum, item) => sum + item.price * item.quantity, 0), exchange.birrPerUsd)) :
               usdText(usdAmount(productsData.reduce((sum, item) => sum + item.price * item.quantity, 0), exchange.birrPerUsd))}. Shipping / route fees are added at checkout.</Text>
@@ -178,20 +191,20 @@ return (
               (/usa/i.test(database) ? exportInactiveMessage : usdInactiveMessage)}</Text> : null}
         </> : null}
         <Text style={{ color: "#596579", marginVertical: 6 }}>Delivery fees are calculated after choosing addresses, delivery speed and vehicles. Only server-confirmed charges apply.</Text>
-        <Text style={{ fontSize: 22, fontWeight: "800", marginVertical: 8 }}>
+        {!unresolvedPrices ? <Text style={{ fontSize: 22, fontWeight: "800", marginVertical: 8 }}>
           Products subtotal: {currencySymbol}
           {productsData
             .reduce((total, item) => {
               return total + item.price * item.quantity;
             }, 0)
             .toFixed(2)}
-        </Text>
+        </Text> : null}
         <View style={{ height: 60 }}>
           {context.isAuthenticated ? (
             <EasyButton
               mode="contained"
               tertiary
-              disabled={checking || !regionReady}
+              disabled={checking || !regionReady || pricing.enabled === null || unresolvedPrices}
               onPress={checkout}
               style={{ marginVertical: 10, backgroundColor: "#ffdb00", borderRadius: 10 }}
             >

@@ -82,7 +82,8 @@ test("recovering another device's checkout or clearing the original cart does no
 });
 test("cart quantity and removal controls preserve the exact storefront variant and checkout currency", async () => {
   const item = { ...product, storefrontId: "store", name: "Box", quantity: 3 };
-  const states = [], effects = [], actions = [], navigations = [];
+  const states = [], effects = [], actions = [], navigations = [], dialogs = [];
+  let nearestEnabled = false;
   let cursor = 0;
   const react = {
     createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
@@ -96,7 +97,7 @@ test("cart quantity and removal controls preserve the exact storefront variant a
   };
   const Component = load("Screens\\Cart\\CartView.js", {
     react, "react-native": { View: "View", Text: "Text", FlatList: "FlatList", StyleSheet: { create: (value) => value },
-      Alert: { alert() {} } },
+      Alert: { alert: (...args) => dialogs.push(args) } },
     "react-native-paper": { Button: "Button", Avatar: { Image: "Image" } },
     "react-redux": { useSelector: (selector) => selector({ cart: { cartItems: [item] } }),
       useDispatch: () => (action) => actions.push(action) },
@@ -107,6 +108,11 @@ test("cart quantity and removal controls preserve the exact storefront variant a
     "../../assets/common/currency": { useCurrency: () => ({ formatPrice: (value) => `$${value.toFixed(2)}`, currencySymbol: "$" }) },
     "../../assets/common/cartIdentity": identity,
     "../../assets/common/storefront": { storeRequest: async () => ({ enabled: true }), getStorefrontScope() {} },
+    "../../assets/common/useCatalogPricing": () => ({ enabled: nearestEnabled, error: "", reload: async () => {} }),
+    "../../assets/common/catalog": {
+      getCatalogSettings: async () => ({ nearestStorePricingEnabled: nearestEnabled }),
+      requiresStoreSelection: (items, enabled) => enabled && items.some((entry) => !entry.storefrontId),
+    },
     "../../assets/common/databaseConfig": { ...database, getDatabaseNameFromStorage: async () => "E_ShopUSA" },
     "@react-navigation/native": { useFocusEffect: (effect) => effects.push(effect) },
     "@react-native-picker/picker": { Picker: Object.assign("Picker", { Item: "PickerItem" }) },
@@ -134,4 +140,14 @@ test("cart quantity and removal controls preserve the exact storefront variant a
   await proceed.props.onPress();
   assert.equal(navigations[0][0], "MultiDeliveryCheckout");
   assert.equal(navigations[0][1].paymentCurrency, "usd");
+  nearestEnabled = true;
+  delete item.storefrontId;
+  const blockedList = nodes(render()).find((node) => node.type === "FlatList");
+  const blockedProceed = nodes(blockedList.props.ListFooterComponent).find((node) => node.type === "EasyButton");
+  assert.equal(blockedProceed.props.disabled, true);
+  assert.equal(nodes(blockedList.props.renderItem({ item })).find((node) =>
+    node.props?.accessibilityLabel === "Increase Box quantity").props.disabled, true);
+  await blockedProceed.props.onPress();
+  assert.equal(navigations.length, 1);
+  assert.match(dialogs.at(-1)[1], /Remove main-catalog items/);
 });

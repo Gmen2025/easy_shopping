@@ -8,6 +8,118 @@ wrap to two lines and the tagline/country abbreviation are hidden to preserve
 space for the logo and controls. The flag and accessible country selector remain
 available; menu, home, notifications and cart behavior are unchanged.
 
+## Store-created catalog and nearest-store pricing
+
+Store owners open **My store & inventory > Create product with images** to
+select multiple photos, use any shared company/store category, or create a missing
+category inline. Products publish immediately with their location's inventory.
+**Browse & manage categories** allows owners to rename/delete categories they
+created; referenced categories cannot be deleted. Owners can edit/delete their
+own catalog products, or independently remove another catalog product's listing
+from their store. Active reservations/orders are protected. Admin retains the
+existing Products and Categories controls for all shared catalog entries.
+Changes notify admins and the linked store owner through the existing notification
+system. A saved change with notification failures is reported as a warning, not
+silently treated as successful delivery.
+
+**Admin > Sales dashboard > Catalog pricing > Use nearest-store prices** is
+off by default and scoped to the selected shopping region. Off preserves current
+catalog pricing and checkout. On hides main/home/search/related catalog prices and
+price-based filters/sorts. Product details require a location (GPS permission or
+explicit latitude/longitude) before displaying the nearest eligible, available
+store's actual price, name, distance and stock. No location or no eligible stock
+means no price and no purchase; there is no catalog/default-store price fallback.
+Storefront browsing still shows that storefront's own prices. Cart items retain
+the selected store so checkout validates its inventory and price. Main-catalog
+items already in a cart must be removed and re-added from product details while
+this option is on.
+
+Deploy the matching backend before either client. Migrate per-store inventory
+before enabling the switch. Required backend contract (implemented in the matching
+backend repository):
+
+- `GET /products/catalog-settings`, admin-only `PUT` with
+  `{ nearestStorePricingEnabled: boolean }`; return the same boolean.
+- `GET /products/:id/nearest-store?latitude=&longitude=` returns
+  `{ product, store, distanceKm }`; product carries the store-specific `price`,
+  available `countInStock`, `storefrontId` and `inventoryManaged: true`.
+- Owner-authorized `POST /stores/me/locations/:storeId/products` creates the
+  product and inventory together; `PUT`/`DELETE .../products/:productId` only
+  mutate products created by that store. Product data includes `images` and
+  `image` (the first photo).
+- Owner-authorized `POST .../categories`, `PUT`/`DELETE .../categories/:categoryId`
+  reuse normalized duplicate category names, enforce ownership and protect
+  referenced categories. Shared product/category records expose `createdByStore`.
+- The server checks authorization, authoritative inventory prices, reservations,
+  order references and nearest-pricing checkout requirements, and notifies admins
+  and owners for catalog/inventory/profile mutations. Upload signing must permit
+  authenticated store owners. Notification delivery failures must be explicit.
+
+Focused mobile checks:
+`node --test scripts/catalogPricing.test.cjs scripts/storefrontDesign.test.cjs scripts/storefront.test.cjs scripts/adminProducts.test.cjs`.
+Native bundling: `npx expo export --platform android`.
+
+## Revenue and Expense Tracker
+
+The separate **Admin > Revenue and Expense Tracker** workspace is private to the
+admin who creates its records. It contains a personal ledger and any number of
+business ledgers; personal finance is not classified as another business. Other
+admins cannot read or modify these records. Workspaces follow the selected
+shopping database/region; ETB and USD are reported separately without automatic
+currency conversion.
+
+This is **manual accounting**, independent of the existing sales analytics,
+store/driver earnings, commissions, payouts and payment providers. Recording a
+payment here records an accounting event only: it does not transfer money, charge
+a card, initiate mobile money, or import platform sales.
+
+Use the ledger selector to switch between personal and business finance:
+
+- **Income / Expenses** records accruals, transaction and due dates, categories
+  and subcategories, payment methods, amounts already settled and outstanding
+  balances. Pending income is not treated as cash received.
+- **Payments & receivables** settles an existing payable/receivable, rather than
+  recording the same income or expense twice.
+- **Accounts, assets & debts** tracks cash, bank wallets, savings, investments,
+  vehicles, property, credit cards, loans and other balances. Opening balances
+  create accounting entries, not income or spending.
+- **Savings & goals** allocates existing savings to targets. Moving money from
+  checking to savings is an account transfer, not an expense.
+- **Transfers** records account movements, debt principal repayments and borrowing,
+  and linked business/personal salary, owner draw and business-funded personal
+  purchases. Owner draws are equity movements, not operating revenue or earned
+  personal income. A cross-ledger **Account** transfer records personal
+  contributions to a business or business-to-business capital movements.
+  **Business purchase paid personally** records the linked business expense
+  and owner contribution without inventing a second cash payment.
+- **Statements** separates accrual income/expenses from cash flow and displays
+  assets, liabilities, net worth and balanced ledger details. The optional
+  cross-entity overview combines net worth in one currency, never income.
+- **Categories, periods & audit** manages custom categories and closed accounting
+  periods and preserves the mutation history. Posted financial entries are
+  reversed with an explanation, not deleted or overwritten.
+
+For a credit-card purchase, record the purchase expense funded by the card
+liability. Later, use an account transfer from checking/cash to the card liability
+to pay its balance. Do not enter the bill payment as a second purchase expense.
+Interest and bank fees are separate actual expenses. Savings goal allocations
+are not additional assets on top of the backing savings account.
+
+Deploy the matching backend before distributing either client. The new
+`/financial-management` APIs use separate collections and enforce admin ownership,
+atomic balanced minor-unit postings, currency boundaries, idempotency, due/payment
+validation and period locks. Existing operational financial records remain
+unchanged. Back up the database and verify opening balances, example credit
+purchases/repayments and linked transfers in a non-production environment first.
+MongoDB must support transactions (a replica set or compatible cluster);
+standalone MongoDB is not supported for financial mutations.
+API shapes and backend rollout details are maintained in
+`D:\MERN_COURSE\backend\docs\financial-management.md`.
+These management reports are not tax filings or a substitute for an accountant's
+review.
+
+Focused mobile validation: `node --test scripts/financialManagement.test.cjs`.
+
 ## Ownership reporting and income
 
 The mobile screens use the same financial API as the separate React website. **Admin > Sales
@@ -712,8 +824,10 @@ Focused checks: `node --test scripts/authentication.test.cjs`.
   Service Request to browse a store's catalog. AdminStore users open **My store &
   inventory** to edit their store name, address, coordinates, optional HTTPS logo
   URL, branches, prices, physical quantities and low-stock thresholds. Stores
-  choose existing catalog products and categories; removing a store listing
-  never deletes the shared product. Only Admin manages categories.
+  choose shared catalog products/categories or create their own products with
+  multiple images and missing categories. Removing a store listing never deletes
+  the shared product. Owners manage only catalog entries they created; Admin can
+  edit/delete all shared products and categories.
 - **Inventory rollout**: Deploy the matching backend from `D:\MERN_COURSE\backend`
   before using these screens. In Admin > AdminStores, select the region's default
   store and run **Migrate existing inventory** once, after completing/cancelling

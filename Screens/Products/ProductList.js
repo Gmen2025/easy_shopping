@@ -12,7 +12,7 @@ const ProductList = (props) => {
       accessibilityLabel={`View ${item.name}`}
       onPress={() => props.navigation.navigate("Product Detail", { item: item })}
     >
-      <ProductCard {...item} />
+      <ProductCard {...item} hidePrice={props.hidePrices} />
     </TouchableOpacity>
   );
 };

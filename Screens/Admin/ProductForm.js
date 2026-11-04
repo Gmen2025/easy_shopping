@@ -21,6 +21,8 @@ import * as ImagePicker from "expo-image-picker";
 import getImageUrl from "../../assets/common/getImageUrl";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import { financeRequest } from "../../assets/common/finance";
+import { storeRequest } from "../../assets/common/storefront";
+import { catalogNotificationWarning } from "../../assets/common/catalog";
 
 const FieldLabel = ({ label }) => (
   <View style={{ width: '90%', marginTop: 12, marginBottom: 2 }}>
@@ -31,6 +33,7 @@ const FieldLabel = ({ label }) => (
 );
 
 const ProductForm = (props) => {
+  const ownerStoreId = props.route.params?.ownerStoreId;
   const [pickerValue, setPickerValue] = useState("");
   const [brand, setBrand] = useState("");
   const [name, setName] = useState("");
@@ -49,6 +52,7 @@ const ProductForm = (props) => {
   const [item, setItem] = useState(null);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
+  const [newCategory, setNewCategory] = useState("");
 
   useEffect(() => {
     if (!props.route.params?.item) {
@@ -78,17 +82,17 @@ const ProductForm = (props) => {
         if (fallback) existingUrls.push({ uri: fallback, isNew: false });
       }
       setSelectedImages(existingUrls);
-      setBrand(item.brand);
-      setName(item.name);
+      setBrand(item.brand || "");
+      setName(item.name || "");
       setPrice(item.price != null ? item.price.toString() : "");
-      setDescription(item.description);
-      setCategory(item.category?._id || "");
+      setDescription(item.description || "");
+      setCategory(item.category?._id || item.category || "");
       setCountInStock(item.countInStock != null ? item.countInStock.toString() : "");
       setRating(item.rating ? item.rating.toString() : "");
       setRichDescription(item.richDescription ? item.richDescription : "");
       setNumReviews(item.numReviews ? item.numReviews.toString() : "");
       setIsFeatured(item.isFeatured || false);
-      setPickerValue(item.category?._id || "");
+      setPickerValue(item.category?._id || item.category || "");
       console.log("Editing item:", item); // Debugging line
     }
 
@@ -116,9 +120,10 @@ const ProductForm = (props) => {
     return () => {
       setCategories();
     };
-  }, [props.route.params?.item, props.route.params?.storeId]);
+  }, [props.route.params?.item, props.route.params?.storeId, ownerStoreId]);
 
   const pickImages = async () => {
+    try {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsMultipleSelection: true,
@@ -126,30 +131,56 @@ const ProductForm = (props) => {
     });
 
     if (!result.canceled) {
-      const newImgs = result.assets.map(a => ({ uri: a.uri, isNew: true }));
+      const newImgs = result.assets.map(a => ({
+        uri: a.uri, isNew: true, fileName: a.fileName, fileType: a.mimeType || "image/jpeg",
+      }));
       setSelectedImages(prev => [...prev, ...newImgs]);
     }
+    } catch (failure) { setError(failure.message || "Unable to choose images. Please retry."); }
   };
 
   const removeImage = (index) => {
     setSelectedImages(prev => prev.filter((_, i) => i !== index));
+  };
+  const createCategory = async () => {
+    if (savingRef.current) return;
+    if (!newCategory.trim()) { setError("Enter a category name first."); return; }
+    savingRef.current = true;
+    setSaving(true); setError("");
+    try {
+      const result = await storeRequest(`me/locations/${ownerStoreId}/categories`, {
+        method: "post", data: { name: newCategory.trim() },
+      });
+      if (!result?._id || !result.name) throw new Error("The category response could not be verified. Reload the form before trying again.");
+      setCategories((current) => [...(current || []).filter((entry) => entry._id !== result._id), result]);
+      setCategory(result._id); setPickerValue(result._id); setNewCategory("");
+      const warning = catalogNotificationWarning(result);
+      Toast.show({ type: warning ? "error" : "success", text1: "Category ready to use", text2: warning || result.name });
+    } catch (failure) { setError(failure.response?.data?.message || failure.message); }
+    finally { savingRef.current = false; setSaving(false); }
   };
 
   const addProduct = async () => {
   if (savingRef.current) return;
   savingRef.current = true;
   setSaving(true);
+  setError("");
   try {
   if (
-    brand === "" ||
-    name === "" ||
-    price === "" ||
-    description === "" ||
+    brand.trim() === "" ||
+    name.trim() === "" ||
+    price.trim() === "" ||
+    description.trim() === "" ||
     category === "" ||
-    countInStock === ""
+    countInStock.trim() === ""
   ) {
     setError("Please fill in the form correctly");
     return; // Exit the function if validation fails
+  }
+  if (!Number.isFinite(Number(price)) || Number(price) < 0 ||
+      !Number.isInteger(Number(countInStock)) || Number(countInStock) < 0) {
+    setError("Enter a non-negative price and whole-number physical stock.");
+    return;
   }
 
   // Function to strip HTML tags from a string
@@ -160,14 +191,15 @@ const ProductForm = (props) => {
 
   const isEditing = item !== null;
 
-  if (!isEditing && selectedImages.length === 0) {
+  if (selectedImages.length === 0) {
     setError('Please select at least one image');
     return;
   }
 
   // Upload new images to Cloudinary, keep existing URLs as-is
   const uploadedUrls = [];
-  const signUrl = `${baseUrl.replace(/\/$/, '')}/sign`;
+  const uploadFolder = ownerStoreId ? "eshop/products" : "mobile_uploads";
+  const signUrl = `${baseUrl.replace(/\/$/, '')}/${ownerStoreId ? "cloudinary/sign" : "sign"}`;
 
   for (const img of selectedImages) {
     if (!img.isNew) {
@@ -175,10 +207,12 @@ const ProductForm = (props) => {
       continue;
     }
     try {
-      const localUri = img.uri.startsWith('file://') ? img.uri : 'file:///' + img.uri.split('file:/').join('');
-      const sig = await CloudinaryUploader.getSignature(signUrl, { folder: 'mobile_uploads' }, { token });
-      const uploadRes = await CloudinaryUploader.uploadToCloudinary(localUri, sig, { folder: 'mobile_uploads' });
-      uploadedUrls.push(uploadRes.secure_url || uploadRes.url);
+      const sig = await CloudinaryUploader.getSignature(signUrl, { folder: uploadFolder }, { token });
+      const uploadRes = await CloudinaryUploader.uploadToCloudinary(img.uri, sig, {
+        folder: uploadFolder, fileName: img.fileName, fileType: img.fileType,
+      });
+      if (!uploadRes.secure_url) throw new Error("The image server did not return a secure image URL.");
+      uploadedUrls.push(uploadRes.secure_url);
     } catch (err) {
       const errorMessage = String(err?.message || err || '');
       const serverNotConfigured = errorMessage.toLowerCase().includes('cloudinary not configured on server');
@@ -194,16 +228,14 @@ const ProductForm = (props) => {
 
   // Prepare JSON payload
   const payload = {
-    brand,
-    name,
-    price,
+    brand: brand.trim(),
+    name: name.trim(),
+    price: Number(price),
     description,
     category,
-    countInStock,
-    rating,
+    countInStock: Number(countInStock),
     richDescription: stripHtmlTags(richDescription),
-    numReviews,
-    isFeatured,
+    ...(!ownerStoreId ? { rating, numReviews, isFeatured } : {}),
     image: uploadedUrls[0] || '',
     images: uploadedUrls,
   };
@@ -221,30 +253,36 @@ const ProductForm = (props) => {
     // Edit product
     console.log('Editing product with ID:', item._id);
     try {
-      const res = await axios.put(`${baseUrl}products/${item._id}`, payload, config);
+      const res = ownerStoreId ? { status: 200, data: await storeRequest(`me/locations/${ownerStoreId}/products/${item._id}`, {
+        method: "put", data: payload,
+      }) } : await axios.put(`${baseUrl}products/${item._id}`, payload, config);
       if (res.status === 200 || res.status === 201) {
-        Toast.show({ topOffset: 60, type: res.data?.notificationWarnings?.length ? 'error' : 'success',
+        const warning = catalogNotificationWarning(res.data);
+        Toast.show({ topOffset: 60, type: warning ? 'error' : 'success',
           text1: 'Product edited successfully',
-          text2: res.data?.notificationWarnings?.length ? 'Owner notification failed. Please notify the owner manually.' : undefined });
-        if (props.route.params?.storeId) props.navigation.goBack();
+          text2: warning || (ownerStoreId ? "Admin and store owner notified." : undefined) });
+        if (props.route.params?.storeId || ownerStoreId) props.navigation.goBack();
         else setTimeout(() => props.navigation.navigate('Products'), 500);
       }
     } catch (err) {
       console.log('Product edit error:', err.response?.data || err.message);
-      Toast.show({ topOffset: 60, type: 'error', text1: 'Something went wrong', text2: 'Please try again' });
+      Toast.show({ topOffset: 60, type: 'error', text1: 'Product was not updated', text2: err.response?.data?.message || err.message });
     }
   } else {
     // Add product
     console.log('Adding new product');
     try {
       const storeId = props.route.params?.storeId;
-      const res = storeId ? { status: 201, data: await financeRequest(`accounts/store/${storeId}/products`, {
+      const res = ownerStoreId ? { status: 201, data: await storeRequest(`me/locations/${ownerStoreId}/products`, {
+        method: "post", data: payload,
+      }) } : storeId ? { status: 201, data: await financeRequest(`accounts/store/${storeId}/products`, {
         method: "post", data: { ...payload, price: Number(price), countInStock: Number(countInStock), minStock: 5 },
       }) } : await axios.post(`${baseUrl}products`, payload, config);
       if (res.status === 200 || res.status === 201) {
-        Toast.show({ topOffset: 60, type: res.data?.notification?.error ? 'error' : 'success', text1: 'Product added successfully',
-          text2: res.data?.notification?.error || (storeId ? 'Store owner notified.' : undefined) });
-        if (storeId) props.navigation.goBack();
+        const warning = catalogNotificationWarning(res.data);
+        Toast.show({ topOffset: 60, type: warning ? 'error' : 'success', text1: 'Product added successfully',
+          text2: warning || (ownerStoreId ? 'Admin and store owner notified.' : storeId ? 'Store owner notified.' : undefined) });
+        if (storeId || ownerStoreId) props.navigation.goBack();
         else setTimeout(() => props.navigation.navigate('Products'), 500);
       }
     } catch (err) {
@@ -264,9 +302,10 @@ const ProductForm = (props) => {
 
   return (
     <FormContainer title={isEditing ? "Edit Product" : "Add Product"}>
-      {isEditing ? <TouchableOpacity onPress={() => props.navigation.navigate("VehicleDeliverySettings", { productId: item._id || item.id })}>
+      {!ownerStoreId ? isEditing ? <TouchableOpacity onPress={() => props.navigation.navigate("VehicleDeliverySettings", { productId: item._id || item.id })}>
         <Text style={{ color: "#8a6c09", padding: 12 }}>Configure optional packaged weight & dimensions</Text>
-      </TouchableOpacity> : <Text>After saving, optionally configure this product's packaged size under Admin &gt; Vehicles. Required for international shipping only.</Text>}
+      </TouchableOpacity> : <Text>After saving, optionally configure this product's packaged size under Admin &gt; Vehicles. Required for international shipping only.</Text> :
+        <Text>Published immediately to the shared catalog. Admin can edit or remove your products and categories. Changes notify Admin and your store owner.</Text>}
       {/* Multi-image section */}
       <View style={styles.imagesSection}>
         <Text style={styles.imagesSectionLabel}>Product Images</Text>
@@ -274,13 +313,13 @@ const ProductForm = (props) => {
           {selectedImages.map((img, index) => (
             <View key={index} style={styles.thumbnailWrapper}>
               <Image source={{ uri: img.uri }} style={styles.thumbnail} />
-              <TouchableOpacity style={styles.removeBtn} onPress={() => removeImage(index)}>
+              <TouchableOpacity style={styles.removeBtn} disabled={saving} onPress={() => removeImage(index)}>
                 <Icon name="times" size={12} color="#fff" />
               </TouchableOpacity>
               {index === 0 && <View style={styles.mainBadge}><Text style={styles.mainBadgeText}>Main</Text></View>}
             </View>
           ))}
-          <TouchableOpacity style={styles.addImageBtn} onPress={pickImages}>
+          <TouchableOpacity style={styles.addImageBtn} disabled={saving} onPress={pickImages}>
             <Icon name="camera" size={24} color="#8a6c09" />
             <Text style={styles.addImageText}>Add</Text>
           </TouchableOpacity>
@@ -310,18 +349,21 @@ const ProductForm = (props) => {
       </View>
       <FieldLabel label="Count in Stock" />
       <Input placeholder={"Stock"} name={"Stock"} id={"stock"} value={countInStock} keyboardType={"numeric"} onChangeText={(text) => setCountInStock(text)} />
+      {!ownerStoreId ? <>
       <FieldLabel label="Rating" />
       <Input placeholder={"Rating (0–5)"} name={"rating"} id={"rating"} value={rating} keyboardType={"numeric"} onChangeText={(text) => setRating(text)} />
       <FieldLabel label="Number of Reviews" />
       <Input placeholder={"Number of Reviews"} name={"numReviews"} id={"numReviews"} value={numReviews} keyboardType={"numeric"} onChangeText={(text) => setNumReviews(text)} />
       <FieldLabel label="Is Featured" />
       <Input placeholder={"true / false"} name={"isFeatured"} id={"isFeatured"} value={isFeatured.toString()} onChangeText={(text) => setIsFeatured(text.toLowerCase())} />
+      </> : null}
       {/* Section: Category */}
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Category</Text>
       </View>
       <View style={styles.pickerContainer}>
         <Picker
+          enabled={!saving}
           selectedValue={pickerValue}
           style={styles.picker}
           dropdownIconColor="#8a6c09"
@@ -339,6 +381,13 @@ const ProductForm = (props) => {
             : null}
         </Picker>
       </View>
+      {ownerStoreId ? <>
+        <FieldLabel label="Category not listed?" />
+        <Input placeholder="New category name" value={newCategory} onChangeText={setNewCategory} />
+        <TouchableOpacity style={styles.submitBtn} disabled={saving} onPress={createCategory}>
+          <Text style={styles.submitBtnText}>Create or select category</Text>
+        </TouchableOpacity>
+      </> : null}
 
       {error ? <Error message={error} /> : null}
 

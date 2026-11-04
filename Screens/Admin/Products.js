@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Dimensions,
   TouchableOpacity,
+  Alert,
 } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
 import { Searchbar } from "react-native-paper";
@@ -18,6 +19,7 @@ import baseUrl from "../../assets/common/baseUrl";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import getImageUrl from "../../assets/common/getImageUrl";
 import { getWithRetry, isServiceUnavailableError } from "../../assets/common/requestRetry";
+import { catalogNotificationWarning } from "../../assets/common/catalog";
 
 var { width } = Dimensions.get("window");
 
@@ -106,12 +108,14 @@ const Products = (props) => {
       .delete(`${baseUrl}products/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      .then(() => {
+      .then((response) => {
         const updated = productFilter.filter((item) => item._id !== id);
         setProductFilter(updated);
         setProductList(updated);
+        const warning = catalogNotificationWarning(response.data);
+        if (warning) Alert.alert("Deleted with notification warning", warning);
       })
-      .catch((error) => console.log("Api delete error: ", error));
+      .catch((error) => Alert.alert("Product was not deleted", error.response?.data?.message || error.message));
   };
 
   return (

@@ -28,12 +28,16 @@ import AdminDrivers from "../Screens/Admin/AdminDrivers";
 import RideSettings from "../Screens/Admin/RideSettings";
 import ExchangeRateSettings from "../Screens/Admin/ExchangeRateSettings";
 import InternationalShippingSettings from "../Screens/Admin/InternationalShippingSettings";
+import CatalogSettings from "../Screens/Admin/CatalogSettings";
+import FinancialManagement from "../Screens/Finance/FinancialManagement";
 
 const Stack = createStackNavigator();
 
 function MyStack() {
   return (
     <Stack.Navigator initialRouteName="AdminDashboard">
+      <Stack.Screen name="FinancialManagement" component={FinancialManagement} options={{ title: "Revenue and Expense Tracker" }} />
+      <Stack.Screen name="CatalogSettings" component={CatalogSettings} options={{ title: "Catalog pricing" }} />
       <Stack.Screen name="FinanceAccounts" component={FinanceAccounts} options={{ title: "Stores, owners & drivers" }} />
       <Stack.Screen name="AdminAccount" component={AdminAccount} options={{ title: "Account business dashboard" }} />
       <Stack.Screen name="IncomeDashboard" component={IncomeDashboard} options={{ title: "Account income & controls" }} />

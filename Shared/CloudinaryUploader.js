@@ -9,6 +9,8 @@
  * Also supports `uploadWithProgress` using XMLHttpRequest for progress callbacks.
  */
 
+import { Platform } from "react-native";
+
 async function getSignature(serverUrl, params = {}, options = {}) {
   const normalized = (serverUrl || '').replace(/\/$/, '');
   const primaryUrl = normalized.endsWith('/sign') ? normalized : `${normalized}/sign`;
@@ -65,7 +67,11 @@ async function uploadToCloudinary(localUri, signatureResp, options = {}) {
   const url = `https://api.cloudinary.com/v1_1/${cloud_name}/${resource_type}/upload`;
 
   const form = new FormData();
-  form.append('file', {
+  if (Platform.OS === "web") {
+    const localFile = await fetch(localUri);
+    if (!localFile.ok) throw new Error("Unable to read the selected image.");
+    form.append("file", await localFile.blob(), options.fileName || "photo.jpg");
+  } else form.append('file', {
     uri: localUri,
     name: options.fileName || 'photo.jpg',
     type: options.fileType || 'image/jpeg',

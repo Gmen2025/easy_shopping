@@ -8,7 +8,10 @@ import {
   FlatList,
   TouchableOpacity,
   Dimensions,
+  TextInput,
+  ActivityIndicator,
 } from "react-native";
+import * as Location from "expo-location";
 import EasyButton from "../../Shared/StyledComponenets/EasyButton";
 import TrafficLight from "../../Shared/StyledComponenets/TrafficLight";
 import Toast from "react-native-toast-message";
@@ -18,6 +21,8 @@ import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import baseUrl from "../../assets/common/baseUrl";
 import axios from "axios";
 import { useStoreCart, storeRequest } from "../../assets/common/storefront";
+import useCatalogPricing from "../../assets/common/useCatalogPricing";
+import { getCatalogSettings, getNearestStoreProduct, parseCatalogCoordinates } from "../../assets/common/catalog";
 
 const { width } = Dimensions.get("window");
 
@@ -28,12 +33,68 @@ const SingleProduct = (props) => {
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [availabality, setAvailability] = useState(null);
   const [availabiltyText, setAvailabilityText] = useState("");
+  const pricing = useCatalogPricing();
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
+  const [coordinates, setCoordinates] = useState(null);
+  const [quote, setQuote] = useState(null);
+  const [quoteError, setQuoteError] = useState("");
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const [adding, setAdding] = useState(false);
+  useEffect(() => {
+    setItem(props.route.params.item);
+    setImageIndex(0);
+  }, [props.route.params.item]);
 
   const normalizeId = (value) => {
     if (!value) return "";
     if (typeof value === "string") return value;
     if (typeof value === "object") return value.$oid || value._id || "";
     return "";
+  };
+  const nearestMode = !item?.storefrontId && pricing.enabled === true;
+  const quoteKey = `${normalizeId(item?._id)}:${coordinates?.latitude}:${coordinates?.longitude}`;
+  const currentQuote = nearestMode && quote?.key === quoteKey ? quote.data : null;
+  const pricedItem = item?.storefrontId || pricing.enabled === false ? item : currentQuote?.product;
+  const pricingReady = Boolean(pricedItem);
+
+  useEffect(() => {
+    let active = true;
+    setQuote(null);
+    setQuoteError("");
+    setQuoteLoading(false);
+    if (nearestMode && coordinates && item?._id) {
+      setQuoteLoading(true);
+      getNearestStoreProduct(normalizeId(item._id), coordinates)
+        .then((data) => { if (active) setQuote({ key: quoteKey, data }); })
+        .catch((failure) => {
+          if (active) setQuoteError(failure.response?.data?.message || failure.message);
+        })
+        .finally(() => { if (active) setQuoteLoading(false); });
+    }
+    return () => { active = false; };
+  }, [nearestMode, coordinates, item?._id, quoteKey, retry]);
+
+  const useCoordinates = () => {
+    setQuoteError("");
+    try { setCoordinates(parseCatalogCoordinates(latitude, longitude)); }
+    catch (failure) { setQuoteError(failure.message); }
+  };
+  const useCurrentLocation = async () => {
+    setLocating(true);
+    setCoordinates(null);
+    setQuoteError("");
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (!permission.granted) throw new Error("Location access was denied. Allow location access or enter coordinates below.");
+      const result = await Location.getCurrentPositionAsync({});
+      const point = parseCatalogCoordinates(result.coords.latitude, result.coords.longitude);
+      setLatitude(String(point.latitude)); setLongitude(String(point.longitude));
+      setCoordinates(point);
+    } catch (failure) { setQuoteError(failure.message || "Unable to get your location. Enter coordinates below."); }
+    finally { setLocating(false); }
   };
 
   const galleryImages = useMemo(() => {
@@ -61,14 +122,16 @@ const SingleProduct = (props) => {
   }, [item]);
 
   useEffect(() => {
-    if (!item) {
+    if (!pricedItem) {
+      setAvailability(null);
+      setAvailabilityText("Select a location to check stock");
       return;
     }
 
-    if(item.countInStock == 0) {
+    if(pricedItem.countInStock == 0) {
       setAvailability(<TrafficLight unavailable></TrafficLight>);
       setAvailabilityText("Unavailable");
-    } else if (item.countInStock <= 5) {
+    } else if (pricedItem.countInStock <= 5) {
       setAvailability(<TrafficLight limited></TrafficLight>);
       setAvailabilityText("Limited Stock");
     }else {
@@ -79,7 +142,7 @@ const SingleProduct = (props) => {
       console.error("Item is undefined. Ensure it is passed correctly.");
     }
 
-  }, [item]);
+  }, [pricedItem]);
 
   useEffect(() => {
     const fetchRelatedProducts = async () => {
@@ -143,19 +206,27 @@ const SingleProduct = (props) => {
   // The useDispatch hook is used to dispatch the addToCart action
 
   const addStoreProduct = useStoreCart();
-  const stockCount = Number(item?.countInStock || 0);
+  const stockCount = Number(pricedItem?.countInStock || 0);
   const handleAddToCart = async () => {
-    if (item && stockCount > 0) {
+    if (!pricingReady || adding) return;
+    setAdding(true);
+    try {
+    if (!item.storefrontId && (await getCatalogSettings()).nearestStorePricingEnabled !== pricing.enabled) {
+      await pricing.reload();
+      throw new Error("Catalog pricing changed. Check this product's updated price before adding it.");
+    }
+    if (pricedItem && stockCount > 0) {
       const databaseName = await getDatabaseNameFromStorage();
       const product = {
-        id: item._id, // Assuming each product has a unique id
-        name: item.name,
-        price: item.price,
+        id: pricedItem._id,
+        name: pricedItem.name,
+        price: pricedItem.price,
         image: galleryImages[0] || item.image,
-        countInStock: item.countInStock,
+        countInStock: pricedItem.countInStock,
         databaseName,
-        storefrontId: item.storefrontId || null,
-        inventoryManaged: item.inventoryManaged || false,
+        storefrontId: pricedItem.storefrontId || null,
+        storefrontName: currentQuote?.store.name || pricedItem.storefrontName,
+        inventoryManaged: pricedItem.inventoryManaged || false,
       };
       if (!addStoreProduct(product)) return;
       Toast.show({
@@ -166,6 +237,9 @@ const SingleProduct = (props) => {
     } else {
       console.error("Item is undefined. Cannot add to cart.");
     }
+    } catch (failure) {
+      Toast.show({ type: "error", text1: "Unable to add product", text2: failure.response?.data?.message || failure.message });
+    } finally { setAdding(false); }
   };
 
   if (!item) {
@@ -226,20 +300,42 @@ const SingleProduct = (props) => {
               {availabality}
             </View>
           </View>
-          <Text style={styles.stockCountText}>{stockCount} left in stock</Text>
+          {pricingReady ? <Text style={styles.stockCountText}>{stockCount} left in stock</Text> : null}
           <Text style={styles.description}>
             {item.description || "No Description Available"}
           </Text>
-          <Text style={styles.price}>
-            {typeof item.price === "number" ? formatPrice(item.price) : "No Price Available"}
-          </Text>
+          {!item.storefrontId && pricing.error ? <TouchableOpacity onPress={pricing.reload}>
+            <Text accessibilityRole="alert">{pricing.error} Tap to retry.</Text>
+          </TouchableOpacity> : null}
+          {!item.storefrontId && pricing.enabled === null && !pricing.error ? <ActivityIndicator /> : null}
+          {nearestMode ? <View style={{ gap: 10 }}>
+            <Text>Choose your location to see the nearest available store's price.</Text>
+            <TouchableOpacity disabled={locating || adding} onPress={useCurrentLocation}>
+              <Text>{locating ? "Locating..." : "Use my current location"}</Text>
+            </TouchableOpacity>
+            <TextInput style={styles.locationInput} accessibilityLabel="Customer latitude" placeholder="Latitude (-90 to 90)"
+              keyboardType="numbers-and-punctuation" value={latitude} editable={!locating && !adding}
+              onChangeText={(value) => { setLatitude(value); setCoordinates(null); }} />
+            <TextInput style={styles.locationInput} accessibilityLabel="Customer longitude" placeholder="Longitude (-180 to 180)"
+              keyboardType="numbers-and-punctuation" value={longitude} editable={!locating && !adding}
+              onChangeText={(value) => { setLongitude(value); setCoordinates(null); }} />
+            <TouchableOpacity disabled={locating || adding} onPress={useCoordinates}><Text>Find nearest price</Text></TouchableOpacity>
+            {quoteLoading ? <ActivityIndicator /> : null}
+            {quoteError ? <TouchableOpacity onPress={() => setRetry((value) => value + 1)}>
+              <Text accessibilityRole="alert">{quoteError} {coordinates ? "Tap to retry." : ""}</Text>
+            </TouchableOpacity> : null}
+            {currentQuote ? <Text>{currentQuote.store.name} - {currentQuote.distanceKm.toFixed(1)} km away</Text> : null}
+          </View> : null}
+          {pricingReady ? <Text style={styles.price}>
+            {typeof pricedItem.price === "number" ? formatPrice(pricedItem.price) : "No Price Available"}
+          </Text> : null}
           <View style={styles.buttonContainer}>
-            {stockCount > 0 ? (
-              <EasyButton onPress={handleAddToCart} tertiary medium style={styles.addButton}>
-                <Text style={styles.addButtonText}>Add to Cart</Text>
+            {pricingReady && stockCount > 0 ? (
+              <EasyButton disabled={adding || locating} onPress={handleAddToCart} tertiary medium style={styles.addButton}>
+                <Text style={styles.addButtonText}>{adding ? "Checking price..." : "Add to Cart"}</Text>
               </EasyButton>
             ) : (
-              <Text style={styles.outOfStockText}>Out of stock</Text>
+              <Text style={styles.outOfStockText}>{pricingReady ? "Out of stock" : "A verified store price is required before purchase."}</Text>
             )}
           </View>
         </View>
@@ -265,9 +361,9 @@ const SingleProduct = (props) => {
                   <Text style={styles.relatedName} numberOfLines={2}>
                     {relatedItem.name || "Unnamed Product"}
                   </Text>
-                  <Text style={styles.relatedPrice}>
+                  {item.storefrontId || pricing.enabled === false ? <Text style={styles.relatedPrice}>
                     {formatPrice(relatedItem.price || 0)}
-                  </Text>
+                  </Text> : null}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -281,6 +377,7 @@ const SingleProduct = (props) => {
 };
 
 const styles = StyleSheet.create({
+  locationInput: { borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 8, padding: 10 },
   container: {
     flex: 1,
     backgroundColor: "#f3f6fb",

@@ -113,6 +113,8 @@ export default function IncomeDashboard({ navigation, route }) {
     {error ? <TouchableOpacity onPress={load}><Text style={styles.error}>{error} Tap to retry.</Text></TouchableOpacity> : null}
     {data ? <>
       <Text style={styles.title}>{data.account.name}</Text>
+      {!admin && kind === "store" ? <Button label="My store, products & categories"
+        onPress={() => navigation.navigate("StoreManagement")} /> : null}
       {admin ? <Button label="Open full business dashboard & notifications" onPress={() => navigation.navigate("AdminAccount", { kind, accountId: data.account._id })} /> : null}
       <Text>{data.account.isCompanyOwned ? "AdduGenet-owned: income belongs to AdduGenet" : "Independent: income after platform fees"}</Text>
       {data.locations.length > 1 ? <Picker selectedValue={data.account._id} enabled={!busy}

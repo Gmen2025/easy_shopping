@@ -66,7 +66,7 @@ const products = [
 ];
 const categories = [{ _id: "clothes", name: "Clothes" }, { _id: "home", name: "Home" }];
 
-function catalog(width = 390, fail = false) {
+function catalog(width = 390, fail = false, nearest = false) {
   const h = hooks();
   const component = load("Screens\\Products\\ProductContainer.js", {
     react: h.react, "react-native": { ...native, useWindowDimensions: () => ({ width }) },
@@ -82,6 +82,7 @@ function catalog(width = 390, fail = false) {
       }, isServiceUnavailableError: () => false,
     },
     "../../assets/common/getImageUrl": (product) => product.image,
+    "../../assets/common/useCatalogPricing": () => ({ enabled: nearest, error: "", reload() {} }),
     "./ProductList": "ProductList", "./SearchedProducts": "SearchedProducts",
     "./CategoriesFilter": "CategoriesFilter", "./AdvancedFilters": "AdvancedFilters",
   });
@@ -166,6 +167,7 @@ test("product cards retain regional cart identity, stop detail-navigation bubbli
     "../../assets/common/currency": { useCurrency: () => ({ formatPrice: (price) => `$${price.toFixed(2)}` }) },
     "../../assets/common/databaseConfig": { getDatabaseNameFromStorage: async () => "E_ShopUSA" },
     "../../assets/common/storefront": { useStoreCart: () => (product) => { added.push(product); return true; } },
+    "../../assets/common/catalog": { getCatalogSettings: async () => ({ nearestStorePricingEnabled: false }) },
   });
   let tree = h.render(component, { ...products[0], storefrontId: "store", inventoryManaged: true });
   assert.ok(!text(tree).includes("4.8"));
@@ -181,6 +183,26 @@ test("product cards retain regional cart identity, stop detail-navigation bubbli
   assert.equal(labeled(tree, "Add Jacket to cart"), undefined);
   assert.match(text(tree), /Out of Stock/);
   assert.match(text(tree), /4\.7 \(9\)/);
+  tree = h.render(component, { ...products[0], hidePrice: true });
+  assert.doesNotMatch(text(tree), /\$30\.00/);
+  assert.equal(labeled(tree, "Add Jacket to cart"), undefined);
+  assert.match(text(tree), /View nearby price/);
+});
+
+test("nearest-store mode hides catalog/search prices and ignores hidden-price filters and sorting", async () => {
+  const ui = catalog(390, false, true);
+  let tree = await ui.start();
+  const filters = nodes(tree).find((node) => node.type === "AdvancedFilters");
+  assert.equal(filters.props.hidePrices, true);
+  filters.props.onFilterChange("minPrice", "999");
+  filters.props.onFilterChange("sortBy", "priceAsc");
+  tree = ui.render();
+  const list = nodes(tree).find((node) => node.props?.numColumns);
+  assert.deepEqual(Array.from(list.props.data, (item) => item._id), ["one", "two"]);
+  assert.equal(list.props.renderItem({ item: products[0] }).props.hidePrices, true);
+  nodes(tree).find((node) => node.type === "Searchbar").props.onFocus();
+  tree = ui.render();
+  assert.equal(nodes(tree).find((node) => node.type === "SearchedProducts").props.hidePrices, true);
 });
 
 test("header provides country, notification, menu and cart controls without dropping inbox actions", () => {

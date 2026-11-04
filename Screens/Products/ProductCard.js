@@ -12,6 +12,7 @@ import getImageUrl from "../../assets/common/getImageUrl";
 import { useCurrency } from "../../assets/common/currency";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import { useStoreCart } from "../../assets/common/storefront";
+import { getCatalogSettings } from "../../assets/common/catalog";
 
 const ProductCard = (props) => {
   const { name, price, image, countInStock } = props;
@@ -24,6 +25,11 @@ const ProductCard = (props) => {
 
   const handleAddToCart = async (event) => {
     event?.stopPropagation?.();
+    if (props.hidePrice) return;
+    try {
+    if (!props.storefrontId && (await getCatalogSettings()).nearestStorePricingEnabled) {
+      throw new Error("Open this product and choose your location to see the nearest store's price.");
+    }
     const databaseName = await getDatabaseNameFromStorage();
     const product = {
       _id: props._id,
@@ -43,6 +49,9 @@ const ProductCard = (props) => {
       text1: `${name} added to cart`,
       text2: "Go to your cart to complete order",
     });
+    } catch (failure) {
+      Toast.show({ type: "error", text1: "Unable to add product", text2: failure.response?.data?.message || failure.message });
+    }
   };
 
   return (
@@ -76,9 +85,9 @@ const ProductCard = (props) => {
         <Text style={styles.ratingText}>{rating.toFixed(1)}{Number.isFinite(reviewCount) && reviewCount > 0 ? ` (${reviewCount})` : ""}</Text>
       </View> : null}
 
-      <Text style={styles.price}>{formatPrice(price)}</Text>
+      {!props.hidePrice ? <Text style={styles.price}>{formatPrice(price)}</Text> : null}
 
-      {stockCount > 0 ? (
+      {props.hidePrice ? <Text style={styles.unavailableText}>View nearby price</Text> : stockCount > 0 ? (
         <View style={styles.buttonWrap}>
           <TouchableOpacity
             style={styles.addButton}

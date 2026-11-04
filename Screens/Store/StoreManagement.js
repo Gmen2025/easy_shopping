@@ -9,9 +9,10 @@ import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import { useCurrency } from "../../assets/common/currency";
 import StoreLogoField from "../../Shared/StoreLogoField";
 import { normalizeStoreLogo } from "../../assets/common/storeLogo";
+import { catalogNotificationWarning } from "../../assets/common/catalog";
 
 const emptyProfile = { name: "", address: "", logo: "", description: "", latitude: "", longitude: "" };
-const StoreManagement = () => {
+const StoreManagement = ({ navigation }) => {
   const [locations, setLocations] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [profile, setProfile] = useState(emptyProfile);
@@ -27,6 +28,10 @@ const StoreManagement = () => {
   const [enabled, setEnabled] = useState(false);
   const [error, setError] = useState("");
   const { formatPrice } = useCurrency();
+  const notifySaved = (data, message) => {
+    const warning = catalogNotificationWarning(data);
+    Alert.alert(warning ? "Saved with notification warning" : "Saved", warning || message);
+  };
   const selectLocation = async (store) => {
     setSelectedId(store._id);
     setCreatingBranch(false);
@@ -80,12 +85,13 @@ const StoreManagement = () => {
       const branch = await storeRequest(`me/locations/${root._id}/branches`, { method: "post", data: payload });
       setLocations((current) => [...current, branch]);
       await selectLocation(branch);
+      notifySaved(branch, "Your storefront branch is created.");
     } else {
       const updated = await storeRequest(`me/locations/${selectedId}`, { method: "put", data: payload });
       setLocations((current) => current.map((store) => store._id === updated._id ? updated : store));
       await selectLocation(updated);
+      notifySaved(updated, "Your storefront profile is updated.");
     }
-    Alert.alert("Saved", "Your storefront profile is updated.");
   });
   if (loading) return <ActivityIndicator style={styles.loading} />;
   return (
@@ -113,8 +119,16 @@ const StoreManagement = () => {
           </TouchableOpacity> : <TouchableOpacity disabled={saving || logoBusy} onPress={() => run(() => selectLocation(locations.find((store) => store._id === selectedId)))}><Text>Cancel branch</Text></TouchableOpacity>}
         </View>
         <View style={styles.card}>
+          <Text style={styles.heading}>Create products & categories</Text>
+          <Text>Use any shared category or create one that is missing. New products publish immediately. Admin can edit or delete them; changes notify Admin and your store owner.</Text>
+          <TouchableOpacity style={styles.button} disabled={saving || !enabled} onPress={() =>
+            navigation.navigate("StoreProductForm", { ownerStoreId: selectedId })}><Text>Create product with images</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.button} disabled={saving} onPress={() =>
+            navigation.navigate("StoreCategories", { ownerStoreId: selectedId })}><Text>Browse & manage categories</Text></TouchableOpacity>
+        </View>
+        <View style={styles.card}>
           <Text style={styles.heading}>Add or adjust a catalog product</Text>
-          <Text>Choose an existing category and product. Categories and shared products are managed by Admin.</Text>
+          <Text>Add any shared catalog product to your store, or adjust its store-specific price and stock.</Text>
           <Picker selectedValue={category} onValueChange={setCategory}>
             <Picker.Item label="All existing categories" value="" />
             {[...new Map(catalog.filter((item) => item.category?._id).map((item) => [item.category._id, item.category])).values()]
@@ -132,9 +146,9 @@ const StoreManagement = () => {
                 onChangeText={(value) => setStock((current) => ({ ...current, [field]: value }))} />
             </View>)}
             <TouchableOpacity style={styles.button} disabled={saving || !enabled} onPress={() => run(async () => {
-              await storeRequest(`me/locations/${selectedId}/inventory/${productId}`, { method: "put", data: stock });
+              const result = await storeRequest(`me/locations/${selectedId}/inventory/${productId}`, { method: "put", data: stock });
               setRows(await storeRequest(`me/locations/${selectedId}/inventory`));
-              Alert.alert("Saved", "Store stock and price updated.");
+              notifySaved(result, "Store stock and price updated.");
             })}><Text>Save inventory</Text></TouchableOpacity>
           </> : null}
         </View>
@@ -146,12 +160,27 @@ const StoreManagement = () => {
             Available: {row.countInStock - row.reserved}{row.countInStock - row.reserved <= row.minStock ? " - Low stock" : ""}
           </Text>
           <TouchableOpacity style={styles.button} disabled={saving || !row.product} onPress={() => chooseProduct(row.product._id)}><Text>Adjust inventory</Text></TouchableOpacity>
+          {String(row.product?.createdByStore?._id || row.product?.createdByStore || "") === selectedId ? <>
+            <TouchableOpacity style={styles.button} disabled={saving} onPress={() => navigation.navigate("StoreProductForm", {
+              ownerStoreId: selectedId, item: { ...row.product, price: row.price, countInStock: row.countInStock },
+            })}><Text>Edit your catalog product</Text></TouchableOpacity>
+            <TouchableOpacity disabled={saving} onPress={() => Alert.alert("Delete your catalog product?",
+              "This removes the shared product, not just this store listing. Products with active orders or reservations cannot be deleted.", [
+                { text: "Cancel", style: "cancel" },
+                { text: "Delete", style: "destructive", onPress: () => run(async () => {
+                  const result = await storeRequest(`me/locations/${selectedId}/products/${row.product._id}`, { method: "delete" });
+                  await load();
+                  notifySaved(result, "Product deleted.");
+                }) },
+              ])}><Text style={styles.warning}>Delete your catalog product</Text></TouchableOpacity>
+          </> : null}
           <TouchableOpacity disabled={saving} onPress={() => Alert.alert("Remove store product?", "This removes the listing from this location only, not the shared catalog.", [
             { text: "Cancel", style: "cancel" },
             { text: "Remove", style: "destructive", onPress: () => run(async () => {
-              await storeRequest(`me/locations/${selectedId}/inventory/${row.product?._id}`, { method: "delete" });
+              const result = await storeRequest(`me/locations/${selectedId}/inventory/${row.product?._id}`, { method: "delete" });
               setRows(await storeRequest(`me/locations/${selectedId}/inventory`));
               setProductId("");
+              notifySaved(result, "Removed from this store.");
             }) },
           ])}><Text style={styles.warning}>Remove from store</Text></TouchableOpacity>
         </View>)}

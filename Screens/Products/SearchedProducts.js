@@ -83,7 +83,7 @@ const SearchedProducts = (props) => {
                 <Text style={styles.productDescription} numberOfLines={2}>
                   {item.description || "No description available"}
                 </Text>
-                <Text style={styles.productPrice}>{formatPrice(item.price || 0)}</Text>
+                <Text style={styles.productPrice}>{props.hidePrices ? "View nearby price" : formatPrice(item.price || 0)}</Text>
               </View>
             </View>
           </TouchableOpacity>
