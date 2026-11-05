@@ -17,7 +17,7 @@ const kindLabel = (kind) => ({
 const liquid = (account) => account.type === "ASSET" &&
   ["CASH", "CHECKING", "SAVINGS"].includes(account.subtype);
 
-export default function FinancialTransfer({ workspace, currency, onSaved }) {
+export default function FinancialTransfer({ workspace, currency, onSaved, requestFinancial = financialRequest }) {
   const [kind, setKind] = useState("ACCOUNT");
   const [fromEntityId, setFromEntityId] = useState(workspace.entity._id);
   const [toEntityId, setToEntityId] = useState(workspace.entity._id);
@@ -41,7 +41,7 @@ export default function FinancialTransfer({ workspace, currency, onSaved }) {
     const request = ++revision.current;
     setError(""); setLedgers(null); setLoading(true);
     const read = async (entityId) => {
-      const result = await financialRequest(`workspace?${financialQuery({ entityId, currency, period: "daily" })}`);
+      const result = await requestFinancial(`workspace?${financialQuery({ entityId, currency, period: "daily" })}`);
       if (financialId(result?.entity) !== entityId || !Array.isArray(result.accounts) || !Array.isArray(result.categories)) {
         throw new Error("Unable to verify transfer accounts. Please retry.");
       }
@@ -54,7 +54,7 @@ export default function FinancialTransfer({ workspace, currency, onSaved }) {
       .catch((failure) => { if (active) setError(financeError(failure)); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [fromEntityId, toEntityId, currency, scope, retry]);
+  }, [fromEntityId, toEntityId, currency, scope, retry, requestFinancial]);
   const changeKind = (value) => {
     setKind(value);
     const personal = entities.find((entity) => entity.ownerType === "PERSONAL");
@@ -105,7 +105,7 @@ export default function FinancialTransfer({ workspace, currency, onSaved }) {
       onSubmit={async (values, requestKey) => {
         setPosting(true);
         try {
-          await financialRequest("transfers", { method: "post", data: {
+          await requestFinancial("transfers", { method: "post", data: {
             ...values, kind, fromEntityId, toEntityId, currency,
             toAccountId: purchase ? undefined : values.toAccountId,
             categoryId: categoryRequired ? values.categoryId || undefined : undefined,

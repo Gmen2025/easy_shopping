@@ -3,6 +3,9 @@ import { operatorRequest } from "./finance";
 export const financialRequest = (path, options) =>
   operatorRequest(`financial-management/${path}`, options);
 
+export const customerFinancialRequest = (path, options) =>
+  operatorRequest(`financial-health/${path}`, options);
+
 export function financialMoney(minor, currency) {
   if (!Number.isSafeInteger(minor) || !["ETB", "USD"].includes(currency)) {
     throw new Error("The server returned an invalid accounting amount or currency.");

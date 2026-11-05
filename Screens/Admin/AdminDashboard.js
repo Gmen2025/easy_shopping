@@ -27,6 +27,7 @@ const PERIODS = [
 ];
 
 const QUICK_ACTIONS = [
+  { label: "Financial Health service", icon: "heartbeat", route: "FinancialHealthSettings" },
   { label: "Catalog pricing", icon: "map-marker", route: "CatalogSettings" },
   { label: "Products", icon: "cube", route: "Products" },
   { label: "Orders", icon: "shopping-bag", route: "Orders" },

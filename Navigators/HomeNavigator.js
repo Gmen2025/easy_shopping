@@ -8,12 +8,14 @@ import StoreDirectory from "../Screens/Store/StoreDirectory";
 import Storefront from "../Screens/Store/Storefront";
 import RideBooking from "../Screens/Ride/RideBooking";
 import MyRides from "../Screens/Ride/MyRides";
+import FinancialHealth from "../Screens/Finance/FinancialHealth";
 
 const Stack = createStackNavigator();
 
 function MyStack() {
   return (
     <Stack.Navigator initialRouteName="Home Screen">
+      <Stack.Screen name="FinancialHealth" component={FinancialHealth} options={{ title: "Financial Health" }} />
       <Stack.Screen name="RideBooking" component={RideBooking} options={{ title: "Ride service" }} />
       <Stack.Screen name="MyRides" component={MyRides} options={{ title: "My rides & payments" }} />
       <Stack.Screen name="Stores" component={StoreDirectory} options={{ title: "Stores" }} />

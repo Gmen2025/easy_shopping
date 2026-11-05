@@ -18,4 +18,4 @@ export async function operatorRequest(path, { method = "get", data } = {}) {
 }
 
 export const financeMoney = (value, currency) => `${currency} ${Number(value).toFixed(2)}`;
-export const financeError = (error) => error?.response?.data?.message || error.message || "Unable to complete the request.";
+export const financeError = (error) => error?.response?.data?.error?.message || error?.response?.data?.message || error.message || "Unable to complete the request.";

@@ -34,6 +34,17 @@ test("manual accounting uses the existing authenticated region-scoped transport,
   await assert.rejects(helper(async () => { throw new Error("Not permitted"); }).financialRequest("workspace"), /Not permitted/);
 });
 
+test("customer accounting uses a different namespace for reads, writes and transfers", async () => {
+  const calls = [];
+  const api = helper(async (...args) => { calls.push(args); return {}; });
+  for (const path of ["workspace?entityId=personal", "entities", "accounts", "transactions", "transfers", "settings"]) {
+    await api.customerFinancialRequest(path, { method: path.startsWith("workspace") ? "get" : "post" });
+    assert.equal(calls.at(-1)[0], `financial-health/${path}`);
+  }
+  await api.financialRequest("workspace");
+  assert.equal(calls.at(-1)[0], "financial-management/workspace");
+});
+
 test("accounting values never round away fractional cents or overflow safe minor units", () => {
   const api = helper();
   for (const value of ["", " ", "12.345", "1e2", "NaN", "Infinity", "-1", "1,000", "90071992547409.92"]) {
@@ -173,9 +184,9 @@ function workspace(entity = personal) {
     pagination: { transactions: { hasMore: false }, audit: { hasMore: false } },
   };
 }
-function screen({ admin = true, request = async () => workspace() } = {}) {
-  const h = hooks(), calls = [];
-  h.react.useContext = () => ({ user: { isAdmin: admin } });
+function screen({ admin = true, service = false, guest = false, request = async () => workspace() } = {}) {
+  const h = hooks(), calls = [], customerCalls = [];
+  h.react.useContext = () => ({ user: guest ? null : { isAdmin: admin } });
   const Component = load("Screens\\Finance\\FinancialManagement.js", {
     react: h.react, "react-native": native,
     "@react-navigation/native": { useFocusEffect: (effect) => h.react.useEffect(effect, [effect]) },
@@ -187,9 +198,10 @@ function screen({ admin = true, request = async () => workspace() } = {}) {
     "../../assets/common/finance": { financeError: (error) => error.message },
     "../../assets/common/financialManagement": {
       ...helper(), financialRequest: async (...args) => { calls.push(args); return request(...args); },
+      customerFinancialRequest: async (...args) => { customerCalls.push(args); calls.push(args); return request(...args); },
     },
   }).default;
-  return { calls, render: () => h.render(Component), start: async function () {
+  return { calls, customerCalls, render: () => h.render(Component, { service }), start: async function () {
     this.render(); await tick(); return this.render();
   } };
 }
@@ -199,6 +211,38 @@ test("private tracker never requests data for non-admins", async () => {
   const ui = screen({ admin: false });
   assert.match(text(await ui.start()), /Admin access is required/);
   assert.equal(ui.calls.length, 0);
+});
+
+test("customers can select personal or business statements and accounts without touching admin accounting", async () => {
+  const ui = screen({ admin: false, service: true, request: async (url) =>
+    workspace(url.includes("entityId=business") ? business : personal) });
+  let tree = await ui.start();
+  assert.match(text(tree), /Financial Health/);
+  assert.doesNotMatch(text(tree), /Admin access is required/);
+  labeled(tree, "Statements").props.onPress();
+  tree = ui.render();
+  assert.equal(nodes(tree).find((node) => node.type === "FinancialStatement").props.currency, "ETB");
+  labeled(tree, "Business / personal ledger").props.onChange("business");
+  ui.render(); await tick();
+  tree = ui.render();
+  assert.equal(labeled(tree, "Business / personal ledger").props.value, "business");
+  assert.ok(ui.customerCalls.at(-1)[0].includes("entityId=business"));
+  labeled(tree, "Accounts, assets & debts").props.onPress();
+  labeled(ui.render(), "Add account, asset or liability").props.onPress();
+  const form = nodes(ui.render()).find((node) => node.type === "FinancialForm");
+  await form.props.onSubmit({ name: "Shop cash", type: "ASSET", subtype: "CASH", openingBalance: "0", date: "2026-11-04" }, "customer-account");
+  assert.equal(ui.customerCalls.find(([path]) => path === "accounts")[1].data.entityId, "business");
+  assert.equal(ui.calls.length, ui.customerCalls.length);
+  const guest = screen({ service: true, guest: true });
+  assert.match(text(await guest.start()), /Sign in/);
+  assert.equal(guest.calls.length, 0);
+});
+
+test("disabled customer service displays its error and never renders statement balances", async () => {
+  const ui = screen({ service: true, admin: false, request: async () => { throw new Error("Financial Health is currently disabled by the administrator."); } });
+  const tree = await ui.start();
+  assert.match(text(tree), /currently disabled/);
+  assert.equal(nodes(tree).some((node) => node.type === "FinancialMetrics"), false);
 });
 
 test("expense accrual sends selected entity, currency and payment exactly once without converting card repayment to an expense", async () => {
@@ -429,4 +473,78 @@ test("personal-funded business purchases and optional salary categories use the 
   const salary = calls.filter((call) => call[0] === "transfers")[1];
   assert.equal(salary[1].data.categoryId, undefined);
   assert.equal(salary[1].data.kind, "SALARY");
+});
+
+test("customer linked transfers use the injected customer transport for both ledgers and posting", async () => {
+  const h = hooks(), calls = [];
+  const Transfer = load("Shared\\FinancialTransfer.js", {
+    react: h.react, "react-native": native,
+    "./FinancialForm": { __esModule: true, default: "FinancialForm", FinancialButton: "FinancialButton", FinancialSelect: "FinancialSelect" },
+    "../assets/common/finance": { financeError: (error) => error.message },
+    "../assets/common/financialManagement": {
+      ...helper(), financialRequest: async () => { throw new Error("Customer transfer used admin transport"); },
+    },
+  }).default;
+  const props = { workspace: workspace(), currency: "ETB", onSaved: async () => {},
+    requestFinancial: async (path, options) => {
+      calls.push([path, options]);
+      return path === "transfers" ? {} : workspace(path.includes("entityId=business") ? business : personal);
+    } };
+  const render = () => h.render(Transfer, props);
+  render(); await tick();
+  labeled(render(), "To ledger").props.onChange("business");
+  render(); await tick();
+  const form = nodes(render()).find((node) => node.type === "FinancialForm");
+  await form.props.onSubmit({ fromAccountId: "cash", toAccountId: "cash", amount: "20", date: "2026-11-04", description: "Capital contribution" }, "customer-transfer");
+  assert.ok(calls.some(([path]) => path.includes("entityId=personal")));
+  assert.ok(calls.some(([path]) => path.includes("entityId=business")));
+  assert.equal(calls.find(([path]) => path === "transfers")[1].data.toEntityId, "business");
+});
+
+test("Financial Health availability validates responses and admin saves use the shared region-aware transport", async () => {
+  const calls = [];
+  const settings = load("assets\\common\\financialHealth.js", {
+    "./storefront": { apiRequest: async (...args) => { calls.push(args); return { enabled: false }; } },
+  });
+  assert.equal((await settings.getFinancialHealthSettings()).enabled, false);
+  await settings.saveFinancialHealthSettings(true);
+  assert.equal(calls[1][0], "settings");
+  assert.equal(calls[1][1], "financial-health");
+  assert.equal(calls[1][2].method, "put");
+  assert.equal(calls[1][2].data.enabled, true);
+  const invalid = load("assets\\common\\financialHealth.js", { "./storefront": { apiRequest: async () => ({}) } });
+  await assert.rejects(invalid.getFinancialHealthSettings(), /could not be verified/);
+});
+
+test("admin service control starts off and toggles only customer availability", async () => {
+  const h = hooks(), saved = [], alerts = [];
+  const availability = { enabled: false, error: "", reload: async () => {} };
+  const Settings = load("Screens\\Admin\\FinancialHealthSettings.js", {
+    react: h.react, "react-native": { ...native, ScrollView: "ScrollView", Text: "Text", Switch: "Switch",
+      ActivityIndicator: "ActivityIndicator", TouchableOpacity: "TouchableOpacity", Alert: { alert: (...args) => alerts.push(args) } },
+    "../../assets/common/useFinancialHealth": { __esModule: true, default: () => availability },
+    "../../assets/common/financialHealth": { saveFinancialHealthSettings: async (enabled) => { saved.push(enabled); availability.enabled = enabled; } },
+  }).default;
+  const render = () => h.render(Settings);
+  let toggle = nodes(render()).find((node) => node.type === "Switch");
+  assert.equal(toggle.props.value, false);
+  await toggle.props.onValueChange(true);
+  assert.equal(saved[0], true);
+  assert.equal(nodes(render()).find((node) => node.type === "Switch").props.value, true);
+  assert.match(alerts[0][1], /signed-in customers/);
+  availability.enabled = null; availability.error = "Unable to load availability";
+  toggle = nodes(render()).find((node) => node.type === "Switch");
+  assert.equal(toggle.props.disabled, true);
+  assert.match(text(render()), /Unable to load availability/);
+});
+
+test("customer navigation and admin service control do not replace the admin tracker", () => {
+  const source = (relative) => fs.readFileSync(path.join(__dirname, "..", relative), "utf8");
+  const home = source("Screens\\Products\\ProductContainer.js");
+  assert.match(home, /financialHealth\.enabled === true \? \[\{ title: "Financial Health"/);
+  assert.match(home, /navigate\("FinancialHealth"\)/);
+  assert.match(source("Navigators\\HomeNavigator.js"), /name="FinancialHealth" component=\{FinancialHealth\}/);
+  const admin = source("Navigators\\AdminNavigator.js");
+  assert.match(admin, /name="FinancialHealthSettings"/);
+  assert.match(admin, /name="FinancialManagement" component=\{FinancialManagement\}/);
 });

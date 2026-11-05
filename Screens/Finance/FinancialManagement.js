@@ -7,7 +7,7 @@ import { FinancialChart, FinancialMetrics, FinancialStatement } from "../../Shar
 import FinancialTransfer from "../../Shared/FinancialTransfer";
 import { financeError } from "../../assets/common/finance";
 import {
-  financialRequest, financialMoney, financialAmount, financialMinor, financialDate,
+  financialRequest, customerFinancialRequest, financialMoney, financialAmount, financialMinor, financialDate,
   financialToday, financialQuery, financialId, financialMajor, validateFinancialWorkspace,
 } from "../../assets/common/financialManagement";
 
@@ -27,9 +27,11 @@ const moneyField = (name, label, required = true) => field(name, label, { money:
 const dateField = (name, label, required = true) => field(name, label, { date: true, required, placeholder: "YYYY-MM-DD" });
 const accountName = (account) => `${account.name} (${account.type.toLowerCase()} / ${account.subtype.toLowerCase()})`;
 
-export default function FinancialManagement() {
+export default function FinancialManagement({ service = false } = {}) {
   const auth = useContext(AuthContext);
   const admin = auth.user?.isAdmin === true;
+  const allowed = service ? Boolean(auth.user) : admin;
+  const requestFinancial = service ? customerFinancialRequest : financialRequest;
   const [entityId, setEntityId] = useState("");
   const [currency, setCurrency] = useState("ETB");
   const [period, setPeriod] = useState("monthly");
@@ -54,12 +56,12 @@ export default function FinancialManagement() {
   currentScope.current = scope;
   const data = workspace?.scope === scope ? workspace.data : null;
   const load = useCallback(async () => {
-    if (!admin) return;
+    if (!allowed) return;
     const request = ++revision.current;
     setLoading(true); setError("");
     try {
       const query = financialQuery({ entityId, currency, period, ...range, page, auditPage, journalPage, combinedNetWorth: combined });
-      const result = validateFinancialWorkspace(await financialRequest(`workspace?${query}`));
+      const result = validateFinancialWorkspace(await requestFinancial(`workspace?${query}`));
       if (result.report.currency !== currency || (entityId && financialId(result.entity) !== entityId)) {
         throw new Error("The returned ledger or currency does not match your selection. Please reload.");
       }
@@ -69,7 +71,7 @@ export default function FinancialManagement() {
         setWorkspace(null); setError(financeError(failure));
       }
     } finally { if (request === revision.current) setLoading(false); }
-  }, [admin, entityId, currency, period, range, page, auditPage, journalPage, combined, scope]);
+  }, [allowed, requestFinancial, entityId, currency, period, range, page, auditPage, journalPage, combined, scope]);
   useFocusEffect(useCallback(() => {
     load();
     return () => { revision.current += 1; };
@@ -79,14 +81,16 @@ export default function FinancialManagement() {
   };
   const save = async (path, body, requestKey, method = "post") => {
     const startedScope = scope;
-    await financialRequest(path, { method, data: { ...body, requestKey } });
+    await requestFinancial(path, { method, data: { ...body, requestKey } });
     if (startedScope === currentScope.current) {
       setForm(null); setNotice("Record saved. Reloading balances and statements...");
       await load();
     }
   };
   const open = (value) => { setNotice(""); setForm({ ...value, key: `${Date.now()}-${value.title}` }); };
-  if (!admin) return <View style={styles.content}><Text accessibilityRole="alert">Admin access is required. Financial records are private to the admin who created them.</Text></View>;
+  if (!allowed) return <View style={styles.content}><Text accessibilityRole="alert">{service ?
+    "Sign in from Account to use your private Financial Health workspace." :
+    "Admin access is required. Financial records are private to the admin who created them."}</Text></View>;
 
   const money = (minor) => financialMoney(minor, currency);
   const accounts = (data?.accounts || []).filter((account) => account.currency === currency &&
@@ -104,7 +108,8 @@ export default function FinancialManagement() {
   const newEntity = () => open({
     title: "Add business", initialValues: { name: "" },
     fields: [field("name", "Business name", { required: true, maxLength: 120 })],
-    help: "Businesses and your personal ledger remain separate. Only this creating admin can access this workspace.",
+    help: service ? "Businesses and your personal ledger remain separate. Only your account can access this workspace." :
+      "Businesses and your personal ledger remain separate. Only this creating admin can access this workspace.",
     onSubmit: (values, key) => save("entities", { name: values.name.trim() }, key),
   });
   const newCategory = () => open({
@@ -297,12 +302,12 @@ export default function FinancialManagement() {
 
   return <ScrollView style={styles.screen} contentContainerStyle={styles.content}
     keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}>
-    <Text style={styles.title}>Revenue and Expense Tracker</Text>
-    <Text>Private to your admin account. Business accounting and personal finances use separate ledgers. Manual records only; existing sales and payouts are not imported.</Text>
+    <Text style={styles.title}>{service ? "Financial Health" : "Revenue and Expense Tracker"}</Text>
+    <Text>{service ? "Private to your account, separate from the admin tracker." : "Private to your admin account."} Business accounting and personal finances use separate ledgers. Manual records only; existing sales and payouts are not imported.</Text>
     <FinancialSelect label="Business / personal ledger" value={data?.entity?._id || entityId}
       disabled={loading || Boolean(form)} onChange={(value) => changeScope(() => setEntityId(value))}
       options={data ? data.entities.map((entity) => choice(entity._id, `${entity.ownerType === "PERSONAL" ? "Personal" : "Business"}: ${entity.name}`)) :
-        [emptyChoice("Loading ledgers...")]} />
+        [emptyChoice(error ? "Ledgers unavailable" : "Loading ledgers...")]} />
     <FinancialSelect label="Report currency (never combined)" value={currency} disabled={Boolean(form)}
       onChange={(value) => changeScope(() => setCurrency(value))} options={["ETB", "USD"].map((value) => choice(value, value))} />
     <FinancialSelect label="Financial period" value={period} disabled={Boolean(form)}
@@ -409,6 +414,7 @@ export default function FinancialManagement() {
         </FinancialCard>)}
       </> : null}
       {tab === "transfers" ? <FinancialTransfer key={`${data.entity._id}:${currency}`}
+        requestFinancial={requestFinancial}
         workspace={data} currency={currency} onSaved={async () => {
           setNotice("Linked transfer posted. Both ledgers were updated together.");
           await load();

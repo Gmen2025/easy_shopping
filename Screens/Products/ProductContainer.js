@@ -26,6 +26,7 @@ import AdvancedFilters from "./AdvancedFilters";
 import getImageUrl from "../../assets/common/getImageUrl";
 import Icon from "react-native-vector-icons/FontAwesome5";
 import useCatalogPricing from "../../assets/common/useCatalogPricing";
+import useFinancialHealth from "../../assets/common/useFinancialHealth";
 
 if (Platform.OS === "android" && !global.nativeFabricUIManager && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -33,6 +34,7 @@ if (Platform.OS === "android" && !global.nativeFabricUIManager && UIManager.setL
 
 const ProductContainer = (props) => {
   const pricing = useCatalogPricing();
+  const financialHealth = useFinancialHealth();
   const hidePrices = pricing.enabled !== false;
   const { width: screenWidth } = useWindowDimensions();
   const columns = screenWidth >= 700 ? 4 : 2;
@@ -307,6 +309,7 @@ const ProductContainer = (props) => {
           { title: "Ride", detail: "Book a ride", icon: "car", open: () => props.navigation.navigate("RideBooking") },
           { title: "Store", detail: "Find nearby stores", icon: "store", open: () => props.navigation.navigate("Stores") },
           { title: "Service Request", detail: "Book a technician", icon: "wrench", open: () => props.navigation.navigate("Service Request") },
+          ...(financialHealth.enabled === true ? [{ title: "Financial Health", detail: "Revenue & expenses", icon: "chart-line", open: () => props.navigation.navigate("FinancialHealth") }] : []),
         ].map((service) => (
           <TouchableOpacity key={service.title} style={styles.serviceAction} accessibilityRole="button"
             accessibilityLabel={service.title} onPress={service.open}>
@@ -315,6 +318,9 @@ const ProductContainer = (props) => {
               <Text style={[styles.serviceActionText, screenWidth < 500 && { fontSize: 12 }]}>{service.title}</Text>
               <Text style={[styles.serviceDetail, screenWidth < 500 && { fontSize: 9 }]}>{service.detail}</Text>
             </View>
+            {financialHealth.error ? <TouchableOpacity onPress={financialHealth.reload} style={{ margin: 12 }}>
+              <Text accessibilityRole="alert">{financialHealth.error} Tap to retry Financial Health availability.</Text>
+            </TouchableOpacity> : null}
             {screenWidth >= 700 ? <Icon name="chevron-right" size={12} color="#111111" /> : null}
           </TouchableOpacity>
         ))}

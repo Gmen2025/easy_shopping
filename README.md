@@ -59,6 +59,34 @@ Focused mobile checks:
 `node --test scripts/catalogPricing.test.cjs scripts/storefrontDesign.test.cjs scripts/storefront.test.cjs scripts/adminProducts.test.cjs`.
 Native bundling: `npx expo export --platform android`.
 
+## Customer Financial Health service
+
+**Financial Health** is a separate customer business branch. When enabled, its
+badge appears alongside **Ride**, **Store** and **Service Request** at the top
+of the shopping screen. Sign in, then select **Business / personal ledger** before
+creating accounts or viewing **Statements**. A Personal ledger is created on first
+use; add businesses under **Businesses & personal**. Each statement, account,
+income and expense belongs to the selected ledger and currency.
+
+Admins open **Admin > Financial Health service** to enable or disable it for
+the selected shopping region. It defaults **OFF**. Off hides the badge and blocks
+all customer financial reads and writes at the server; saved records remain and
+become available again when enabled. This switch never disables the existing
+admin Revenue and Expense Tracker and does not grant admins access to customer
+financial records.
+
+Deploy the matching backend first: public `GET /settings/financial-health`,
+current-admin-only `PUT /settings/financial-health` with `{ enabled: boolean }`,
+and authenticated `/financial-health/*` accounting endpoints. Customer accounting
+uses the same balanced, manual accounting engine and report features as the admin
+tracker, but a separate regional `CustomerFinancialWorkspace` collection.
+Even an admin's customer workspace is separate from their admin workspace.
+No operational sales, payouts or existing admin data are imported or changed.
+MongoDB replica-set transactions are required. The matching website exposes this
+service under its **Financial Health** dropdown section.
+
+Validation: `node --test scripts/financialManagement.test.cjs`.
+
 ## Revenue and Expense Tracker
 
 The separate **Admin > Revenue and Expense Tracker** workspace is private to the
