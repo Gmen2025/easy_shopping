@@ -7,6 +7,7 @@ import * as Location from "expo-location";
 import RideRouteMap from "../../Shared/RideRouteMap";
 import { rideRequest, addressText, rideStopPoint, rideOptionName } from "../../assets/common/rides";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
+import RideParticipantProfile from "../../Shared/RideParticipantProfile";
 
 export default function DriverRideTrip({ navigation, route }) {
   const focused = useIsFocused();
@@ -145,6 +146,7 @@ export default function DriverRideTrip({ navigation, route }) {
             <View style={s.panelHeader}>
               <View style={s.customer}>
                 <Text style={s.title}>{rider?.customerName || "Customer"}</Text>
+                <RideParticipantProfile profile={rider?.customerProfile} />
                 <Text>Booking #{String(stop.ride).slice(-6)}{rider?.vehicleOption ? ` - ${rideOptionName(rider.vehicleOption)}` : ""}</Text>
               </View>
               <IconButton icon="phone" accessibilityLabel={`Call customer for stop ${index + 1}`}

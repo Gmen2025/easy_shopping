@@ -12,6 +12,8 @@ import RideRouteMap from "../../Shared/RideRouteMap";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import baseUrl from "../../assets/common/baseUrl";
 import CloudinaryUploader from "../../Shared/CloudinaryUploader";
+import ReviewPanel from "../../Shared/ReviewPanel";
+import RideParticipantProfile from "../../Shared/RideParticipantProfile";
 
 const RIDE_PHOTO_REFRESH_MS = 90 * 24 * 60 * 60 * 1000;
 
@@ -89,7 +91,7 @@ export default function DriverRides({ navigation }) {
     if (!photo?.uri) throw new Error("The camera did not return a photo. Please try again.");
     const token = await AsyncStorage.getItem("token");
     if (!token) throw new Error("Sign in again before updating your ride profile photo.");
-    const signatureUrl = `${baseUrl.replace(/\/$/, "")}/sign`;
+    const signatureUrl = `${baseUrl}cloudinary/sign`;
     const signature = await CloudinaryUploader.getSignature(signatureUrl, { folder: "driver_profiles" }, { token });
     const upload = await CloudinaryUploader.uploadToCloudinary(photo.uri, signature, {
       folder: "driver_profiles",
@@ -311,6 +313,7 @@ export default function DriverRides({ navigation }) {
 
       {selectedTab === "rides" && data.trip ? <View style={s.card}>
         <Text style={s.heading}>Active {data.trip.mode} trip</Text>
+        {data.riders.map((rider) => <RideParticipantProfile key={rider._id} profile={rider.customerProfile} />)}
         <Button mode="contained" buttonColor="#facc00" textColor="#111827" disabled={busy}
           onPress={() => navigation.navigate("DriverRideTrip", { database: region.current })}>Open full-screen ride map</Button>
         <Text style={s.bodyText}>Onboard {data.trip.onboardSeats} / {data.trip.seatCapacity} seats.</Text>
@@ -364,6 +367,7 @@ export default function DriverRides({ navigation }) {
             <Text style={s.fareText} numberOfLines={1} adjustsFontSizeToFit>{rideFare(ride)}</Text>
           </View>
           <Text style={s.mutedText}>#{String(ride._id).slice(-6)} · {ride.status === "terminated" ? "Terminated" : "Completed"} · {ride.paymentMethod || "Payment method not selected"} · {ride.paymentStatus || "Payment pending"}</Text>
+          {ride.status === "completed" ? <ReviewPanel kind="rideCustomer" transaction={ride._id} title="Review ride customer" /> : null}
           {ride.status === "terminated" ? <Text style={s.mutedText}>Ended without completion. {ride.paymentStatus === "review_required" ? "Payment is on hold for Admin review." : ""}</Text> : null}
           {ride.paymentMethod === "cash" && ride.paymentStatus !== "completed" ? <Button disabled={busy}
             onPress={() => Alert.alert("Cash received?", `Confirm only after receiving ${rideFare(ride)} from this booking's payer.`, [

@@ -12,6 +12,8 @@ import { AuthContext } from "../../Context/store/Auth";
 import RideRouteMap from "../../Shared/RideRouteMap";
 import usePaymentAvailability from "../../assets/common/usePaymentAvailability";
 import { PAYMENT_UNAVAILABLE } from "../../assets/common/paymentSettings";
+import ReviewPanel from "../../Shared/ReviewPanel";
+import { ReviewAvailabilityContext } from "../../assets/common/reviews";
 
 const ui = {
   screen: { flex: 1, backgroundColor: "#fff" },
@@ -30,6 +32,7 @@ const statusLabels = {
 
 export default function MyRides({ route, navigation }) {
   const { isAuthenticated, loading, logout } = useContext(AuthContext);
+  const { settings: reviewSettings } = useContext(ReviewAvailabilityContext);
   const [needsSignIn, setNeedsSignIn] = useState(false);
   const focused = useIsFocused();
   const availability = usePaymentAvailability();
@@ -159,6 +162,7 @@ export default function MyRides({ route, navigation }) {
       <Text selectable style={styles.heading}>Ride #{String(selected._id).slice(-6)} - {selected.mode}</Text>
       {selected.vehicleOption ? <Text>Vehicle: {rideOptionName(selected.vehicleOption)}</Text> : null}
       <Text>Status: {selected.status}</Text><Text>{selected.dispatchMessage}</Text>
+      {selected.status === "completed" ? <ReviewPanel key={selected._id} kind="rideDriver" transaction={selected._id} title="Review your driver" /> : null}
       {selected.status === "terminated" ? <>
         <Text>Termination reason: {selected.termination?.reason}</Text>
         <Text>Terminated: {new Date(selected.termination?.at).toLocaleString()}. This ride did not complete its destination drop-off.</Text>
@@ -168,6 +172,11 @@ export default function MyRides({ route, navigation }) {
       {selected.stops.map((stop) => <Text key={stop.key}>{stop.type}: {addressText(stop.address)} ({stop.passengers} passengers)</Text>)}
       <Text>Estimate: {rideFare(selected, selected.estimate)}</Text>
       {selected.assignedDriver ? <>
+        <Text>{selected.assignedDriver.joinedAt ? `Joined ${new Date(selected.assignedDriver.joinedAt).toLocaleDateString()}` : "Joined date unavailable"}</Text>
+        {reviewSettings?.rides && selected.assignedDriver.rating ? <Text>{selected.assignedDriver.rating.count
+          ? `${selected.assignedDriver.rating.average.toFixed(1)}/5 (${selected.assignedDriver.rating.count} reviews)` : "No reviews yet"}</Text> : null}
+        <Text>Car: {[selected.assignedDriver.vehicleMake, selected.assignedDriver.vehicleModel, selected.assignedDriver.vehicleColor].filter(Boolean).join(" ") || "Details not provided"}</Text>
+        {reviewSettings?.rides ? selected.assignedDriver.reviews?.map((review) => <Text key={review._id}>{review.rating}/5: {review.comment}</Text>) : null}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginVertical: 8 }}>
           {selected.assignedDriver.profilePhotoUrl
             ? <Image source={{ uri: selected.assignedDriver.profilePhotoUrl }}

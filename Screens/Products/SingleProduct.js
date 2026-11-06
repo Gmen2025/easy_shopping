@@ -23,6 +23,7 @@ import axios from "axios";
 import { useStoreCart, storeRequest } from "../../assets/common/storefront";
 import useCatalogPricing from "../../assets/common/useCatalogPricing";
 import { getCatalogSettings, getNearestStoreProduct, parseCatalogCoordinates } from "../../assets/common/catalog";
+import ReviewPanel from "../../Shared/ReviewPanel";
 
 const { width } = Dimensions.get("window");
 
@@ -341,6 +342,7 @@ const SingleProduct = (props) => {
         </View>
 
         <View style={styles.relatedCard}>
+          <ReviewPanel key={normalizeId(item._id)} product={normalizeId(item._id)} />
           <Text style={styles.relatedTitle}>Related Products</Text>
           {relatedProducts.length > 0 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>

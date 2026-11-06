@@ -17,6 +17,7 @@ import axios from 'axios';
 import { AuthContext } from '../../Context/store/Auth';
 import baseUrl from '../../assets/common/baseUrl';
 import { usdText } from '../../assets/common/exchangeRate';
+import ReviewPanel from '../../Shared/ReviewPanel';
 
 const STATUS_OPTIONS = [
   { label: 'New', value: 'new' },
@@ -122,6 +123,7 @@ const ServiceRequests = ({ navigation, route }) => {
         <Text style={styles.metaText}>Location: {item.serviceLocation || '—'}</Text>
         <Text style={styles.metaText}>Priority: {item.priority || 'Normal'}</Text>
         <Text style={styles.metaText}>Problem: {item.problemDescription || '—'}</Text>
+        {!isAdminMode && item.status === 'completed' ? <ReviewPanel kind="service" transaction={item._id} title="Review service fulfillment" /> : null}
         {item.quotedPrice !== null && item.quotedPrice !== undefined ? (
           <Text style={styles.quoteText}>
             Quote: {item.currency || ''} {item.quotedPrice} {item.quoteAccepted ? '(Accepted)' : ''}

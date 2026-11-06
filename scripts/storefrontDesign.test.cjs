@@ -37,7 +37,7 @@ function hooks() {
     useCallback: (fn) => fn,
     useMemo: (fn) => fn(),
     useEffect: (effect) => effects.push(effect),
-    useContext: () => ({}),
+    useContext: () => ({ settings: { products: true, rides: true } }),
   };
   return { react, effects, render: (component, props = {}) => { cursor = 0; return component(props); } };
 }
@@ -83,6 +83,9 @@ function catalog(width = 390, fail = false, nearest = false) {
     },
     "../../assets/common/getImageUrl": (product) => product.image,
     "../../assets/common/useCatalogPricing": () => ({ enabled: nearest, error: "", reload() {} }),
+    "../../assets/common/useFinancialHealth": () => ({ enabled: false, error: "" }),
+    "../../assets/common/reviews": { ReviewAvailabilityContext: {},
+      productRating: (product) => Number(product.verifiedReviewCount > 0 ? product.verifiedRating : product.rating || 0) },
     "./ProductList": "ProductList", "./SearchedProducts": "SearchedProducts",
     "./CategoriesFilter": "CategoriesFilter", "./AdvancedFilters": "AdvancedFilters",
   });
@@ -168,6 +171,9 @@ test("product cards retain regional cart identity, stop detail-navigation bubbli
     "../../assets/common/databaseConfig": { getDatabaseNameFromStorage: async () => "E_ShopUSA" },
     "../../assets/common/storefront": { useStoreCart: () => (product) => { added.push(product); return true; } },
     "../../assets/common/catalog": { getCatalogSettings: async () => ({ nearestStorePricingEnabled: false }) },
+    "../../assets/common/reviews": { ReviewAvailabilityContext: {},
+      productRating: (product) => Number(product.verifiedReviewCount > 0 ? product.verifiedRating : product.rating || 0),
+      productReviewCount: (product) => Number(product.verifiedReviewCount > 0 ? product.verifiedReviewCount : product.numReviews || 0) },
   });
   let tree = h.render(component, { ...products[0], storefrontId: "store", inventoryManaged: true });
   assert.ok(!text(tree).includes("4.8"));

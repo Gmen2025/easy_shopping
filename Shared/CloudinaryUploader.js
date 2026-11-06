@@ -10,6 +10,7 @@
  */
 
 import { Platform } from "react-native";
+import { getDatabaseNameFromStorage } from "../assets/common/databaseConfig";
 
 async function getSignature(serverUrl, params = {}, options = {}) {
   const normalized = (serverUrl || '').replace(/\/$/, '');
@@ -24,6 +25,7 @@ async function getSignature(serverUrl, params = {}, options = {}) {
 
   const uniqueUrls = [...new Set(urls)];
   const headers = { 'Content-Type': 'application/json' };
+  headers['x-database-name'] = await getDatabaseNameFromStorage();
   if (options.token) headers['Authorization'] = `Bearer ${options.token}`;
 
   let lastError;

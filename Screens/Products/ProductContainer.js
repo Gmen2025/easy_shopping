@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useRef } from "react";
+import React, { useState, useCallback, useMemo, useRef, useContext } from "react";
 import {
   View,
   StyleSheet,
@@ -27,6 +27,7 @@ import getImageUrl from "../../assets/common/getImageUrl";
 import Icon from "react-native-vector-icons/FontAwesome5";
 import useCatalogPricing from "../../assets/common/useCatalogPricing";
 import useFinancialHealth from "../../assets/common/useFinancialHealth";
+import { ReviewAvailabilityContext, productRating } from "../../assets/common/reviews";
 
 if (Platform.OS === "android" && !global.nativeFabricUIManager && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -35,6 +36,8 @@ if (Platform.OS === "android" && !global.nativeFabricUIManager && UIManager.setL
 const ProductContainer = (props) => {
   const pricing = useCatalogPricing();
   const financialHealth = useFinancialHealth();
+  const { settings: reviewSettings } = useContext(ReviewAvailabilityContext);
+  const hideRatings = reviewSettings?.products !== true;
   const hidePrices = pricing.enabled !== false;
   const { width: screenWidth } = useWindowDimensions();
   const columns = screenWidth >= 700 ? 4 : 2;
@@ -214,9 +217,9 @@ const ProductContainer = (props) => {
     }
 
     const minRating = parseFloat(advancedFilters.minRating);
-    if (!Number.isNaN(minRating)) {
+    if (!hideRatings && !Number.isNaN(minRating)) {
       currentProducts = currentProducts.filter(
-        (item) => Number(item.rating || 0) >= minRating
+        (item) => productRating(item) >= minRating
       );
     }
 
@@ -230,8 +233,8 @@ const ProductContainer = (props) => {
       currentProducts.sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
     } else if (!hidePrices && advancedFilters.sortBy === "priceDesc") {
       currentProducts.sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
-    } else if (advancedFilters.sortBy === "ratingDesc") {
-      currentProducts.sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0));
+    } else if (!hideRatings && advancedFilters.sortBy === "ratingDesc") {
+      currentProducts.sort((a, b) => productRating(b) - productRating(a));
     } else if (advancedFilters.sortBy === "nameAsc") {
       currentProducts.sort((a, b) =>
         String(a.name || "").localeCompare(String(b.name || ""))
@@ -239,7 +242,7 @@ const ProductContainer = (props) => {
     }
 
     return currentProducts;
-  }, [products, selectedCategoryId, searchKeyword, advancedFilters, hidePrices]);
+  }, [products, selectedCategoryId, searchKeyword, advancedFilters, hidePrices, hideRatings]);
 
   const featuredProducts = useMemo(() => {
     const rankedProducts = [...products]
@@ -253,7 +256,7 @@ const ProductContainer = (props) => {
         return isFeatured && Number(item.countInStock || 0) > 0;
       })
       .sort((a, b) => {
-        const ratingDiff = Number(b.rating || 0) - Number(a.rating || 0);
+        const ratingDiff = hideRatings ? 0 : productRating(b) - productRating(a);
         if (ratingDiff !== 0) {
           return ratingDiff;
         }
@@ -263,7 +266,7 @@ const ProductContainer = (props) => {
       });
 
     return rankedProducts;
-  }, [products, hidePrices]);
+  }, [products, hidePrices, hideRatings]);
 
   const changeCtg = (ctg) => {
     if (ctg === "all") {
@@ -359,6 +362,7 @@ const ProductContainer = (props) => {
         </View>
       </TouchableOpacity>
       <AdvancedFilters
+        hideRatings={hideRatings}
         hidePrices={hidePrices}
         visible={showAdvancedFilters}
         filters={advancedFilters}

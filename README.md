@@ -59,6 +59,50 @@ Focused mobile checks:
 `node --test scripts/catalogPricing.test.cjs scripts/storefrontDesign.test.cjs scripts/storefront.test.cjs scripts/adminProducts.test.cjs`.
 Native bundling: `npx expo export --platform android`.
 
+## Verified customer and ride reviews
+
+**Admin > Review settings** controls product, delivery, ride and service reviews
+independently for the selected region. Each defaults off. Off hides reviews,
+ratings and rating filters and blocks server submissions; saved reviews remain.
+Open clients refresh availability every 30 seconds and on return to the app.
+
+Customers review purchased products and delivery experience from delivered
+orders, drivers from completed rides, and fulfillment from completed service
+requests. Drivers review customers from completed ride history. Each participant
+can submit one immutable review per transaction and product/subject: 1-5 whole
+stars and optional text up to 2000 characters. Cancelled, terminated, unfinished
+and unrelated transactions cannot be reviewed. Product details show the latest
+50 reviews and the aggregate of all verified reviews. Product card ratings are
+recalculated from verified reviews after the first submission, replacing any
+previous manually entered rating. Admin can view the latest 100 reviews per type.
+Verified rating/count fields remain authoritative even if legacy manual catalog
+rating fields are edited. Enabling a switch builds the duplicate-prevention indexes
+and fails explicitly if they cannot be installed.
+
+Ride booking prompts for an optional customer photo with **Take photo**,
+**Choose photo** or **Skip for now**. Photos can be updated later from booking.
+The assigned driver sees the customer's photo, joined date and ride reviews;
+the assigned customer sees the driver's photo, joined date, reviews, vehicle
+make/model/type/color and registration plate. Missing photos/details remain
+explicitly unavailable; no driver's-license document number is displayed.
+Historical joined dates use the profile record's ObjectId creation timestamp.
+Product review text is public without reviewer names. Ride text is shown to
+assigned participants; admins can inspect reviews for operational oversight.
+
+Deploy the matching backend and website together before enabling a switch.
+The regional `Review` indexes must be built, including the partial unique
+`kind/transaction/author/subject` index. Existing store reviews are not migrated
+or deleted. MongoDB replica-set transactions are required to serialize
+submissions with disabling a switch and update product aggregates atomically.
+Public API: `GET /reviews/settings`, `GET /reviews/products/:id`.
+Authenticated API: `GET /reviews/context?kind=&transaction=&product=`,
+`POST /reviews`, `GET /rides/me/customer-profile`, `PUT /rides/me/customer-profile`.
+Current admins use `PUT /reviews/settings` and `GET /reviews/admin?kind=`.
+Upload signing uses authenticated `/cloudinary/sign` with `customer_profiles`
+or authorized `driver_profiles`; signer requests preserve the selected region.
+
+Focused checks: `node --test scripts/reviews.test.cjs scripts/rides.test.cjs`.
+
 ## Customer Financial Health service
 
 **Financial Health** is a separate customer business branch. When enabled, its

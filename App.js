@@ -21,6 +21,7 @@ import { MaintenanceProvider } from "./Context/store/MaintenanceContext";
 import MaintenanceWrapper from "./Navigators/MaintenanceWrapper";
 
 import Header from "./Shared/Header";
+import ReviewAvailabilityProvider from "./Shared/ReviewAvailabilityProvider";
 import { attachDatabaseInterceptor } from "./assets/common/attachDatabaseInterceptor";
 import { mergeNotificationItems } from "./assets/common/notificationInbox";
 import {
@@ -338,7 +339,7 @@ export default function App() {
                 <View style={styles.navLayer}>
                   <NavigationContainer ref={navigationRef} key={`db-${dbRefreshKey}`}
                     onReady={updateCurrentScreen} onStateChange={updateCurrentScreen}>
-                    <MaintenanceWrapper />
+                    <ReviewAvailabilityProvider><MaintenanceWrapper /></ReviewAvailabilityProvider>
                     <Toast />
                   </NavigationContainer>
                 </View>

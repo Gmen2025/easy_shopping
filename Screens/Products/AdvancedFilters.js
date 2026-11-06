@@ -18,6 +18,7 @@ const AdvancedFilters = ({
   onReset,
   onToggle,
   hidePrices = false,
+  hideRatings = false,
 }) => {
   if (!visible) {
     return null;
@@ -71,7 +72,7 @@ const AdvancedFilters = ({
         </View>
       </View>
 
-      <View style={styles.field}>
+      {!hideRatings ? <View style={styles.field}>
         <Text style={styles.label}>Minimum Rating</Text>
         <View style={styles.pickerWrapper}>
           <Picker
@@ -87,20 +88,21 @@ const AdvancedFilters = ({
             <Picker.Item label="5" value="5" />
           </Picker>
         </View>
-      </View>
+      </View> : null}
 
       <View style={styles.field}>
         <Text style={styles.label}>Sort By</Text>
         <View style={styles.pickerWrapper}>
           <Picker
             mode="dropdown"
-            selectedValue={hidePrices && ["priceAsc", "priceDesc"].includes(filters.sortBy) ? "relevance" : filters.sortBy}
+            selectedValue={(hidePrices && ["priceAsc", "priceDesc"].includes(filters.sortBy)) ||
+              (hideRatings && filters.sortBy === "ratingDesc") ? "relevance" : filters.sortBy}
             onValueChange={(value) => onFilterChange("sortBy", value)}
           >
             <Picker.Item label="Relevance" value="relevance" />
             {!hidePrices ? <Picker.Item label="Price: Low to High" value="priceAsc" /> : null}
             {!hidePrices ? <Picker.Item label="Price: High to Low" value="priceDesc" /> : null}
-            <Picker.Item label="Top Rated" value="ratingDesc" />
+            {!hideRatings ? <Picker.Item label="Top Rated" value="ratingDesc" /> : null}
             <Picker.Item label="Name: A to Z" value="nameAsc" />
           </Picker>
         </View>

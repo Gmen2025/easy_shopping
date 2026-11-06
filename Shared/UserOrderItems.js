@@ -5,6 +5,7 @@ import axios from "axios";
 import baseUrl from "../assets/common/baseUrl";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCurrency } from "../assets/common/currency";
+import ReviewPanel from "./ReviewPanel";
 
 const UserOrderItems = (props) => {
   const [orderItems, setOrderItems] = useState([]);
@@ -57,6 +58,8 @@ const UserOrderItems = (props) => {
                 Price: {formatPrice(item.product?.price || 0)}
               </Text>
               <Text>Subtotal: {formatPrice((item.product?.price || 0) * (item.quantity || 1))}</Text>
+              {props.canReview && (item.product?._id || item.product?.id) ? <ReviewPanel
+                transaction={orderId} product={item.product._id || item.product.id} title={`Review ${item.product.name || "product"}`} /> : null}
             </View>
           </View>
         ))

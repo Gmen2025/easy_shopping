@@ -17,6 +17,7 @@ import UserOrderItems from "./UserOrderItems";
 import { useCurrency } from "../assets/common/currency";
 import { deliveryModeLabel, formatScheduledDeliveryDate } from "../assets/common/delivery";
 import { DeliveryPricingReceipt, ExchangeReceipt, InternationalReceipt } from "./DeliveryCheckout";
+import ReviewPanel from "./ReviewPanel";
 
 const OrderCard = (props) => {
   const context = useContext(AuthContext);
@@ -596,7 +597,8 @@ const OrderCard = (props) => {
         <Text variant="bodyLarge" style={styles.label}>
           Order Items: {orderItemsCount}
         </Text>
-        <UserOrderItems orderId={props._id} />
+        <UserOrderItems orderId={props._id} canReview={!props.editMode && isDeliveredOrder} />
+        {!props.editMode && isDeliveredOrder ? <ReviewPanel kind="delivery" transaction={props._id} title="Review delivery experience" /> : null}
         <View style={styles.priceContainer}>
           <Text>Total Price: </Text>
           <Text style={styles.price}>{formatPrice(props.totalPrice)}</Text>

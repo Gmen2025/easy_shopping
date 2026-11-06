@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useContext } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import { useCurrency } from "../../assets/common/currency";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import { useStoreCart } from "../../assets/common/storefront";
 import { getCatalogSettings } from "../../assets/common/catalog";
+import { ReviewAvailabilityContext, productRating, productReviewCount } from "../../assets/common/reviews";
 
 const ProductCard = (props) => {
   const { name, price, image, countInStock } = props;
@@ -20,8 +21,9 @@ const ProductCard = (props) => {
   const addStoreProduct = useStoreCart();
   const { formatPrice } = useCurrency();
   const stockCount = Number(countInStock || 0);
-  const rating = Number(props.rating);
-  const reviewCount = Number(props.numReviews);
+  const rating = productRating(props);
+  const reviewCount = productReviewCount(props);
+  const { settings } = useContext(ReviewAvailabilityContext);
 
   const handleAddToCart = async (event) => {
     event?.stopPropagation?.();
@@ -80,7 +82,7 @@ const ProductCard = (props) => {
       <Text style={styles.title} numberOfLines={2}>
         {name}
       </Text>
-      {Number.isFinite(rating) && rating > 0 ? <View style={styles.ratingRow}>
+      {settings?.products && Number.isFinite(rating) && rating > 0 ? <View style={styles.ratingRow}>
         <Icon name="star" solid size={12} color="#F2BD00" />
         <Text style={styles.ratingText}>{rating.toFixed(1)}{Number.isFinite(reviewCount) && reviewCount > 0 ? ` (${reviewCount})` : ""}</Text>
       </View> : null}

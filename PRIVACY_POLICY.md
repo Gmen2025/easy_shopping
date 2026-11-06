@@ -1,6 +1,6 @@
 # Privacy Policy for AdduGenet EShop
 
-**Last updated: October 23, 2026**
+**Last updated: November 6, 2026**
 
 ## 1. About this policy
 
@@ -31,6 +31,8 @@ If you provide another person's delivery or contact information, ensure you are 
 ### Rides, business roles, and service requests
 
 Ride records can include pickup/drop-off locations, intermediate stops, route estimates, seats, shared/regular ride selection, driver assignment, trip progress and timestamps, cancellations, fares, and payment records.
+
+Ride customers may take or upload an optional profile photo, or skip without losing booking access. Assigned ride participants can see one another's photo, joined date and ride ratings/review text. Customers also see the assigned driver's car make/model/type/color and registration plate, not a driver's-license document number. Authorized admins can inspect reviews for operational oversight. Product review text is public without reviewer names; delivery and service feedback is available to its author and authorized admins. Reviews include 1-5 stars, optional text and the completed transaction reference. Disabling a review feature hides its feedback without deleting it. Photos use Cloudinary storage; do not upload another person's image without permission or include private information in review text.
 
 Driver/store applications and operations can include business/contact details, approval decisions, availability, driver photos, vehicle make/model, registration plate, insurance details, store/branch locations, and financial records.
 

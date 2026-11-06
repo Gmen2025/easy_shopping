@@ -114,6 +114,10 @@ function harness(file, request, params = {}, auth = { isAuthenticated: true, loa
     "../../Shared/DeliveryCheckout": { styles: {} },
     "../../Context/store/Auth": { AuthContext: {} },
     "../../Shared/RideRouteMap": { __esModule: true, default: "RideRouteMap" },
+    "../../Shared/RideCustomerPhoto": { __esModule: true, default: "RideCustomerPhoto" },
+    "../../Shared/ReviewPanel": { __esModule: true, default: "ReviewPanel" },
+    "../../assets/common/reviews": { ReviewAvailabilityContext: {} },
+    "../../Shared/RideParticipantProfile": { __esModule: true, default: "RideParticipantProfile" },
     "../../Shared/AddressSearchInput": { __esModule: true, default: "AddressSearchInput" },
   }, { setInterval: (callback, delay) => { timers.push(callback); timerDelays.push(delay); return timers.length; }, clearInterval: () => {} });
   const render = () => {

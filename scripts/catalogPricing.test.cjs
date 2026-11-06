@@ -142,6 +142,7 @@ function details({ enabled = true, lookup = async () => nearest, storefrontId, l
     "expo-location": location,
     "../../Shared/StyledComponenets/EasyButton": "EasyButton",
     "../../Shared/StyledComponenets/TrafficLight": "TrafficLight",
+    "../../Shared/ReviewPanel": "ReviewPanel",
     "react-native-toast-message": { show() {} },
     "../../assets/common/getImageUrl": (value) => typeof value === "string" ? value : value.image,
     "../../assets/common/currency": { useCurrency: () => ({ formatPrice: (value) => `ETB ${value}` }) },

@@ -13,6 +13,7 @@ import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import { styles } from "../../Shared/DeliveryCheckout";
 import RideRouteMap from "../../Shared/RideRouteMap";
 import AddressSearchInput from "../../Shared/AddressSearchInput";
+import RideCustomerPhoto from "../../Shared/RideCustomerPhoto";
 
 const fields = [["label", "Stop label"], ["address1", "Street address / landmark"], ["address2", "Apartment / unit (optional)"],
   ["city", "City"], ["zip", "ZIP code"], ["country", "Country"]];
@@ -376,6 +377,7 @@ export default function RideBooking({ navigation }) {
       {step < 2 ? <>
       <View style={ui.intro}>
         <Text style={ui.title}>{step === 0 ? "Where would you like to go?" : "Map & multiple stops"}</Text>
+        {step === 0 ? <RideCustomerPhoto /> : null}
         <Text style={ui.subtitle}>{step === 0 ? "Add your pickup and destination to get a ride estimate." :
           "Choose a stop, then tap the map to set its location. Stops are served in the order shown."}</Text>
       </View>
