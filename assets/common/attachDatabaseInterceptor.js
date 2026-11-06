@@ -12,6 +12,13 @@ const isApiRequest = (requestUrl) => {
   return requestUrl.startsWith(baseUrl);
 };
 
+const hasStrictRequestBody = (requestUrl) => {
+  const path = requestUrl.split(/[?#]/)[0];
+  return path === `${baseUrl}reviews` || path.startsWith(`${baseUrl}reviews/`) ||
+    path === `${baseUrl}cloudinary/sign` || path === `${baseUrl}cloudinary/sign/` ||
+    path === `${baseUrl}rides/me/customer-profile` || path === `${baseUrl}rides/me/customer-profile/`;
+};
+
 const appendDbQuery = (requestUrl, dbName) => {
   if (typeof requestUrl !== "string" || !requestUrl) {
     return requestUrl;
@@ -86,7 +93,7 @@ export const attachDatabaseInterceptor = () => {
     config.url = appendDbQuery(config.url, dbName);
 
     const method = (config.method || "get").toLowerCase();
-    if (!["get", "head", "options"].includes(method)) {
+    if (!["get", "head", "options"].includes(method) && !hasStrictRequestBody(requestUrl)) {
       config.data = attachDatabaseNameToJsonBody(config.data, dbName);
     }
 
@@ -122,7 +129,7 @@ export const attachDatabaseInterceptor = () => {
       body: init.body,
     };
 
-    if (!["GET", "HEAD", "OPTIONS"].includes(requestMethod)) {
+    if (!["GET", "HEAD", "OPTIONS"].includes(requestMethod) && !hasStrictRequestBody(requestUrl)) {
       requestInit.body = attachDatabaseNameToJsonBody(init.body, dbName);
     }
 

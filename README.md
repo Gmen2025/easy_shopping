@@ -98,8 +98,17 @@ Public API: `GET /reviews/settings`, `GET /reviews/products/:id`.
 Authenticated API: `GET /reviews/context?kind=&transaction=&product=`,
 `POST /reviews`, `GET /rides/me/customer-profile`, `PUT /rides/me/customer-profile`.
 Current admins use `PUT /reviews/settings` and `GET /reviews/admin?kind=`.
+Review writes use strict payloads: settings accept only boolean feature switches,
+and submissions accept only review fields. The mobile database interceptor routes
+these requests through `x-database-name` and `db`, without adding `databaseName`
+to their bodies. Focused mobile checks: `node --test scripts/reviews.test.cjs`.
 Upload signing uses authenticated `/cloudinary/sign` with `customer_profiles`
 or authorized `driver_profiles`; signer requests preserve the selected region.
+Ride photo signature bodies contain only `folder`. The database interceptor
+preserves signing parameters and sends regional routing in the header and query,
+not in the signing body.
+Customer photo saves likewise send only `profilePhotoUrl`, or `skip: true` when
+skipping, with regional routing kept outside the strict profile body.
 
 Focused checks: `node --test scripts/reviews.test.cjs scripts/rides.test.cjs`.
 
