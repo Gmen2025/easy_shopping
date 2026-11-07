@@ -32,12 +32,14 @@ import CatalogSettings from "../Screens/Admin/CatalogSettings";
 import FinancialManagement from "../Screens/Finance/FinancialManagement";
 import FinancialHealthSettings from "../Screens/Admin/FinancialHealthSettings";
 import ReviewSettings from "../Screens/Admin/ReviewSettings";
+import ServiceAvailabilitySettings from "../Screens/Admin/ServiceAvailabilitySettings";
 
 const Stack = createStackNavigator();
 
 function MyStack() {
   return (
     <Stack.Navigator initialRouteName="AdminDashboard">
+      <Stack.Screen name="ServiceAvailabilitySettings" component={ServiceAvailabilitySettings} options={{ title: "Service availability" }} />
       <Stack.Screen name="ReviewSettings" component={ReviewSettings} options={{ title: "Review settings" }} />
       <Stack.Screen name="FinancialHealthSettings" component={FinancialHealthSettings} options={{ title: "Financial Health service" }} />
       <Stack.Screen name="FinancialManagement" component={FinancialManagement} options={{ title: "Revenue and Expense Tracker" }} />

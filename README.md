@@ -2,6 +2,28 @@
 
 A full-featured React Native e-commerce mobile application built with Expo, featuring secure payments, order management, and admin capabilities.
 
+## Ride and service request availability
+
+Open **Admin > Service availability**, select **USA** or **Ethiopia**, and
+toggle **Ride service** / **Service requests** independently. Switches default
+ON to preserve existing behavior and supplement country maintenance mode.
+Ride fare configuration must also be enabled for new rides.
+
+OFF hides the corresponding home booking badge and blocks new requests on both
+mobile and website. The backend also rejects new submissions from stale/open
+forms. Existing trips and service requests can still be completed, cancelled,
+updated and paid; nothing is deleted. **Profile > My Rides** and **My Service
+Requests** remain accessible even when their booking badges are hidden.
+Availability refreshes on screen focus, app activation and every 30 seconds.
+Failed availability checks hide booking controls and show a retry action.
+
+Deploy the matching backend first: public `GET /settings/service-availability`
+returns `{ rides: boolean, services: boolean }`; admin `PUT` accepts partial
+boolean switches, scoped by `x-database-name`. Re-enabling restores new requests
+without changing saved fare settings or country maintenance mode.
+
+Checks: `node --test scripts/serviceAvailability.test.cjs scripts/rides.test.cjs`.
+
 The shared header shows the Addugenet icon between the shop title and country
 dropdown (32px on phones, 40px on larger screens). Below 390px, the title can
 wrap to two lines and the tagline/country abbreviation are hidden to preserve

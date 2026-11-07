@@ -66,12 +66,12 @@ const products = [
 ];
 const categories = [{ _id: "clothes", name: "Clothes" }, { _id: "home", name: "Home" }];
 
-function catalog(width = 390, fail = false, nearest = false) {
+function catalog(width = 390, fail = false, nearest = false, availability = { settings: { rides: true, services: true }, error: "", reload() {} }) {
   const h = hooks();
   const component = load("Screens\\Products\\ProductContainer.js", {
     react: h.react, "react-native": { ...native, useWindowDimensions: () => ({ width }) },
     "react-native-safe-area-context": { SafeAreaView: "SafeAreaView" },
-    "@react-navigation/native": { useFocusEffect: (effect) => { if (!h.effects.length) h.effects.push(effect); } },
+    "@react-navigation/native": { useIsFocused: () => true, useFocusEffect: (effect) => { if (!h.effects.length) h.effects.push(effect); } },
     "react-native-paper": { Searchbar: "Searchbar" },
     "react-native-vector-icons/FontAwesome5": "Icon",
     "../../assets/common/baseUrl": "https://example.invalid/",
@@ -84,6 +84,7 @@ function catalog(width = 390, fail = false, nearest = false) {
     "../../assets/common/getImageUrl": (product) => product.image,
     "../../assets/common/useCatalogPricing": () => ({ enabled: nearest, error: "", reload() {} }),
     "../../assets/common/useFinancialHealth": () => ({ enabled: false, error: "" }),
+    "../../assets/common/useServiceAvailability": () => availability,
     "../../assets/common/reviews": { ReviewAvailabilityContext: {},
       productRating: (product) => Number(product.verifiedReviewCount > 0 ? product.verifiedRating : product.rating || 0) },
     "./ProductList": "ProductList", "./SearchedProducts": "SearchedProducts",
@@ -116,6 +117,25 @@ test("home uses real catalog data, responsive columns and working service shortc
       assert.equal(ui.routes.at(-1)[0], route);
     }
   }
+});
+test("disabled services hide only their home booking badges and availability failures expose retry", async () => {
+  const availability = { settings: { rides: false, services: true }, error: "", reload() {} };
+  const ui = catalog(390, false, false, availability);
+  let tree = await ui.start();
+  assert.equal(labeled(tree, "Ride"), undefined);
+  assert.ok(labeled(tree, "Service Request"));
+  assert.ok(labeled(tree, "Store"));
+  availability.settings = { rides: true, services: false };
+  tree = ui.render();
+  assert.ok(labeled(tree, "Ride"));
+  assert.equal(labeled(tree, "Service Request"), undefined);
+  availability.settings = null;
+  availability.error = "Availability unavailable";
+  tree = ui.render();
+  assert.equal(labeled(tree, "Ride"), undefined);
+  assert.equal(labeled(tree, "Service Request"), undefined);
+  assert.ok(nodes(tree).some((node) => node.type === "Text" &&
+    /Availability unavailable.*Tap to retry service availability/.test(text(node))));
 });
 
 test("redesigned catalog preserves category, search and advanced filtering; view all resets them", async () => {
@@ -213,12 +233,14 @@ test("nearest-store mode hides catalog/search prices and ignores hidden-price fi
 
 test("header provides country, notification, menu and cart controls without dropping inbox actions", () => {
   const h = hooks(), routes = [];
+  const availability = { settings: { rides: true, services: true }, error: "", reload() {} };
   const component = load("Shared\\Header.js", {
     react: h.react, "react-native": { ...native, useWindowDimensions: () => ({ width: 390 }) },
     "react-native-safe-area-context": { SafeAreaView: "SafeAreaView" },
     "../Context/store/Auth": { AuthContext: {} }, "react-native-vector-icons/FontAwesome5": "Icon",
     axios: {}, "@react-native-async-storage/async-storage": {},
     "../assets/common/baseUrl": "https://example.invalid/",
+    "../assets/common/useServiceAvailability": () => availability,
     "../assets/common/databaseConfig": { COUNTRY_DB_MAP: {}, getDatabaseNameFromStorage: async () => "E_ShopUSA" },
     "./CartIcon": "CartIcon",
     "../assets/addugenet-header.png": "header-logo",
@@ -241,6 +263,11 @@ test("header provides country, notification, menu and cart controls without drop
   tree = h.render(component, props);
   assert.ok(nodes(tree).some((node) => node.type === "Modal" && node.props.visible));
   assert.ok(nodes(tree).some((node) => text(node) === "Mark all as read"));
+  availability.settings = { rides: false, services: false };
+  tree = h.render(component, props);
+  assert.ok(!nodes(tree).some((node) => node.type === "TouchableOpacity" && text(node) === "Book a ride"));
+  assert.ok(!nodes(tree).some((node) => node.type === "TouchableOpacity" && text(node) === "Service Request"));
+  assert.ok(nodes(tree).some((node) => node.type === "TouchableOpacity" && text(node) === "Account & orders"));
 });
 
 test("header places the supplied logo between brand text and country controls at phone and tablet sizes", () => {
@@ -252,6 +279,7 @@ test("header places the supplied logo between brand text and country controls at
       "../Context/store/Auth": { AuthContext: {} }, "react-native-vector-icons/FontAwesome5": "Icon",
       axios: {}, "@react-native-async-storage/async-storage": {},
       "../assets/common/baseUrl": "https://example.invalid/",
+      "../assets/common/useServiceAvailability": () => ({ settings: { rides: true, services: true }, error: "", reload() {} }),
       "../assets/common/databaseConfig": { COUNTRY_DB_MAP: {}, getDatabaseNameFromStorage: async () => "E_Shopping" },
       "./CartIcon": "CartIcon", "../assets/addugenet-header.png": "header-logo",
     });

@@ -23,6 +23,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import baseUrl from "../assets/common/baseUrl";
 import { COUNTRY_DB_MAP, getDatabaseNameFromStorage, setDatabaseNameInStorage } from "../assets/common/databaseConfig";
 import CartIcon from "./CartIcon";
+import useServiceAvailability from "../assets/common/useServiceAvailability";
 
 const DB_COUNTRY_MAP = {
     E_Shopping: "Ethio",
@@ -44,6 +45,7 @@ const Header = ({
     const compact = width < 500;
     const narrow = width < 390;
     const [menuVisible, setMenuVisible] = useState(false);
+    const availability = useServiceAvailability(true, menuVisible);
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     const [isNotificationModalVisible, setIsNotificationModalVisible] = useState(false);
     const [selectedCountry, setSelectedCountry] = useState('Ethio');
@@ -379,8 +381,8 @@ const Header = ({
                                 {[
                                     { label: "Home", tab: "Home", screen: "Home Screen", icon: "home" },
                                     { label: "Stores", tab: "Home", screen: "Stores", icon: "store" },
-                                    { label: "Book a ride", tab: "Home", screen: "RideBooking", icon: "car" },
-                                    { label: "Service Request", tab: "Home", screen: "Service Request", icon: "wrench" },
+                                    ...(availability.settings?.rides === true ? [{ label: "Book a ride", tab: "Home", screen: "RideBooking", icon: "car" }] : []),
+                                    ...(availability.settings?.services === true ? [{ label: "Service Request", tab: "Home", screen: "Service Request", icon: "wrench" }] : []),
                                     { label: "Cart", tab: "Cart", icon: "shopping-cart" },
                                     { label: "Account & orders", tab: "User", icon: "user" },
                                 ].map((item) => <TouchableOpacity key={item.label} style={styles.menuItem}
@@ -391,6 +393,9 @@ const Header = ({
                                     <Icon name={item.icon} size={18} color="#111111" />
                                     <Text style={styles.countryLabel}>{item.label}</Text>
                                 </TouchableOpacity>)}
+                                {availability.error ? <TouchableOpacity accessibilityRole="button" onPress={availability.reload}>
+                                    <Text accessibilityRole="alert">{availability.error} Tap to retry service availability.</Text>
+                                </TouchableOpacity> : null}
                             </View>
                         </TouchableWithoutFeedback>
                     </View>

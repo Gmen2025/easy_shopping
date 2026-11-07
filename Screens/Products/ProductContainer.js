@@ -13,7 +13,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 
 import baseUrl from "../../assets/common/baseUrl";
 import { getWithRetry, isServiceUnavailableError } from "../../assets/common/requestRetry";
@@ -27,6 +27,7 @@ import getImageUrl from "../../assets/common/getImageUrl";
 import Icon from "react-native-vector-icons/FontAwesome5";
 import useCatalogPricing from "../../assets/common/useCatalogPricing";
 import useFinancialHealth from "../../assets/common/useFinancialHealth";
+import useServiceAvailability from "../../assets/common/useServiceAvailability";
 import { ReviewAvailabilityContext, productRating } from "../../assets/common/reviews";
 
 if (Platform.OS === "android" && !global.nativeFabricUIManager && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -36,6 +37,7 @@ if (Platform.OS === "android" && !global.nativeFabricUIManager && UIManager.setL
 const ProductContainer = (props) => {
   const pricing = useCatalogPricing();
   const financialHealth = useFinancialHealth();
+  const availability = useServiceAvailability(useIsFocused());
   const { settings: reviewSettings } = useContext(ReviewAvailabilityContext);
   const hideRatings = reviewSettings?.products !== true;
   const hidePrices = pricing.enabled !== false;
@@ -309,9 +311,9 @@ const ProductContainer = (props) => {
       />
       <View style={styles.shoppingActions}>
         {[
-          { title: "Ride", detail: "Book a ride", icon: "car", open: () => props.navigation.navigate("RideBooking") },
+          ...(availability.settings?.rides === true ? [{ title: "Ride", detail: "Book a ride", icon: "car", open: () => props.navigation.navigate("RideBooking") }] : []),
           { title: "Store", detail: "Find nearby stores", icon: "store", open: () => props.navigation.navigate("Stores") },
-          { title: "Service Request", detail: "Book a technician", icon: "wrench", open: () => props.navigation.navigate("Service Request") },
+          ...(availability.settings?.services === true ? [{ title: "Service Request", detail: "Book a technician", icon: "wrench", open: () => props.navigation.navigate("Service Request") }] : []),
           ...(financialHealth.enabled === true ? [{ title: "Financial Health", detail: "Revenue & expenses", icon: "chart-line", open: () => props.navigation.navigate("FinancialHealth") }] : []),
         ].map((service) => (
           <TouchableOpacity key={service.title} style={styles.serviceAction} accessibilityRole="button"
@@ -328,6 +330,9 @@ const ProductContainer = (props) => {
           </TouchableOpacity>
         ))}
       </View>
+      {availability.error ? <TouchableOpacity accessibilityRole="button" onPress={availability.reload}>
+        <Text accessibilityRole="alert">{availability.error} Tap to retry service availability.</Text>
+      </TouchableOpacity> : null}
       {showCategories ? <>
         <View style={styles.sectionHeading}>
           <Text style={styles.sectionTitle}>Categories</Text>

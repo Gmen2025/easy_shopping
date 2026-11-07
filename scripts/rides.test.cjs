@@ -73,6 +73,9 @@ function harness(file, request, params = {}, auth = { isAuthenticated: true, loa
     "@react-native-picker/picker": { Picker: Object.assign((props) => ({ type: "Picker", props }), { Item: "PickerItem" }) },
     "@expo/vector-icons": { FontAwesome5: "FontAwesome5" },
     "@react-navigation/native": { useIsFocused: () => true },
+    "../../assets/common/useServiceAvailability": { __esModule: true, default: () => options.serviceAvailability || ({
+      settings: { rides: true, services: true }, error: "", reload: async () => {},
+    }) },
     "../../assets/common/usePaymentAvailability": { __esModule: true, default: () => ({
       methods: options.paymentMethods || { bank: true, cash: true, card: true, telebirr: true }, error: "",
     }) },
@@ -201,6 +204,21 @@ test("booking reloads after sign-in and still reports non-authentication errors"
   assert.ok(ui.button("Review map & stops"));
   const failing = harness("Screens\\Ride\\RideBooking.js", async () => {
     throw new Error("Network unavailable");
+  });
+  test("disabling ride availability hides a previously open booking form, but not existing ride history", async () => {
+    const availability = { settings: { rides: true, services: true }, error: "", reload: async () => {} };
+    const ui = harness("Screens\\Ride\\RideBooking.js", async () => policy, {}, undefined, { serviceAvailability: availability });
+    await ui.start();
+    assert.ok(ui.button("Review map & stops"));
+    availability.settings.rides = false;
+    assert.match(text(ui.render()), /New ride bookings are disabled/);
+    assert.equal(ui.button("Review map & stops"), undefined);
+    await ui.button("My rides & payments").props.onPress();
+    assert.equal(ui.navigations.at(-1)[0], "MyRides");
+    availability.settings = null;
+    availability.error = "Availability unavailable";
+    assert.match(text(ui.render()), /Availability unavailable/);
+    assert.equal(ui.button("Review map & stops"), undefined);
   });
   await failing.start();
   assert.equal(failing.dialogs[0][1], "Network unavailable");

@@ -11,16 +11,19 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import Toast from 'react-native-toast-message';
+import { useIsFocused } from '@react-navigation/native';
 
 import { AuthContext } from '../../Context/store/Auth';
 import Input from '../../Shared/Form/Input';
 import EasyButton from '../../Shared/StyledComponenets/EasyButton';
 import baseUrl from '../../assets/common/baseUrl';
+import useServiceAvailability from '../../assets/common/useServiceAvailability';
 
 const COUNTRY_OPTIONS = ['Ethiopia', 'USA'];
 const PRIORITY_OPTIONS = ['Low', 'Normal', 'High', 'Emergency'];
 
 const ServiceRequestForm = ({ navigation }) => {
+  const availability = useServiceAvailability(useIsFocused());
   const { user } = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -50,6 +53,10 @@ const ServiceRequestForm = ({ navigation }) => {
   };
 
   const submitRequest = async () => {
+    if (availability.settings?.services !== true) {
+      Alert.alert('Service unavailable', availability.error || 'New service requests are not available in this region.');
+      return;
+    }
     if (!user?._id && !user?.id) {
       Alert.alert('Login required', 'Please sign in first.');
       return;
@@ -105,6 +112,12 @@ const ServiceRequestForm = ({ navigation }) => {
     }
   };
 
+  if (availability.settings?.services !== true) return <View style={styles.screen}>
+    <Text style={styles.title}>{availability.settings ? 'New service requests are disabled in this region.' : 'Checking service availability...'}</Text>
+    {availability.error ? <Text accessibilityRole="alert">{availability.error}</Text> : null}
+    <TouchableOpacity accessibilityRole="button" onPress={availability.reload}><Text>Refresh availability</Text></TouchableOpacity>
+    <TouchableOpacity accessibilityRole="button" onPress={() => navigation?.goBack?.()}><Text>Back</Text></TouchableOpacity>
+  </View>;
   return (
     <View style={styles.screen}>
       <View style={styles.headerRow}>

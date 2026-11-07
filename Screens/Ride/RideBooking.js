@@ -14,6 +14,7 @@ import { styles } from "../../Shared/DeliveryCheckout";
 import RideRouteMap from "../../Shared/RideRouteMap";
 import AddressSearchInput from "../../Shared/AddressSearchInput";
 import RideCustomerPhoto from "../../Shared/RideCustomerPhoto";
+import useServiceAvailability from "../../assets/common/useServiceAvailability";
 
 const fields = [["label", "Stop label"], ["address1", "Street address / landmark"], ["address2", "Apartment / unit (optional)"],
   ["city", "City"], ["zip", "ZIP code"], ["country", "Country"]];
@@ -88,6 +89,7 @@ const steps = ["Your trip", "Map & stops", "Select ride", "Trip summary"];
 export default function RideBooking({ navigation }) {
   const { isAuthenticated, loading, logout, user } = useContext(AuthContext);
   const focused = useIsFocused();
+  const availability = useServiceAvailability(focused);
   const [needsSignIn, setNeedsSignIn] = useState(false);
   const [mode, setMode] = useState("regular");
   const [stops, setStops] = useState([newRideStop("pickup"), newRideStop("dropoff")]);
@@ -204,11 +206,11 @@ export default function RideBooking({ navigation }) {
     if (policy.enabled) await locatePickup(db);
   });
   useEffect(() => {
-    if (focused && isAuthenticated && !loading) {
+    if (focused && isAuthenticated && !loading && availability.settings?.rides === true) {
       setNeedsSignIn(false);
       load();
     }
-  }, [focused, isAuthenticated, loading]);
+  }, [focused, isAuthenticated, loading, availability.settings?.rides]);
   const update = (index, patch) => {
     invalidateQuotes();
     setStops((previous) => balanceRideStops(previous.map((stop, at) => at === index ? { ...stop, ...patch } : stop)));
@@ -257,6 +259,12 @@ export default function RideBooking({ navigation }) {
       if (needsSignIn) await logout();
       navigation.navigate("User", { screen: "Login" });
     })}>Sign in</Button>
+  </View>;
+  if (availability.settings?.rides !== true) return <View style={styles.content}>
+    <Text style={ui.title}>{availability.settings ? "New ride bookings are disabled in this region." : "Checking ride availability..."}</Text>
+    {availability.error ? <Text accessibilityRole="alert">{availability.error}</Text> : null}
+    <Button onPress={availability.reload}>Refresh availability</Button>
+    <Button onPress={() => navigation.navigate("MyRides")}>My rides & payments</Button>
   </View>;
   return <View style={ui.page}>
     {config?.enabled ? <View style={ui.mapBackground}>

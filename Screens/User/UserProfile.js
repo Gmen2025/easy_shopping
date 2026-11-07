@@ -206,6 +206,10 @@ const UserProfile = ({ navigation }) => {
         </Pressable>)}
       </View>
 
+      <Pressable accessibilityRole="button" accessibilityLabel="My rides and payments"
+        onPress={() => navigation.navigate("MyRides")} style={styles.card}>
+        <SectionHeading icon="car" color="#C49A00" title="My Rides" subtitle="Existing trips and payments" />
+      </Pressable>
       <View style={styles.card} onLayout={(event) => { orderCardOffset.current = event.nativeEvent.layout.y; }}>
         <SectionHeading icon="cube" color="#C49A00" title="Order List" subtitle="View and manage your orders"
           onPress={() => orderFilter ? setOrderFilter(null) : showOrders("all")} expanded={!!orderFilter} />

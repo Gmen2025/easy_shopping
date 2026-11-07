@@ -16,6 +16,7 @@ const hasStrictRequestBody = (requestUrl) => {
   const path = requestUrl.split(/[?#]/)[0];
   return path === `${baseUrl}reviews` || path.startsWith(`${baseUrl}reviews/`) ||
     path === `${baseUrl}cloudinary/sign` || path === `${baseUrl}cloudinary/sign/` ||
+    path === `${baseUrl}settings/service-availability` || path === `${baseUrl}settings/service-availability/` ||
     path === `${baseUrl}rides/me/customer-profile` || path === `${baseUrl}rides/me/customer-profile/`;
 };
 

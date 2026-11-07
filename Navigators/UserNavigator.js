@@ -18,6 +18,7 @@ import RoleSetupScreen from "../Screens/User/RoleSetupScreen";
 import ServiceRequests from "../Screens/Service/ServiceRequests";
 import MultiDeliveryCheckout from "../Screens/Cart/Checkout/MultiDeliveryCheckout";
 import DeliveryCheckouts from "../Screens/Cart/Checkout/DeliveryCheckouts";
+import MyRides from "../Screens/Ride/MyRides";
 
 const Stack = createStackNavigator();
 
@@ -37,6 +38,7 @@ const MyStack = () => {
           <Stack.Screen name="EditProfile" component={EditProfile} />
           <Stack.Screen name="SecuritySettings" component={SecuritySettings} options={{ gestureEnabled: false }} />
           <Stack.Screen name="ServiceRequests" component={ServiceRequests} />
+          <Stack.Screen name="MyRides" component={MyRides} options={{ headerShown: true, title: "My rides & payments" }} />
           <Stack.Screen name="ServiceUsdCheckout" component={MultiDeliveryCheckout} options={{ headerShown: false }} />
           <Stack.Screen name="MultiDeliveryCheckout" component={MultiDeliveryCheckout} options={{ headerShown: false }} />
           <Stack.Screen name="DeliveryCheckouts" component={DeliveryCheckouts} />
