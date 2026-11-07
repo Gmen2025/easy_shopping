@@ -17,6 +17,7 @@ import usePaymentAvailability from "../../../assets/common/usePaymentAvailabilit
 import { PAYMENT_UNAVAILABLE } from "../../../assets/common/paymentSettings";
 import { deliveryMethodOptions, deliveryModeLabel, getDeliverySettings } from "../../../assets/common/delivery";
 import { calculateDeliveryPricing, selectDeliveryVehicle } from "../../../assets/common/deliveryPricing";
+import PickupConfirmation from "../../../Shared/PickupConfirmation";
 
 const ADDRESS_FIELDS = [
   ["label", "Address label"], ["address1", "Street address"], ["address2", "Apartment / unit (optional)"],
@@ -98,6 +99,9 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
     setGroup(result);
     if (purchased && result.kind !== "service" && (result.status === "placed" || result.international && result.status === "bank_review")) dispatch(completeCheckout({ id: result._id,
       items: result.cart.map((line) => ({ key: line.key, quantity: line.quantity })) }));
+    if (result.status === "placed" && result.deliveries?.some((delivery) => delivery.fulfillmentMethod === "pickup") && !result.childOrders) {
+      setGroup(await storeRequest(`checkouts/${result._id}`));
+    }
   };
   const load = () => run(async () => {
     const db = await getDatabaseNameFromStorage();
@@ -246,13 +250,13 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
       throw new Error("This quote expired. Calculate a new quote before placing your order.");
     }
     if (!methods.some((option) => option.value === method)) throw new Error(availability.error || PAYMENT_UNAVAILABLE);
-    if (quote.deliveries.some((delivery) => !selections[delivery.key])) throw new Error("Choose a vehicle for every delivery before continuing.");
+    if (quote.deliveries.some((delivery) => (delivery.fulfillmentMethod !== "pickup" || quote.international) && !selections[delivery.key])) throw new Error("Choose a vehicle for every delivery before continuing.");
     if (!service && (items.some((item) => !quote.cart.some((line) => line.key === cartItemKey(item) && line.quantity === item.quantity)) ||
         items.length !== quote.cart.length)) throw new Error("Your cart changed. Request a fresh quote.");
     const result = await storeRequest(`checkouts/${quote._id}/prepare`, { method: "post", timeout: 60000, data: {
       method, bankAccountId: bankId,
       deliveryMode, scheduledFor: getScheduledFor(),
-      selections: quote.deliveries.map((delivery) => ({ key: delivery.key, vehicle: selections[delivery.key] })),
+      selections: quote.deliveries.filter((delivery) => delivery.fulfillmentMethod !== "pickup" || quote.international).map((delivery) => ({ key: delivery.key, vehicle: selections[delivery.key] })),
     } });
     await showGroup(result);
   });
@@ -268,15 +272,16 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
     if (result.error) throw new Error(`${result.error.message} This checkout keeps the same payment attempt. Check its payment status before retrying.`);
     await showGroup(await storeRequest(`checkouts/${group._id}/confirm`, { method: "post", timeout: 60000 }));
   });
-  const needsVehicleSelection = quote?.deliveries.some((delivery) => !selections[delivery.key]);
+  const needsVehicleSelection = quote?.deliveries.some((delivery) => (delivery.fulfillmentMethod !== "pickup" || quote.international) && !selections[delivery.key]);
   const pricing = calculateDeliveryPricing(quote?.deliveries || [], selections);
   const selectedFee = pricing.deliveryFee;
-  const previewTotal = (quote?.itemsSubtotal || 0) + selectedFee + (quote?.international?.shippingFee || 0);
+  const previewTotal = (quote?.itemsSubtotal || 0) + selectedFee + (quote?.international?.shippingFee || 0) + (quote?.finalDeliveryFee || 0);
   const methods = [
     { value: "bank", label: "Bank Transfer", description: "Verified by Admin after submitting your reference" },
     ...(!quote?.international && (/usa/i.test(database) || quote?.exchangeRate) && availableCard
       ? [{ value: "card", label: "Credit / Debit Card", description: "Secure card payment" }] : []),
-    ...(cashAvailable ? [{ value: "cash", label: "Cash on Delivery", description: "Pay separately when each delivery arrives" }] : []),
+    ...(cashAvailable ? [{ value: "cash", label: quote?.deliveries.some((delivery) => delivery.fulfillmentMethod === "pickup") ? "Cash on Delivery / Collection" : "Cash on Delivery",
+      description: "Pay separately on delivery or at store collection, according to each store's choice" }] : []),
   ].filter((option) => availability.methods?.[option.value] === true);
   const placed = group?.status === "placed";
   const shareOrder = () => run(async () => {
@@ -302,7 +307,7 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
       {placed ? <View style={checkoutStyles.successPanel}>
         <Text style={checkoutStyles.successTitle}>Order Placed Successfully!</Text>
         <Text style={checkoutStyles.note}>{group.paymentStatus === "completed" ? "Your payment is confirmed." :
-          group.paymentMethod === "cash" ? "Pay on each delivery. No online payment was taken." :
+          group.paymentMethod === "cash" ? "Pay on each delivery or at store collection. No online payment was taken." :
             "Your bank payment is pending Admin verification. Do not pay twice."}</Text>
         <Text selectable style={styles.heading}>Order #{String(group._id).toUpperCase()}</Text>
       </View> : group.status === "bank_review" ? <View style={styles.card}>
@@ -310,6 +315,8 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
         <Text>Your order is not confirmed for fulfillment until Admin verifies funds. Do not send another payment.</Text>
       </View> : null}
       <DeliverySummary group={group} />
+      {group.childOrders?.filter((order) => order.fulfillmentMethod === "pickup").map((order) =>
+        <PickupConfirmation key={order._id} order={order} onSaved={async () => setGroup(await storeRequest(`checkouts/${group._id}`))} />)}
       {group.status === "awaiting_payment" ? <View style={styles.card}>
         <Text style={styles.heading}>{service ? "Payment reserved until " : "Stock held until "}{new Date(group.expiresAt).toLocaleString()}</Text>
         <Text>Resume this checkout after an interrupted payment. Do not create a second payment.</Text>
@@ -349,7 +356,7 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
       <Text style={styles.heading}>Delivery addresses & quantities</Text>
       {international ? <Text>Enter Ethiopian recipient addresses. US stores deliver to the consolidation hub; Admin manages international shipping. Birr bank transfer only, verified before fulfillment. Import duties/customs are excluded.</Text> : null}
       {converted ? <Text>Pay in USD; all delivery addresses and pickups must be in Ethiopia.</Text> : null}
-      <Text>Allocate each unit to one address. Pickup stores are selected from price-matching stock near that destination. Storefront items stay within that store's branch family.</Text>
+      <Text>Allocate each unit to a destination. After stores are selected in the quote, choose collection or delivery independently for each store. Storefront items stay within that store's branch family.</Text>
       {addresses.map((address) => <View style={styles.card} key={address.id}>
         <Text style={styles.heading}>{address.label}</Text>
         <Text>{addressText({ ...address, zip: isEthiopia(address.country) ? "" : address.zip })}</Text>
@@ -445,6 +452,27 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
       {quote && step > 1 ? <>
         {step === 2 || service ? <>
         <Text>Quote expires {new Date(quote.expiresAt).toLocaleTimeString()}.</Text>
+        {!service ? <View style={styles.card}>
+          <Text style={styles.heading}>Pickup or delivery by store</Text>
+          <Text>Pickup has no domestic delivery charge. International pickup retains US hub delivery and shipping; only Ethiopia final delivery is omitted.</Text>
+          {[...new Map(quote.deliveries.map((delivery) => [delivery.store._id, delivery])).values()].map((delivery) => <View key={delivery.store._id}>
+            <Text>{delivery.store.name}</Text>
+            <Picker accessibilityLabel={`Fulfillment for ${delivery.store.name}`} enabled={!busy} selectedValue={delivery.fulfillmentMethod || "delivery"}
+              onValueChange={(value) => run(async () => {
+                const result = await storeRequest(`checkouts/${quote._id}/fulfillment`, { method: "post", timeout: 120000,
+                  data: { selections: [...new Map(quote.deliveries.map((entry) => [entry.store._id, {
+                    storeId: entry.store._id, method: entry.store._id === delivery.store._id ? value : entry.fulfillmentMethod || "delivery",
+                  }])).values()] } });
+                setQuote(result);
+                setSelections(Object.fromEntries(result.deliveries.map((entry) => [entry.key, entry.vehicle])));
+              })}>
+              <Picker.Item label="Delivery - delivery charges apply" value="delivery" />
+              <Picker.Item label={quote.international ? "Pickup in Ethiopia - shipping charges apply" : "Pickup from store - no delivery charge"} value="pickup"
+                enabled={!quote.international || Boolean(quote.international.tariff?.ethiopiaPickup)} />
+            </Picker>
+          </View>)}
+          {quote.international && !quote.international.tariff?.ethiopiaPickup ? <Text>Admin must configure an Ethiopia collection address before international pickup is available.</Text> : null}
+        </View> : null}
         {quote.storeRoutes?.map((route) => <View key={route.storeId} style={styles.card}>
           <Text style={styles.heading}>Delivery route from {route.storeName}</Text>
           <Text>One base fee and speed surcharge per store, plus the road route from this store through its drop-offs.
@@ -468,13 +496,15 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
           <Text style={styles.heading}>Pickup: {delivery.store.name}</Text>
           <Text selectable>Store ID: {delivery.store._id}</Text>
           <Text>{delivery.store.address}</Text>
-          <Text>{quote.international ? "US consolidation hub" : "Deliver to"}: {delivery.address.label} - {delivery.address.address1}, {delivery.address.city}</Text>
+          {delivery.fulfillmentMethod === "pickup" ? <Text selectable>Customer collection address: {delivery.pickupAddress?.address || addressText(delivery.pickupAddress)}
+            {delivery.pickupAddress?.phone ? ` | ${delivery.pickupAddress.phone}` : ""}. {quote.international ? "Shipping charges still apply." : "Delivery charge: zero."}</Text> : null}
+          <Text>{quote.international ? "US consolidation hub" : delivery.fulfillmentMethod === "pickup" ? "Recipient allocation" : "Deliver to"}: {delivery.address.label} - {delivery.address.address1}, {delivery.address.city}</Text>
           {delivery.lines.map((line) => <View key={line.product}>
             <Text>{line.quantity} x {line.name}</Text>
             <PackageMeasurements size={line.packageSize} />
           </View>)}
-          {!quote.cartRoute ? <Text>Road distance: {(/usa/i.test(database) ? delivery.distanceKm / 1.609344 : delivery.distanceKm).toFixed(2)} {/usa/i.test(database) ? "mi" : "km"}</Text> : null}
-          {delivery.defaultFallback ? <Text>Queued for the default store after purchase, even if it is offline. The store must claim and prepare it before dispatch.</Text> : null}
+          {!quote.cartRoute && (delivery.fulfillmentMethod !== "pickup" || quote.international) ? <Text>Road distance: {(/usa/i.test(database) ? delivery.distanceKm / 1.609344 : delivery.distanceKm).toFixed(2)} {/usa/i.test(database) ? "mi" : "km"}</Text> : null}
+          {delivery.defaultFallback ? <Text>{delivery.fulfillmentMethod === "pickup" && !quote.international ? "Collection stays pinned to this default store, even while offline." : "Queued for the default store after purchase, even if it is offline. The store must claim and prepare it before dispatch."}</Text> : null}
           {delivery.pricingGroup?.kind === "store-route" ? <Text>
             This drop-off's delivery share: {formatPrice(pricing.byKey[delivery.key].deliveryFee)}.
             Complete route from this store: {formatPrice(pricing.byKey[delivery.key].sharedFee)}. Additional drop-offs extend this store's route, not a second base fee.
@@ -484,6 +514,7 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
               ? `Shared delivery fee: ${formatPrice(pricing.byKey[delivery.key].sharedFee)} for ${pricing.byKey[delivery.key].storeCount} nearby stores using the same vehicle type, priced from ${pricing.byKey[delivery.key].storeName}. This store's share: ${formatPrice(pricing.byKey[delivery.key].deliveryFee)}.`
               : `Delivery fee for this store: ${formatPrice(pricing.byKey[delivery.key].deliveryFee)} (once for all its products).`}
           </Text> : null}
+          {(delivery.fulfillmentMethod !== "pickup" || quote.international) ? <>
           <CargoSummary cargo={delivery.cargo} />
           {delivery.requiresVehicleSelection || !delivery.vehicle ? <Text>Some packaged measurements are not available currently.
             Choose a vehicle manually. Full load capacity cannot be verified; available options account for known measurements.</Text> :
@@ -498,12 +529,13 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
             {delivery.requiresVehicleSelection || !delivery.vehicle ? <Picker.Item label="Choose a vehicle..." value="" /> : null}
             {delivery.vehicleOptions.map((option) => <Picker.Item key={option.type} label={`${option.type === "car" ? "Car" : option.type} - ${formatPrice(option.fee)}${delivery.pricingGroup?.kind === "store-route" ? " complete store route" : quote.cartRoute ? " entire cart route" : delivery.pricingGroup ? " before nearby-store sharing" : ""}`} value={option.type} />)}
           </Picker>
+          </> : null}
         </View>)}
         <DeliveryWindow value={quote} />
         </> : null}
         <View style={styles.card}>
           <Text>Products: {formatPrice(quote.itemsSubtotal)} | Delivery{needsVehicleSelection ? " estimate from" : ""}: {formatPrice(selectedFee)}</Text>
-          {quote.international ? <Text>International shipping: {formatPrice(quote.international.shippingFee)}. Charged once per recipient shipment, including final address delivery.</Text> : null}
+          {quote.international ? <Text>International shipping: {formatPrice(quote.international.shippingFee)}. Ethiopia final delivery: {formatPrice(quote.finalDeliveryFee || 0)}. Pickup keeps shipping charges but omits final delivery.</Text> : null}
           <Text style={styles.heading}>Combined total{needsVehicleSelection ? " estimate from" : ""}: {formatPrice(previewTotal)}</Text>
           {quote.exchangeRate ? <>
             <Text style={styles.heading}>{quote.international ? "Birr" : "USD"} payment estimate: {quote.international ?
@@ -552,6 +584,7 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
               <Text style={styles.heading}>{delivery.address.label}</Text>
               <Text>{addressText(delivery.address)}</Text><Text>{delivery.address.phone}</Text>
               <Text>Pickup: {delivery.store.name} | Vehicle: {selections[delivery.key]}</Text>
+              {delivery.fulfillmentMethod === "pickup" ? <Text selectable>Collect from: {delivery.pickupAddress?.address || addressText(delivery.pickupAddress)}</Text> : null}
               {delivery.lines.map((line) => {
                 const item = items.find((entry) => (entry._id || entry.id) === line.product);
                 return <View key={line.product} style={checkoutStyles.row}>
@@ -570,7 +603,7 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
           <Text>{quote.international ? "ETB bank transfer only. Submit your transfer reference before the hold expires. Stores cannot fulfill until Admin verifies funds. After submission the reservation stays held for Admin review." :
             service ? "The Admin service quote is locked when you continue. Submitted or paid service payments require support review for cancellation/refund." :
             quote.exchangeRate ? "All stock is reserved together. Pay one locked USD total by card or USD bank transfer; there is no cash option." :
-              "All stock is reserved together. An unavailable line cancels the entire reservation attempt. Cash is collected separately on each delivery."}</Text>
+              "All stock is reserved together. An unavailable line cancels the entire reservation attempt. Cash is collected separately on delivery or at store collection."}</Text>
         </View>
       </> : null}
     </>}

@@ -9,7 +9,12 @@ export const selectDeliveryVehicle = (deliveries, selections, delivery, vehicle)
 
 export const calculateDeliveryPricing = (deliveries, selections = {}) => {
   const groups = new Map();
+  const byKey = {};
   for (const delivery of deliveries) {
+    if (delivery.fulfillmentMethod === "pickup" && !delivery.internationalPickup) {
+      byKey[delivery.key] = { deliveryFee: 0, sharedFee: 0, storeCount: 1, destinationCount: 0, storeName: delivery.store.name };
+      continue;
+    }
     const vehicle = selections[delivery.key] || delivery.vehicle;
     const option = vehicle
       ? delivery.vehicleOptions?.find((entry) => entry.type === vehicle)
@@ -26,7 +31,6 @@ export const calculateDeliveryPricing = (deliveries, selections = {}) => {
     }
     groups.get(key).push({ delivery, fee: option?.fee ?? delivery.deliveryFee ?? 0, vehicle: option?.type || vehicle });
   }
-  const byKey = {};
   let total = 0;
   for (const members of groups.values()) {
     members.sort((a, b) => a.delivery.distanceKm - b.delivery.distanceKm || a.delivery.key.localeCompare(b.delivery.key));

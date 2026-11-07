@@ -2,6 +2,36 @@
 
 A full-featured React Native e-commerce mobile application built with Expo, featuring secure payments, order management, and admin capabilities.
 
+## Customer pickup or delivery
+
+In checkout's **Delivery** step, choose **Pickup from store** or **Delivery**
+independently for every actual supplying store. Enter destination allocations
+to match stock first, then review the recalculated total after changing each
+store's fulfillment choice. Domestic pickup has no delivery/speed fee or
+vehicle selection; its collection address appears in checkout. Existing orders
+remain delivery.
+
+Customers enter a handover note and confirm actual collection in checkout status
+or **My multi-delivery checkouts**. Store owners confirm handover in **Store
+assignments**; Admin can confirm from assignments or the payment/checkout manager.
+Both independent confirmations are shown. Noncash payment must be verified
+before collection; domestic stock/cash settle only after both parties confirm.
+Pickup stays at the displayed store, without driver dispatch or automatic
+rerouting/response expiry. Cancel/refund through checkout before either party
+confirms collection, or contact support to reconcile a reported handover.
+
+USA-to-Ethiopia pickup is at the configured **Ethiopia collection address**.
+US store-to-hub and international shipping charges still apply. Admin's USA
+international shipping screen configures this optional collection address/contact
+and a separate **Ethiopia final delivery per recipient (USD)** fee, initially
+zero. Final delivery is charged only to delivery products, once per recipient
+with any delivery products. Customers cannot confirm international collection
+until arrival in Ethiopia. Customs/duties are excluded.
+
+Deploy the matching backend first. Prepared payments keep their saved fees and
+addresses; interrupted requests can be recovered from the same checkout.
+Checks: `node --test scripts\multiDeliveryCheckout.test.cjs scripts\storeAssignments.test.cjs scripts\pickupConfirmation.test.cjs`.
+
 ## Ride and service request availability
 
 Open **Admin > Service availability**, select **USA** or **Ethiopia**, and
@@ -664,7 +694,7 @@ Focused checks: `node --test scripts/authentication.test.cjs`.
   shipping and final delivery to each Ethiopian address. The driver map tracks
   only the US pickup-to-hub leg. **At US hub is not final recipient delivery.**
 - Checkout displays USD product costs, US hub-delivery fees and international
-  shipping, followed by the converted ETB payment. Shipping is charged once per
+  shipping and any configured Ethiopia final-delivery fee, followed by the converted ETB payment. Shipping is charged once per
   recipient, based on the greater of actual or volumetric packaged weight.
   Vehicle upgrades affect only domestic hub-delivery fees. **Import/customs
   duties and clearance charges are excluded and paid separately by the recipient.**

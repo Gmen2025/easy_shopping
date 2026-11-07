@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, FlatList, Image, StyleSheet, Text, TextInput,
 import { useFocusEffect } from "@react-navigation/native";
 import { apiRequest, storeRequest } from "../../assets/common/storefront";
 import { useCurrency } from "../../assets/common/currency";
+import PickupConfirmation from "../../Shared/PickupConfirmation";
 
 const StoreAssignments = ({ route, navigation } = {}) => {
   const admin = route?.params?.admin === true;
@@ -71,7 +72,7 @@ const StoreAssignments = ({ route, navigation } = {}) => {
     } finally { actionInFlight.current = false; setActingId(""); }
   };
   const selected = orders.filter((order) => selectedIds.includes(order._id));
-  const selectable = (order) => order.storeRouteVersion === 1 && order.fulfillmentStatus === "accepted" &&
+  const selectable = (order) => !(order.fulfillmentMethod === "pickup" && !order.internationalShipping) && order.storeRouteVersion === 1 && order.fulfillmentStatus === "accepted" &&
     order.storeReadyAt && !order.storeDispatchBatch && !order.driver;
   return (
     <FlatList style={styles.screen} contentContainerStyle={styles.content}
@@ -88,11 +89,12 @@ const StoreAssignments = ({ route, navigation } = {}) => {
       ListEmptyComponent={loading ? <ActivityIndicator /> : <Text>No active assignments.</Text>}
       renderItem={({ item: order }) => {
         const fallback = Boolean(order.fallbackStore);
+        const pickup = order.fulfillmentMethod === "pickup" && !order.internationalShipping;
         const store = fallback ? order.fallbackStore : order.assignedStoreSnapshot;
         const seconds = Math.max(0, Math.ceil((new Date(order.fulfillmentDeadline).getTime() - now) / 1000));
         const rejected = order.adminReviewRequired === "store";
         const driverRejections = (order.companyDriverResponses || []).filter((response) => response.status === "rejected" && response.action !== "reroute");
-        const driverManageable = (order.storeDispatchBatch || !order.storeRouteVersion && (!order.inventoryManaged || order.fulfillmentStatus === "accepted")) &&
+        const driverManageable = !pickup && (order.storeDispatchBatch || !order.storeRouteVersion && (!order.inventoryManaged || order.fulfillmentStatus === "accepted")) &&
           ["Pending", "Driver Assigned"].includes(order.deliveryStatus) &&
           !["completed", "cancelled", "payment_pending"].includes(order.fulfillmentStatus) && !rejected && !order.fallbackStore;
         const active = !["completed", "cancelled", "payment_pending"].includes(order.fulfillmentStatus) &&
@@ -101,6 +103,11 @@ const StoreAssignments = ({ route, navigation } = {}) => {
           {store?.logo ? <Image source={{ uri: store.logo }} style={styles.logo} /> : null}
           <Text style={styles.heading}>Order #{order._id.slice(-6).toUpperCase()}</Text>
           <Text>{store?.name}</Text><Text>{store?.address}</Text><Text selectable>Store ID: {store?.storeId || store?._id}</Text>
+          <PickupConfirmation order={order} party="operator" onSaved={async () => {
+            const result = await storeRequest(`${scope}/assignments`);
+            if (!Array.isArray(result)) throw new Error("The server returned an invalid assignment list.");
+            setOrders(result);
+          }} />
           {order.checkoutGroup ? <Text selectable>Combined checkout: {order.checkoutGroup}</Text> : null}
           {order.requiredVehicle ? <Text>{order.storeDispatchBatch ? "Priced vehicle" : "Delivery vehicle"}: {order.requiredVehicle}</Text> : null}
           {order.driver ? <Text>Assigned driver: {String(order.driver)}</Text> : order.companyOfferDriver ? <Text>Company-driver offer: {String(order.companyOfferDriver)} (persists offline)</Text> : null}
@@ -115,12 +122,12 @@ const StoreAssignments = ({ route, navigation } = {}) => {
           {order.storeDispatchBatch ? <Text>Drivers may claim this batch now, including before its delivery window. The saved delivery schedule and fee stay unchanged.</Text> : null}
           {(order.orderItems || []).map((line) => <Text key={line._id}>{line.quantity} x {line.product?.name || "Product"} - {line.unitPrice != null || line.product?.price != null ? formatPrice(line.unitPrice ?? line.product.price) : "Price unavailable"}</Text>)}
           <Text>Products: {formatPrice(order.itemsSubtotal)}</Text>
-          <Text>{rejected ? `Rejected - Admin review | ${order.fulfillmentStatus}` : fallback ? "Default-store fallback - awaiting a decision (no expiry)" : order.fulfillmentStatus === "accepted" ? order.storeDispatchBatch ? "Dispatched to drivers" : order.storeReadyAt ? "Ready for dispatch" : "Claimed - prepare the package, then tap Mark package ready" : order.fulfillmentStatus === "pending" ? `Respond within ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}` : `Delivery status: ${order.deliveryStatus} | ${order.fulfillmentStatus || order.status}`}</Text>
+          <Text>{pickup ? "Customer collection - no driver dispatch or response expiry. Prepare for handover at this store." : rejected ? `Rejected - Admin review | ${order.fulfillmentStatus}` : fallback ? "Default-store fallback - awaiting a decision (no expiry)" : order.fulfillmentStatus === "accepted" ? order.storeDispatchBatch ? "Dispatched to drivers" : order.storeReadyAt ? "Ready for dispatch" : "Claimed - prepare the package, then tap Mark package ready" : order.fulfillmentStatus === "pending" ? `Respond within ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}` : `Delivery status: ${order.deliveryStatus} | ${order.fulfillmentStatus || order.status}`}</Text>
           {admin ? <View style={styles.actions}>
             {active ? <>
               {order.fulfillmentStatus !== "accepted" ? <TouchableOpacity style={styles.button} disabled={Boolean(actingId)}
                 onPress={() => respond(order, "accept")}><Text>Claim for assigned/default store</Text></TouchableOpacity> : null}
-              <TouchableOpacity style={styles.button} disabled={Boolean(actingId)} onPress={() => respond(order, "reroute")}><Text>Admin reroute</Text></TouchableOpacity>
+              {!pickup ? <TouchableOpacity style={styles.button} disabled={Boolean(actingId)} onPress={() => respond(order, "reroute")}><Text>Admin reroute</Text></TouchableOpacity> : null}
             </> : null}
             <TouchableOpacity style={styles.button} disabled={Boolean(actingId)}
               onPress={() => Alert.alert("Delete order?", "Cancel through its checkout and reconcile any refund first. Paid orders cannot be silently deleted.", [
@@ -144,7 +151,7 @@ const StoreAssignments = ({ route, navigation } = {}) => {
                 ])}><Text>Admin assign / dispatch to driver</Text></TouchableOpacity>
             </> : null}
           </View> : null}
-          {!order.storeRouteVersion && !fallback && order.fulfillmentStatus === "accepted" && active ? <View style={styles.actions}>
+          {!pickup && !order.storeRouteVersion && !fallback && order.fulfillmentStatus === "accepted" && active ? <View style={styles.actions}>
             <Text>This order uses the older delivery workflow, which hides preparation controls. Enable store preparation first; saved fees and payments will not change. For an older cart, all active packages must be claimed and free of driver assignments, and upgrade together.</Text>
             {!order.requiredVehicle ? <View><Text>Choose a delivery vehicle for packages without a saved vehicle. Unknown-size packages can only be dispatched singly.</Text>
               {["motorcycle", "car", "van", "truck"].map((vehicle) => <TouchableOpacity key={vehicle} style={styles.button}
@@ -157,7 +164,7 @@ const StoreAssignments = ({ route, navigation } = {}) => {
                 { text: "Cancel", style: "cancel" }, { text: "Enable", onPress: () => respond(order, "enable-preparation") },
               ])}><Text>Enable store preparation</Text></TouchableOpacity>
           </View> : null}
-          {order.storeRouteVersion === 1 && !fallback && order.fulfillmentStatus === "accepted" ? <View style={styles.actions}>
+          {!pickup && order.storeRouteVersion === 1 && !fallback && order.fulfillmentStatus === "accepted" ? <View style={styles.actions}>
             {order.storeDispatchBatch ? <Text selectable>Dispatched batch: {String(order.storeDispatchBatch)} | {order.deliveryStatus}.
               {!order.driver ? " Awaiting a compatible driver; remains queued." : ""}</Text> : order.storeReadyAt ? <>
               <Text>Ready for dispatch</Text>
@@ -168,14 +175,14 @@ const StoreAssignments = ({ route, navigation } = {}) => {
               </TouchableOpacity>
             </> : <TouchableOpacity style={styles.button} disabled={Boolean(actingId)} onPress={() => respond(order, "ready")}><Text>Mark package ready</Text></TouchableOpacity>}
           </View> : null}
-          {!admin && !fallback && order.fulfillmentStatus === "accepted" && active ? <TouchableOpacity style={styles.button}
+          {!pickup && !admin && !fallback && order.fulfillmentStatus === "accepted" && active ? <TouchableOpacity style={styles.button}
             disabled={Boolean(actingId)} onPress={() => respond(order, "reroute")}><Text>Reroute</Text></TouchableOpacity> : null}
           {!admin && (fallback || order.fulfillmentStatus === "pending") ? <View style={styles.actions}>
-            <TouchableOpacity style={styles.button} disabled={Boolean(actingId) || (!fallback && seconds === 0)} onPress={() => respond(order, "accept")}><Text>{fallback ? "Claim order" : "Accept order"}</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.button} disabled={Boolean(actingId) || (!pickup && !fallback && seconds === 0)} onPress={() => respond(order, "accept")}><Text>{fallback ? "Claim order" : "Accept order"}</Text></TouchableOpacity>
             {fallback ? <TouchableOpacity style={styles.button} disabled={Boolean(actingId)} onPress={() => respond(order, "reroute")}><Text>Reroute</Text></TouchableOpacity> : null}
-            <TouchableOpacity style={styles.button} disabled={Boolean(actingId)} onPress={() => Alert.alert("Reject assignment?", fallback ? "This order will wait for Admin to claim, reroute, or cancel and delete it after refund review. This does not cancel payment or issue a refund." : "The entire order will move to another eligible store.", [
+            {!pickup ? <TouchableOpacity style={styles.button} disabled={Boolean(actingId)} onPress={() => Alert.alert("Reject assignment?", fallback ? "This order will wait for Admin to claim, reroute, or cancel and delete it after refund review. This does not cancel payment or issue a refund." : "The entire order will move to another eligible store.", [
               { text: "Cancel", style: "cancel" }, { text: "Reject", style: "destructive", onPress: () => respond(order, "reject") },
-            ])}><Text>Reject</Text></TouchableOpacity>
+            ])}><Text>Reject</Text></TouchableOpacity> : null}
           </View> : null}
         </View>;
       }}

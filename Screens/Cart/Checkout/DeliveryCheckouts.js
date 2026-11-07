@@ -8,6 +8,7 @@ import { DeliverySummary, DeliveryWindow, DeliveryPricingReceipt, ExchangeReceip
 import { deliveryModeLabel } from "../../../assets/common/delivery";
 import { paymentText } from "../../../assets/common/exchangeRate";
 import { getDatabaseNameFromStorage } from "../../../assets/common/databaseConfig";
+import PickupConfirmation from "../../../Shared/PickupConfirmation";
 
 const DeliveryCheckouts = ({ navigation, route }) => {
   const [groups, setGroups] = useState([]);
@@ -86,6 +87,7 @@ const DeliveryCheckouts = ({ navigation, route }) => {
         </View>;
       })}
       {(selected.childOrders || []).map((order) => <View key={order._id} style={styles.card}>
+        <PickupConfirmation order={order} party={admin ? "operator" : "customer"} onSaved={() => load(selected._id)} />
         <Text selectable style={styles.heading}>Delivery #{order._id}</Text>
         <Text>Pickup: {order.assignedStoreSnapshot?.name}</Text>
         {order.assignedStoreSnapshot?.logo ? <Image source={{ uri: order.assignedStoreSnapshot.logo }} style={{ width: 56, height: 56 }} /> : null}

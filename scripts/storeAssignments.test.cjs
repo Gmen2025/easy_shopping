@@ -34,6 +34,7 @@ function fixture(order, { admin = false } = {}) {
     }, { get: (target, key) => target[key] || key }),
     "@react-navigation/native": { useFocusEffect: () => {} },
     "../../assets/common/currency": { useCurrency: () => ({ formatPrice: (value) => `$${value}` }) },
+    "../../Shared/PickupConfirmation": { __esModule: true, default: "PickupConfirmation" },
     "../../assets/common/storefront": {
       storeRequest: (...args) => { calls.push(args); return request(...args); },
       apiRequest: (...args) => { calls.push(args); return request(...args); },
@@ -88,6 +89,19 @@ test("ordinary timed assignments still disable acceptance at the deadline", () =
   const f = fixture({ ...fallbackOrder(), fallbackStore: null, fulfillmentStatus: "pending", fulfillmentDeadline: new Date(0) });
   assert.equal(f.button("Accept order").props.disabled, true);
   assert.equal(f.button("Reroute"), undefined);
+});
+
+test("customer collection allows acceptance without an expiry and hides all delivery dispatch and reroute controls", () => {
+  for (const admin of [false, true]) {
+    const order = { ...fallbackOrder(), fallbackStore: null, fulfillmentStatus: "pending", fulfillmentMethod: "pickup",
+      fulfillmentDeadline: null, deliveryStatus: "Pending" };
+    const f = fixture(order, { admin });
+    assert.equal(f.button(admin ? "Claim for assigned/default store" : "Accept order").props.disabled, false);
+    order.fulfillmentStatus = "accepted";
+    for (const label of ["Reroute", "Admin reroute", "Reject", "Mark package ready", "Enable store preparation",
+      "Reroute to another driver", "Admin assign / dispatch to driver"]) assert.equal(f.button(label), undefined, label);
+    assert.match(f.text(f.render()), /Customer collection - no driver dispatch/);
+  }
 });
 
 test("fallback claim guards duplicate taps and uses the authenticated store assignment API", async () => {

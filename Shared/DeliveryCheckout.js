@@ -29,7 +29,9 @@ export const CheckoutHeader = ({ step = 0, title, onBack, disabled }) => {
 </View>;
 };
 
-export const DeliveryWindow = ({ value }) => value?.deliveryWindowStart && value?.deliveryWindowEnd ? <View>
+export const DeliveryWindow = ({ value }) => value?.deliveryWindowStart && value?.deliveryWindowEnd &&
+  (value.international || value.internationalShipping || value.fulfillmentMethod !== "pickup" &&
+    !value.deliveries?.every((delivery) => delivery.fulfillmentMethod === "pickup")) ? <View>
   <Text style={styles.heading}>{value.international || value.internationalShipping ? "Estimated US hub delivery" : "Estimated delivery"}</Text>
   <Text>{new Date(value.deliveryWindowStart).toLocaleDateString()} - {new Date(value.deliveryWindowEnd).toLocaleDateString()}</Text>
   {value.international || value.internationalShipping ? <Text>US delivery to consolidation hub only. International arrival is tracked separately.</Text> : null}
@@ -60,6 +62,7 @@ export const ExchangeReceipt = ({ value }) => value.exchangeRate ? <View>
 export const InternationalReceipt = ({ value }) => value.internationalShipping ? <View>
   <Text style={styles.heading}>US-to-Ethiopia shipment: {value.internationalShipping.status}</Text>
   <Text>US delivery status refers to the consolidation hub, not final delivery in Ethiopia.</Text>
+  <Text>International shipping: USD {Number(value.internationalShippingFee || 0).toFixed(2)} | Ethiopia final delivery: USD {Number(value.internationalShipping.finalDeliveryFee || 0).toFixed(2)}</Text>
   <Text>Recipient: {value.internationalShipping.recipient?.address1}, {value.internationalShipping.recipient?.city}, Ethiopia</Text>
   <Text>{value.internationalShipping.carrier || ""} {value.internationalShipping.trackingNumber || ""}</Text>
   <Text>{value.internationalShipping.customsNotice}</Text>
@@ -92,6 +95,7 @@ export const DeliverySummary = ({ group }) => {
     {group.international ? <>
       <Text>US delivery is to the consolidation hub. It is not delivery to the Ethiopian recipient.</Text>
       <Text>International shipping: {formatPrice(group.international.shippingFee)}</Text>
+      <Text>Ethiopia final delivery: {formatPrice(group.finalDeliveryFee || 0)}. Collection omits final delivery, not shipping.</Text>
       <Text>{group.international.customsNotice}</Text>
       {group.international.shipments.map((shipment) => <View key={shipment.id}>
         <Text>Ethiopian recipient: {shipment.recipient.label} - {shipment.recipient.address1}, {shipment.recipient.city}, {shipment.recipient.zip}</Text>
@@ -101,11 +105,13 @@ export const DeliverySummary = ({ group }) => {
     </> : null}
     <Text style={styles.heading}>Combined total: {formatPrice(group.totalPrice)}</Text>
     <ExchangeReceipt value={group} />
+    {group.deliveries?.some((delivery) => delivery.fulfillmentMethod === "pickup") ? <Text>Customer collection is confirmed separately by the customer and store/Admin. Domestic collection is free; international shipping still applies.</Text> : null}
     {group.kind === "service" ? <Text selectable>Service request: {group.serviceRequest}</Text> :
       <Text>{group.storeRoutes?.length ? "Delivery is priced separately per store: store to first drop-off, then each additional drop-off. Each road leg is counted once, with one base fee and speed surcharge per store. Drop-off shares total the store route fee. Stores claim, prepare and dispatch ready packages together or singly. Batching does not add customer charges."
         : group.cartRoute ? "One fixed delivery fee for the customer's pickup stores and drop-off addresses. Driver travel to the first pickup and detours for other customers are excluded. Fee shares are allocated across store orders for receipts/refunds; they are not extra charges. One driver accepts the cart. Each destination can be delivered once all its products are picked up."
         : group.deliveries?.some((delivery) => delivery.pricingGroup)
         ? "Delivery is priced once per store and destination. Stores within 500 meters of each other share one fee when the same vehicle type is selected, using the nearest store's road distance to the drop-off. Different vehicle types or distant stores are charged separately. Shared fees are split equally between store orders for refunds. Pickups remain separately tracked."
+        : group.deliveries?.every((delivery) => delivery.fulfillmentMethod === "pickup") ? "Collect your products at the displayed supplying-store addresses. No driver is assigned."
         : "Each pickup/destination pair is a separate delivery, not one combined driver route."}</Text>}
   </View>;
 };

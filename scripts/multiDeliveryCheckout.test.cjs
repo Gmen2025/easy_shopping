@@ -90,6 +90,7 @@ function harness(request, { resumeId, database = "E_ShopUSA", params = {}, excha
     "../../../assets/common/paymentSettings": { PAYMENT_UNAVAILABLE: "Payment is temporarily unavailable. Please try again later." },
     "../../../assets/common/delivery": deliveryMethods,
     "../../../assets/common/deliveryPricing": deliveryPricing,
+    "../../../Shared/PickupConfirmation": { __esModule: true, default: "PickupConfirmation" },
   }, { development });
   const render = () => {
     cursor = 0;
@@ -206,6 +207,56 @@ test("per-store checkout displays road routes and changing vehicles updates only
   const pickers = nodes(ui.render()).filter((node) => node.props.accessibilityLabel?.startsWith("Delivery vehicle for "));
   assert.deepEqual(pickers.map((node) => node.props.selectedValue), ["van", "van", "car"]);
   assert.match(text(ui.render()), /Combined total: \$60.04/);
+});
+
+test("mobile per-store pickup choices send complete selections, display store addresses, remove domestic fees and reserve without vehicles", async () => {
+  const current = { label: "Home", address1: "Main", city: "Town", zip: "12345", country: "USA", phone: "123" };
+  const calls = [];
+  let quote;
+  const ui = harness(async (resource, options) => {
+    calls.push([resource, options]);
+    if (resource === "delivery-current-address") return current;
+    if (resource === "delivery-addresses" || resource === "delivery-bank-accounts") return [];
+    if (resource === "checkouts/quote") {
+      quote = { _id: "pickup-quote", cart: options.data.cart, status: "quote", currency: "usd",
+        expiresAt: new Date(Date.now() + 600000).toISOString(), itemsSubtotal: 30, deliveryFee: 7, totalPrice: 37,
+        deliveries: ["Store A", "Store B"].map((name, index) => ({ key: name, store: { _id: name, name, address: `${name} street` },
+          address: current, lines: [], cargo: {}, itemsSubtotal: 15, vehicle: "car", distanceKm: 1, deliveryFee: index + 3,
+          vehicleOptions: [{ type: "car", fee: index + 3 }] })) };
+      return quote;
+    }
+    if (resource === "checkouts/pickup-quote/fulfillment") {
+      quote = { ...quote, deliveries: quote.deliveries.map((delivery) => {
+        const method = options.data.selections.find((entry) => entry.storeId === delivery.store._id).method;
+        return { ...delivery, fulfillmentMethod: method, pickupAddress: { address: delivery.store.address },
+          vehicle: method === "pickup" ? undefined : "car", vehicleOptions: method === "pickup" ? [] : delivery.vehicleOptions,
+          deliveryFee: method === "pickup" ? 0 : delivery.deliveryFee };
+      }) };
+      quote.deliveryFee = quote.deliveries.reduce((sum, delivery) => sum + delivery.deliveryFee, 0);
+      quote.totalPrice = 30 + quote.deliveryFee;
+      return quote;
+    }
+    if (resource === "checkouts/pickup-quote/prepare") return { ...quote, status: "awaiting_payment", paymentMethod: "cash", paymentStatus: "pending" };
+    if (resource === "checkouts/pickup-quote/confirm") return { ...quote, status: "placed", paymentMethod: "cash", childOrders: [] };
+    throw new Error(`Unexpected pickup request ${resource}`);
+  });
+  await ui.start(); await ui.calculate();
+  const pick = (store) => nodes(ui.render()).find((node) => node.props.accessibilityLabel === `Fulfillment for ${store}`);
+  await pick("Store A").props.onValueChange("pickup");
+  assert.deepEqual(JSON.parse(JSON.stringify(calls.at(-1)[1].data.selections)), [
+    { storeId: "Store A", method: "pickup" }, { storeId: "Store B", method: "delivery" },
+  ]);
+  assert.match(text(ui.render()), /Customer collection address: Store A street/);
+  assert.match(text(ui.render()), /Combined total: \$34.00/);
+  await pick("Store B").props.onValueChange("pickup");
+  assert.match(text(ui.render()), /Combined total: \$30.00/);
+  assert.equal(nodes(ui.render()).filter((node) => node.props.accessibilityLabel?.startsWith("Delivery vehicle for ")).length, 0);
+  ui.payment();
+  ui.radio("Cash on Delivery / Collection").props.onPress();
+  await ui.place();
+  assert.equal(calls.find(([resource]) => resource.endsWith("/prepare"))[1].data.selections.length, 0);
+  await ui.button("Finish checkout").props.onPress();
+  assert.ok(ui.actions.some((action) => action.type === "complete"));
 });
 
 test("delivery pricing previews exact shared cents, separate vehicle types and unchanged legacy quotes", () => {

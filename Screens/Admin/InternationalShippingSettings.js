@@ -9,7 +9,8 @@ const addressFields = [["label", "Hub label"], ["address1", "US street address"]
   ["city", "US city"], ["zip", "US ZIP"], ["country", "Country (USA)"], ["phone", "Hub phone"]];
 const tariffFields = [["baseUsd", "Base shipping fee (USD)"], ["perKgUsd", "USD per billable kg"],
   ["minimumUsd", "Minimum shipment fee (USD)"], ["volumetricDivisor", "Volumetric divisor (cm3 / kg)"],
-  ["maxWeightKg", "Maximum billable kg per recipient"], ["maxDimensionCm", "Maximum parcel dimension (cm)"]];
+  ["maxWeightKg", "Maximum billable kg per recipient"], ["maxDimensionCm", "Maximum parcel dimension (cm)"],
+  ["finalDeliveryUsd", "Ethiopia final delivery per recipient (USD; pickup excludes this fee)"]];
 export default function InternationalShippingSettings({ navigation }) {
   const [config, setConfig] = useState(null);
   const [products, setProducts] = useState([]);
@@ -33,7 +34,7 @@ export default function InternationalShippingSettings({ navigation }) {
   };
   const load = async () => {
     const [policy, catalog] = await Promise.all([storeRequest("international-shipping-config"), apiRequest("products", "")]);
-    setConfig({ ...policy, hub: policy.hub || Object.fromEntries(addressFields.map(([field]) => [field, field === "country" ? "USA" : ""])) });
+    setConfig({ ...policy, finalDeliveryUsd: policy.finalDeliveryUsd ?? 0, hub: policy.hub || Object.fromEntries(addressFields.map(([field]) => [field, field === "country" ? "USA" : ""])) });
     setProducts(catalog);
   };
   useEffect(() => { run(load); }, []);
@@ -52,7 +53,16 @@ export default function InternationalShippingSettings({ navigation }) {
         value={config[field] == null ? "" : String(config[field])} onChangeText={(value) => setConfig((previous) => ({ ...previous, [field]: value }))} />)}
       <Text>For each recipient, billable kg is the greater of actual kg and the sum of each unit's packaged length x width x height / divisor. Rounded up to 0.001 kg.
         Shipping USD = max(minimum, base + billable kg x rate), once per recipient, even with multiple pickup stores. US road delivery fees are added separately.</Text>
-      <Text>Tariff includes final Ethiopian address delivery, but excludes import duties/customs. Review carrier pricing, import/export restrictions and recipient coverage before approving products.</Text>
+      <Text>International pickup retains shipping charges. The existing tariff is shipping-only; final delivery starts at zero.
+        Duties/customs are excluded. Review carrier pricing, import/export restrictions and recipient coverage before approving products.</Text>
+      <Text>Enable customer collection in Ethiopia</Text>
+      <Switch value={Boolean(config.ethiopiaPickup)} disabled={busy} onValueChange={(enabled) => setConfig((previous) => ({
+        ...previous, ethiopiaPickup: enabled ? { label: "Ethiopia collection", country: "Ethiopia" } : null,
+      }))} />
+      {config.ethiopiaPickup ? addressFields.map(([field]) => <TextInput key={field} label={`Ethiopia collection ${field}${["address2", "zip"].includes(field) ? " (optional)" : ""}`}
+        disabled={busy} value={config.ethiopiaPickup[field] || ""} onChangeText={(value) => setConfig((previous) => ({
+          ...previous, ethiopiaPickup: { ...previous.ethiopiaPickup, [field]: value },
+        }))} />) : null}
       <Button mode="contained" disabled={busy} onPress={() => run(async () => {
         setConfig(await storeRequest("international-shipping-config", { method: "put", data: config, timeout: 60000 }));
         Alert.alert("Saved", "Hub and shipping tariff saved. Outstanding quotes must be recalculated; prepared orders retain their snapshot.");
