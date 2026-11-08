@@ -1736,6 +1736,18 @@ and `npx expo export --platform web`.
 
 ## Visual design direction
 
+Store Income & Payouts uses matching yellow actions, navy balance headings,
+currency/period controls, income summary cards, colored balance rows, and payout
+history cards. This is UI-only: ETB/USD separation, manual payment confirmation,
+request validation, payout access, and admin product/settings tools are unchanged.
+
+Admin individual-store accounts use the reference dashboard arrangement:
+section and period controls, last successful refresh, Business Performance,
+colored Gross Activity rows, Products & Inventory, then stock and recent activity.
+This is presentation-only; account-scoped requests, permissions, calculations,
+and product/income/notification workflows are unchanged. Gross totals do not
+invent a payout currency; use Income & settings for currency-specific balances.
+
 The store business dashboard and shared bottom navigation use the yellow and
 navy design direction: yellow for primary or selected actions, navy for headings,
 light backgrounds, rounded white cards, and distinct colors for individual
