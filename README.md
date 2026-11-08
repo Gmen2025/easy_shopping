@@ -1720,3 +1720,27 @@ Production notes:
 - Replace in-memory token storage with your database.
 - Protect all routes with your JWT auth middleware.
 - Remove invalid tokens when Expo receipts return `DeviceNotRegistered`.
+
+## Web export and native card payments
+
+Stripe imports go through `assets/common/stripe`. Metro selects
+`stripe.web.js` for browsers, excluding the native Stripe SDK and reporting
+native card entry as unavailable. Android and iOS retain the native SDK in
+configured development/production builds; Expo Go remains unsupported.
+Do not import `@stripe/stripe-react-native` directly from shared screens.
+Web users must choose another available payment method; this does not add
+browser Stripe checkout.
+
+Validate with `node --test scripts/stripePlatform.test.cjs scripts/exchangeRate.test.cjs`
+and `npx expo export --platform web`.
+
+## Visual design direction
+
+The store business dashboard and shared bottom navigation use the yellow and
+navy design direction: yellow for primary or selected actions, navy for headings,
+light backgrounds, rounded white cards, and distinct colors for individual
+metrics. Keep labels alongside color and use readable contrast, comfortable
+touch targets, responsive layouts, and visible loading and error states when
+building or updating screens. Other existing screens retain their individual
+styles and should be migrated and checked individually rather than assuming
+they inherit the dashboard styling.

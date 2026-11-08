@@ -89,7 +89,7 @@ test("card checkout explicitly selects the saved USD merchant then restores the 
   const module = load("Shared\\CheckoutCardPayment.js", {
     react: h.react, "react-native": { View: "View", Alert: { alert: () => assert.fail("No alert expected") } },
     "react-native-paper": { Button: "Button" }, "expo-constants": { expoConfig: { extra: { stripePublishableKey: "pk_live_normal" } } },
-    "@stripe/stripe-react-native": stripe,
+    "../assets/common/stripe": { __esModule: true, default: stripe },
   });
   const render = () => { h.reset(); return module.default({ publishableKey: "pk_live_usd", pay: async (confirm) => assert.equal(confirm, confirmation) }); };
   tree(render()).find((entry) => entry.type === "CardField").props.onCardChange({ complete: true });

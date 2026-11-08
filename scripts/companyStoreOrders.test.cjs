@@ -61,6 +61,25 @@ function text(value) {
   return text(value?.props?.children || []);
 }
 
+test("dashboard keeps store shortcuts and exposes the selected analytics period", () => {
+  let destination;
+  const component = loadComponent("Screens\\Store\\CompanyStoreDashboard.js", {
+    dashboard: { store: { name: "Company store" } },
+    navigation: { navigate: (...args) => { destination = args; } },
+  });
+  const list = nodes(component({})).find((node) => node.type === "FlatList" && node.props.ListHeaderComponent);
+  const header = list.props.ListHeaderComponent;
+  const shortcut = nodes(header).find((node) => node.type === "TouchableOpacity" && text(node).includes("My store & inventory"));
+  shortcut.props.onPress();
+  assert.equal(destination[0], "StoreManagement");
+
+  const periods = nodes(header).find((node) => node.type === "FlatList" && node.props.horizontal);
+  const daily = periods.props.renderItem({ item: periods.props.data[0] });
+  const weekly = periods.props.renderItem({ item: periods.props.data[1] });
+  assert.equal(daily.props.accessibilityState.selected, true);
+  assert.equal(weekly.props.accessibilityState.selected, false);
+});
+
 test("tapping a dashboard order navigates to its products with the exact scoped summary", () => {
   const order = { _id: "order123456", units: 2, sales: 10, orderItems: [] };
   let destination;

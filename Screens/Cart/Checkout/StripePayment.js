@@ -25,6 +25,7 @@ import { AuthContext } from "../../../Context/store/Auth";
 import { useCurrency } from "../../../assets/common/currency";
 import { deductInventoryFromOrder, validateOrderStock } from "../../../assets/common/inventory";
 import { getTrackingOrder } from "../../../assets/common/orderTracking";
+import stripeModule from "../../../assets/common/stripe";
 
 const width = Dimensions.get("window").width;
 const stripeCurrency =
@@ -49,26 +50,6 @@ const hasValidStripePublishableKey = (key) => {
   return normalized.startsWith("pk_");
 };
 
-const isExpoGo = () => {
-  return (
-    Constants?.appOwnership === "expo" ||
-    Constants?.executionEnvironment === "storeClient"
-  );
-};
-
-const stripeModule = (() => {
-  if (isExpoGo()) {
-    return null;
-  }
-
-  try {
-    return require("@stripe/stripe-react-native");
-  } catch (error) {
-    console.warn("Stripe module unavailable:", error?.message || error);
-    return null;
-  }
-})();
-
 const CardField = stripeModule?.CardField;
 const useStripe = stripeModule?.useStripe;
 
@@ -79,7 +60,7 @@ const StripeUnavailable = ({ navigation }) => {
         <View style={styles.summaryCard}>
           <Text style={styles.paymentTitle}>Card Payment Unavailable</Text>
           <Text style={styles.summaryHint}>
-            Stripe checkout is not supported inside Expo Go for this app.
+            Native card checkout is unavailable on web, in Expo Go, or without a configured Stripe build.
           </Text>
         </View>
 

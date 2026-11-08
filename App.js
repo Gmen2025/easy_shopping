@@ -5,6 +5,7 @@ import { NavigationContainer, useNavigationContainerRef } from "@react-navigatio
 import Toast from "react-native-toast-message";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
+import stripeModule from "./assets/common/stripe";
 
 //Redux
 import { Provider } from "react-redux";
@@ -45,20 +46,13 @@ const getStripePublishableKey = () => {
     : "";
 };
 
-const isExpoGo = () => {
-  return (
-    Constants?.appOwnership === "expo" ||
-    Constants?.executionEnvironment === "storeClient"
-  );
-};
-
 const isValidStripePublishableKey = (key) => {
   const normalized = typeof key === "string" ? key.trim() : "";
   return normalized.startsWith("pk_");
 };
 
 const createStripeProvider = (publishableKey) => {
-  if (isExpoGo()) {
+  if (!stripeModule) {
     return ({ children }) => children;
   }
 
@@ -67,12 +61,7 @@ const createStripeProvider = (publishableKey) => {
     return ({ children }) => children;
   }
 
-  try {
-    return require("@stripe/stripe-react-native").StripeProvider;
-  } catch (error) {
-    console.warn("Stripe provider unavailable:", error?.message || error);
-    return ({ children }) => children;
-  }
+  return stripeModule.StripeProvider;
 };
 
 const stripePublishableKey =

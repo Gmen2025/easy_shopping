@@ -2,12 +2,8 @@ import React, { useRef, useState } from "react";
 import { Alert, View } from "react-native";
 import { Button } from "react-native-paper";
 import Constants from "expo-constants";
+import stripeModule from "../assets/common/stripe";
 
-const stripeModule = (() => {
-  if (Constants.appOwnership === "expo" || Constants.executionEnvironment === "storeClient") return null;
-  try { return require("@stripe/stripe-react-native"); }
-  catch (error) { console.warn("Checkout card module unavailable:", error.message); return null; }
-})();
 const publishableKey = Constants.expoConfig?.extra?.stripePublishableKey || process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || "";
 export const canPayByCard = Boolean(stripeModule && publishableKey.startsWith("pk_"));
 export const nativeCardAvailable = Boolean(stripeModule);

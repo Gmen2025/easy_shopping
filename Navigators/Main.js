@@ -28,8 +28,10 @@ const Main = () => {
         headerShown:false,
         tabBarShowLabel:true,
         tabBarLabelPosition: 'below-icon',
-        tabBarActiveTintColor: '#D4A900',
+        tabBarActiveTintColor: '#131e3a',
         tabBarInactiveTintColor: '#182033',
+        tabBarActiveBackgroundColor: '#ffd400',
+        tabBarItemStyle: { borderRadius: 20, marginHorizontal: 3, marginVertical: 3 },
         tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
         tabBarStyle: {
           backgroundColor: 'white',

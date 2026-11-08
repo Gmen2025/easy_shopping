@@ -167,20 +167,20 @@ const CompanyStoreDashboard = ({ navigation }) => {
 
   const dashboardHeader = (
     <>
-      <View style={styles.salesRow}>
-        <TouchableOpacity style={styles.retryButton} onPress={() => navigation.navigate("IncomeDashboard", { kind: "store" })}>
+      <View style={styles.quickLinks}>
+        <TouchableOpacity style={styles.quickLink} onPress={() => navigation.navigate("IncomeDashboard", { kind: "store" })}>
           <Text style={styles.retryText}>Income, balance & payout requests</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.retryButton} onPress={() => navigation.navigate("StoreManagement")}>
+        <TouchableOpacity style={styles.quickLink} onPress={() => navigation.navigate("StoreManagement")}>
           <Text style={styles.retryText}>My store & inventory</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.retryButton} onPress={() => navigation.navigate("StoreAssignments")}>
+        <TouchableOpacity style={styles.quickLink} onPress={() => navigation.navigate("StoreAssignments")}>
           <Text style={styles.retryText}>Store assignments</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.analyticsCard}>
         <View style={styles.analyticsHeading}>
-          <View>
+          <View style={styles.recentDetails}>
             <Text style={styles.eyebrow}>STORE PERFORMANCE</Text>
             <Text style={styles.analyticsTitle}>Business overview</Text>
           </View>
@@ -197,6 +197,7 @@ const CompanyStoreDashboard = ({ navigation }) => {
             <TouchableOpacity
               style={[styles.periodButton, selectedPeriod === item.key && styles.periodButtonActive]}
               onPress={() => setSelectedPeriod(item.key)}
+              accessibilityState={{ selected: selectedPeriod === item.key }}
             >
               <Text style={[styles.periodText, selectedPeriod === item.key && styles.periodTextActive]}>
                 {item.label}
@@ -310,7 +311,7 @@ const CompanyStoreDashboard = ({ navigation }) => {
                         storeName: dashboard.store?.name,
                       })}
                     >
-                      <View>
+                      <View style={styles.headerDetails}>
                         <Text style={styles.recentOrder}>
                           Order #{String(order._id || order.orderId || index).slice(-6).toUpperCase()}
                         </Text>
@@ -354,11 +355,11 @@ const CompanyStoreDashboard = ({ navigation }) => {
     <View style={styles.screen}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Company Fulfillment</Text>
+          <Text style={styles.headerTitle}>Account Business Dashboard</Text>
           <Text style={styles.headerSubtitle}>{user?.name || "Company store"}</Text>
         </View>
-        <TouchableOpacity onPress={logout}>
-          <Icon name="sign-out" size={22} color="#2563eb" />
+        <TouchableOpacity onPress={logout} accessibilityLabel="Sign out">
+          <Icon name="sign-out" size={22} color="#131e3a" />
         </TouchableOpacity>
       </View>
       {loading ? (
@@ -380,31 +381,34 @@ const CompanyStoreDashboard = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#f8fafc" },
+  screen: { flex: 1, backgroundColor: "#f5f7fb" },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     padding: 16,
     paddingTop: 48,
-    backgroundColor: "#fff",
+    backgroundColor: "#ffd400",
     borderBottomWidth: 1,
     borderBottomColor: "#eef2f7",
   },
-  headerTitle: { fontSize: 18, fontWeight: "700", color: "#1a1a1a" },
-  headerSubtitle: { fontSize: 12, color: "#5a6c7d", marginTop: 2 },
+  headerTitle: { fontSize: 18, fontWeight: "800", color: "#131e3a" },
+  headerDetails: { flex: 1, paddingRight: 12 },
+  headerSubtitle: { fontSize: 12, color: "#26344f", marginTop: 2 },
   list: { padding: 16, paddingBottom: 40 },
   empty: { color: "#6b7280", textAlign: "center", padding: 24 },
-  emptyCard: { backgroundColor: "#fff", borderRadius: 8, borderWidth: 1, borderColor: "#e5e7eb" },
-  analyticsCard: { backgroundColor: "#fff", borderRadius: 8, padding: 16, borderWidth: 1, borderColor: "#e5e7eb", marginBottom: 20 },
+  emptyCard: { backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: "#dfe5ef" },
+  analyticsCard: { backgroundColor: "#fff", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "#dfe5ef", marginBottom: 20 },
   analyticsHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  eyebrow: { color: "#2563eb", fontSize: 10, fontWeight: "800", letterSpacing: 0.8 },
-  analyticsTitle: { color: "#111827", fontSize: 18, fontWeight: "800", marginTop: 2 },
+  eyebrow: { color: "#586783", fontSize: 10, fontWeight: "800", letterSpacing: 0.8 },
+  analyticsTitle: { color: "#131e3a", fontSize: 20, fontWeight: "800", marginTop: 2 },
   periodRow: { gap: 6, paddingVertical: 16 },
-  periodButton: { minWidth: 62, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, backgroundColor: "#f3f4f6", alignItems: "center" },
-  periodButtonActive: { backgroundColor: "#2563eb" },
-  periodText: { color: "#4b5563", fontSize: 12, fontWeight: "700" },
-  periodTextActive: { color: "#fff" },
+  periodButton: { minWidth: 62, minHeight: 44, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14, backgroundColor: "#eef1f6", alignItems: "center", justifyContent: "center" },
+  periodButtonActive: { backgroundColor: "#ffd400" },
+  periodText: { color: "#26344f", fontSize: 12, fontWeight: "700" },
+  periodTextActive: { color: "#131e3a" },
+  quickLinks: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 },
+  quickLink: { flexGrow: 1, flexBasis: 140, minHeight: 44, backgroundColor: "#fff4b8", borderRadius: 14, padding: 12, justifyContent: "center" },
   salesRow: { flexDirection: "row", gap: 10 },
   salesBlock: { flex: 1, backgroundColor: "#eff6ff", borderRadius: 8, padding: 12 },
   earningsBlock: { flex: 1, backgroundColor: "#ecfdf5", borderRadius: 8, padding: 12 },
@@ -417,9 +421,9 @@ const styles = StyleSheet.create({
   metricValue: { fontSize: 14, fontWeight: "800", marginTop: 6 },
   metricLabel: { color: "#6b7280", fontSize: 10, marginTop: 2 },
   retryButton: { backgroundColor: "#fef3c7", borderRadius: 8, padding: 12, marginTop: 4 },
-  retryText: { color: "#92400e", fontSize: 12, fontWeight: "700", textAlign: "center" },
-  sectionTitle: { color: "#111827", fontSize: 15, fontWeight: "800", marginBottom: 10 },
-  snapshotCard: { backgroundColor: "#fff", borderRadius: 8, padding: 14, borderWidth: 1, borderColor: "#e5e7eb", marginBottom: 20 },
+  retryText: { color: "#493b00", fontSize: 12, fontWeight: "700", textAlign: "center" },
+  sectionTitle: { color: "#131e3a", fontSize: 17, fontWeight: "800", marginBottom: 10 },
+  snapshotCard: { backgroundColor: "#fff", borderRadius: 16, padding: 14, borderWidth: 1, borderColor: "#dfe5ef", marginBottom: 20 },
   snapshotRow: { flexDirection: "row" },
   snapshotItem: { flex: 1, alignItems: "center", minHeight: 52, justifyContent: "center" },
   snapshotValue: { color: "#1f2937", fontSize: 18, fontWeight: "800" },
@@ -430,19 +434,20 @@ const styles = StyleSheet.create({
   inventoryValueRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#f9fafb", borderRadius: 8, padding: 10, marginTop: 10 },
   inventoryValueLabel: { color: "#6b7280", fontSize: 12 },
   inventoryValue: { color: "#111827", fontSize: 14, fontWeight: "800" },
-  financeCard: { backgroundColor: "#fff", borderRadius: 8, paddingHorizontal: 14, borderWidth: 1, borderColor: "#e5e7eb", marginBottom: 20 },
+  financeCard: { backgroundColor: "#fff", borderRadius: 16, paddingHorizontal: 14, borderWidth: 1, borderColor: "#dfe5ef", marginBottom: 20 },
   financeRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", minHeight: 44, borderBottomWidth: 1, borderBottomColor: "#f3f4f6" },
   financeLabel: { color: "#6b7280", fontSize: 12 },
   financePrimary: { color: "#059669", fontSize: 15, fontWeight: "800" },
   financeValue: { color: "#1f2937", fontSize: 13, fontWeight: "700" },
-  recentCard: { backgroundColor: "#fff", borderRadius: 8, paddingHorizontal: 14, borderWidth: 1, borderColor: "#e5e7eb", marginBottom: 20 },
-  recentRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", minHeight: 58, borderBottomWidth: 1, borderBottomColor: "#f3f4f6" },
+  recentCard: { backgroundColor: "#fff", borderRadius: 16, paddingHorizontal: 14, borderWidth: 1, borderColor: "#dfe5ef", marginBottom: 20 },
+  recentRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10, minHeight: 58, borderBottomWidth: 1, borderBottomColor: "#f3f4f6" },
+  recentDetails: { flex: 1 },
   recentOrder: { color: "#1f2937", fontSize: 12, fontWeight: "700" },
-  recentMeta: { color: "#9ca3af", fontSize: 10, marginTop: 3 },
+  recentMeta: { color: "#586783", fontSize: 11, marginTop: 3 },
   recentAmount: { color: "#059669", fontSize: 13, fontWeight: "800" },
   card: {
     backgroundColor: "#fff",
-    borderRadius: 10,
+    borderRadius: 16,
     padding: 14,
     marginBottom: 12,
     borderWidth: 1,
