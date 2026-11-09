@@ -1,6 +1,6 @@
 # Privacy Policy for AdduGenet EShop
 
-**Last updated: November 6, 2026**
+**Last updated: November 8, 2026**
 
 ## 1. About this policy
 
@@ -74,21 +74,21 @@ You can edit available profile details, manage optional 2FA in Security Settings
 
 You can choose password sign-in instead of social sign-in where available. Provider permissions can be managed with Google, Apple, or Facebook. Disconnecting a provider is not the same as deleting your EShop account or previously collected records.
 
-Signing out ends the app's local signed-in session; it is not account deletion or a guarantee that every server token is immediately revoked. Uninstalling the app does not delete server records. Device settings can clear local app data, but this does not remove copies already uploaded.
+Signing out ends the app's local signed-in session; it is not account deletion. After successful account deletion, authenticated API requests using previously issued tokens are rejected because the account no longer exists. Uninstalling the app does not delete server records. Device settings can clear local app data, but this does not remove copies already uploaded.
 
 ## 6. Retention
 
 There are no established, universal fixed retention periods for all record categories. We determine retention based on why information is needed, ongoing transactions/services, security, disputes, applicable legal/accounting requirements, and the capabilities of the systems holding it. We do not promise blanket 30-day deletion, 90-day backup removal, or seven-year transaction retention.
 
-Account, order, ride, driver/store, service, uploaded-media, authentication, and provider records can exist in separate systems. Temporary authentication challenges have expiry controls, but expiry does not establish a deletion deadline for every related record. Backups, logs, and third-party copies can follow different retention arrangements. Contact us for a review of a specific record or request.
+Account, order, ride, driver/store, service, uploaded-media, authentication, and provider records can exist in separate systems. When in-app deletion succeeds, we remove or anonymize personal account data and user-generated reviews, and remove supported uploaded media. Minimal transaction and payment records (such as amounts, currencies, dates/statuses, and payment references) may be retained where required for legal/accounting, refund, fraud-prevention, or dispute purposes. We have not established universal fixed retention periods. Backups, logs, and third-party copies can follow different retention arrangements.
 
 ## 7. Account deletion and other privacy requests
 
-In the app, go to **Profile > Edit Profile > Delete Account** and confirm. On a successful response, the current implementation removes the account's user record and signs you out locally. This is not automatic deletion of all related data: orders, payments, rides, driver/store profiles, service requests, media, separate social-identity/authentication records, and backups may remain. Previously issued tokens are not guaranteed to be invalidated immediately by this action.
+In the app, go to **Profile > Edit Profile > Delete Account** and confirm. Deletion is available for customer, driver, and store-owner accounts. If active orders, rides, service requests, store assignments, unpaid balances, or pending payouts remain, resolve them first; the app reports that deletion cannot proceed yet. After a successful deletion, we remove the account and its sign-in identities, saved addresses, notifications, and reviews; delete supported uploaded profile/service/store media; anonymize completed order, ride, and service records; and deactivate/anonymize linked store or driver profiles. Financial transaction amounts, currencies, dates/statuses, and payment references may remain where required. Authenticated API requests using previously issued tokens are rejected after the account is removed.
 
-For a broader deletion request, or if you cannot sign in, email [easyshop@addugeneteshop.com](mailto:easyshop@addugeneteshop.com) with subject **Account Deletion Request**. Include your registered email and the scope of your request. We may verify ownership; never send passwords, one-time codes, authenticator keys, recovery codes, or full payment card details.
+If you cannot sign in or believe a supported upload was not removed, email [easyshop@addugeneteshop.com](mailto:easyshop@addugeneteshop.com) with subject **Account Deletion Request**. Include your registered email and the scope of your request. We may verify ownership; never send passwords, one-time codes, authenticator keys, recovery codes, or full payment card details. Contacting support is not a substitute for the in-app deletion option.
 
-We review requests and explain applicable retention needs or technical limitations. We have not established a general guaranteed completion deadline; legally required response periods still apply where applicable. Deleting your account does not itself cancel pending deliveries/rides, settle outstanding payments, or remove records held independently by payment/social providers or people who already received them.
+Successful in-app deletion is immediate after required active work and payouts are resolved. It does not remove records held independently by payment/social providers, backups, logs, or people who already received them. Legally required response periods apply to separate privacy requests where applicable.
 
 Depending on your location and applicable law, you may request access, correction, deletion, a copy/portability, restriction or objection to certain processing, withdrawal of consent, or applicable sale/sharing opt-outs. These rights can have exceptions. You may also complain to your competent data protection authority. See the [account deletion instructions](account-deletion.html).
 

@@ -19,85 +19,60 @@ Alternative options:
 
 ### Full Description:
 
-Welcome to **AdduGenet EShop** – Your ultimate mobile shopping destination! 
+Welcome to **AdduGenet EShop**, a mobile shopping app for discovering products, placing orders, and following fulfillment.
 
-Discover a seamless shopping experience with our feature-rich e-commerce platform designed specifically for the modern shopper. Browse thousands of products, enjoy secure payments, and get your orders delivered right to your doorstep.
+Browse products by category, manage your cart, and choose the payment and fulfillment options available for your order.
 
 **🛍️ KEY FEATURES**
 
 **Easy Product Discovery**
 • Browse products by category
-• Advanced search functionality
-• Detailed product descriptions and images
-• Customer reviews and ratings
-• Related product recommendations
+• Search products and view descriptions, images, and customer reviews
+• Explore related product recommendations
 
 **Smart Shopping Cart**
 • Add items with a single tap
-• Adjust quantities effortlessly
-• Save items for later
-• View real-time price calculations
-• Automatic cart synchronization across sessions
+• Adjust quantities and review your cart total
+• Keep your cart available across sessions
 
-**Secure Checkout**
-• Multiple payment options
-• Stripe integration for card payments
-• Telebirr mobile money support
-• SSL encrypted transactions
-• PCI DSS compliant payment processing
+**Checkout**
+• Choose from the payment methods available in your region
+• Card payments are processed through Stripe; other available methods may include Telebirr
 
 **User Account Management**
 • Easy registration and login
 • Email verification for security
-• Profile customization
-• Order history tracking
-• Saved shipping addresses
+• Profile and saved-address management
+• Order history
 
 **Order Tracking**
-• Real-time order status updates
-• Delivery tracking
-• Order notifications
-• Complete purchase history
-• Easy reordering
+• Follow order and delivery status
+• Receive order notifications
+• View past orders
 
 **Customer Support**
-• In-app help and support
-• Email support: support@addugenet.com
-• Phone support: +251 911 234 567
-• Support hours: Mon-Sat, 9 AM - 6 PM
+• Email: easyshop@addugeneteshop.com
 
 **🔒 SECURITY & PRIVACY**
 
-Your security is our top priority:
-• End-to-end encryption
-• Secure authentication with JWT
-• Privacy-compliant data handling
-• No data selling to third parties
-• GDPR and CCPA compliant
+Review our privacy policy for details about information handling, service providers, and account deletion.
 
 **💳 PAYMENT OPTIONS**
 
 We support multiple payment methods:
-• Credit/Debit Cards (Visa, Mastercard, Amex)
-• Telebirr Mobile Money
-• Secure payment processing through Stripe
+• Card payments through Stripe
+• Other methods, such as Telebirr, where available
 
 **📦 DELIVERY**
 
-• Fast and reliable delivery
-• Multiple shipping options
-• Track your package in real-time
-• Delivery to your doorstep
-• Flexible delivery scheduling
+• Delivery and store-pickup options where available
+• Follow order fulfillment status in the app
 
 **✨ WHY CHOOSE ADDUGENET ESHOP?**
 
 • **User-Friendly Interface**: Intuitive design for effortless navigation
-• **Wide Product Selection**: Thousands of products across categories
-• **Competitive Prices**: Best deals and regular promotions
-• **Reliable Service**: Trusted by thousands of customers
-• **Local Support**: Ethiopian-based customer service team
-• **Fast Performance**: Optimized for smooth shopping experience
+• Browse available products across categories
+• Manage your cart, orders, and fulfillment in one app
 
 **📱 PERFECT FOR**
 
@@ -107,14 +82,6 @@ We support multiple payment methods:
 • Beauty and personal care
 • Books and stationery
 • And much more!
-
-**🌟 WHAT OUR CUSTOMERS SAY**
-
-"The easiest shopping app I've ever used. Fast, reliable, and secure!" - Happy Customer
-
-"Love the Telebirr integration. Makes payment so convenient!" - Verified Buyer
-
-"Great product selection and excellent customer service!" - Regular Shopper
 
 **🔄 REGULAR UPDATES**
 
@@ -128,22 +95,21 @@ We continuously improve the app with:
 **📞 CONTACT US**
 
 We'd love to hear from you!
-• Email: support@addugenet.com
-• Phone: +251 911 234 567
-• Hours: Monday to Saturday, 9 AM - 6 PM (EAT)
+• Email: easyshop@addugeneteshop.com
 
 **🎯 GET STARTED TODAY**
 
-Download AdduGenet EShop now and experience the future of online shopping. Whether you're looking for electronics, fashion, home essentials, or gifts, we have everything you need at your fingertips.
+Download AdduGenet EShop to browse available products, place orders, and follow fulfillment updates.
 
-Start shopping smarter with AdduGenet EShop!
+Shop with AdduGenet EShop.
 
 ---
 
 **Privacy & Account Deletion**
 We respect your privacy.
-- Privacy Policy: https://gmen2025.github.io/easy_shopping/privacy.html
-- Account Deletion Request: https://gmen2025.github.io/easy_shopping/account-deletion.html
+- Privacy Policy: https://addugeneteshop.com/privacy.html
+- Terms of Service: https://addugeneteshop.com/terms.html
+- Account Deletion: https://addugeneteshop.com/account-deletion.html
 
 ---
 
@@ -153,14 +119,7 @@ We respect your privacy.
 
 ## Promotional Text (170 characters)
 
-**Option 1:**
-Shop thousands of products with secure payments via Stripe & Telebirr. Fast delivery, easy returns, 24/7 support. Download now and start shopping!
-
-**Option 2:**
-Your one-stop mobile shop! Browse, buy, and track orders effortlessly. Multiple payment options, secure checkout, and reliable delivery. Shop now!
-
-**Option 3:**
-Ethiopian's favorite shopping app! Discover amazing products, pay securely with Telebirr or cards, and enjoy fast delivery. Start shopping today!
+Browse products, manage your cart, choose available delivery or store pickup, and follow your order in AdduGenet EShop.
 
 ---
 
@@ -193,37 +152,24 @@ shopping,online store,buy,ecommerce,telebirr payment,delivery,ethiopia shop,mark
 
 ## Age Rating
 
-**Age Rating:** 4+ (suitable for all ages)
-
-**Content Considerations:**
-- No violence
-- No adult content
-- No gambling
-- No unrestricted web access
-- Shopping and commerce only
+Complete the current App Store Connect age-rating questionnaire based on the
+released app, including user-generated reviews and any enabled ride or
+service-request features. Do not copy a preselected rating from this draft.
 
 ---
 
 ## App Store Screenshots
 
-### Required Sizes:
-
-**6.7" Display (iPhone 15 Pro Max, 14 Pro Max)**
-- Size: 1290 x 2796 pixels
-- 2-10 screenshots required
-
-**6.5" Display (iPhone 14 Plus, 13 Pro Max, 12 Pro Max)**
-- Size: 1242 x 2688 pixels
-- Optional but recommended
-
-**5.5" Display (iPhone 8 Plus, 7 Plus, 6s Plus)**
-- Size: 1242 x 2208 pixels
-- Required if supporting older devices
+Provide at least one screenshot for the current required iPhone display size.
+Because `supportsTablet` is enabled in the app configuration, also prepare an
+iPad screenshot. Check Apple's current [screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/)
+for accepted device sizes and pixel dimensions before exporting. Use real app
+screens without unavailable features, fabricated reviews, or unsupported claims.
 
 ### Screenshot Ideas:
 
 **Screenshot 1: Home Screen**
-- Caption: "Browse thousands of products"
+- Caption: "Browse products"
 - Show: Product grid with categories
 
 **Screenshot 2: Product Details**
@@ -235,7 +181,7 @@ shopping,online store,buy,ecommerce,telebirr payment,delivery,ethiopia shop,mark
 - Show: Cart with items, quantities, total
 
 **Screenshot 4: Checkout**
-- Caption: "Secure and fast checkout"
+- Caption: "Review your order and available payment options"
 - Show: Checkout screen with payment options
 
 **Screenshot 5: Payment Options**
@@ -243,16 +189,16 @@ shopping,online store,buy,ecommerce,telebirr payment,delivery,ethiopia shop,mark
 - Show: Stripe and Telebirr payment screens
 
 **Screenshot 6: Order Tracking**
-- Caption: "Track your orders in real-time"
+- Caption: "Follow your order"
 - Show: Order status and history
 
 **Screenshot 7: User Profile**
 - Caption: "Manage your account easily"
 - Show: Profile screen with orders and settings
 
-**Screenshot 8: Help & Support**
-- Caption: "24/7 customer support"
-- Show: Support section with contact info
+**Screenshot 8: Store Pickup**
+- Caption: "Choose pickup where available"
+- Show: The actual store-pickup flow
 
 ---
 
@@ -270,120 +216,46 @@ Publish these notes only after deploying the matching backend and clients.
   product details to see the nearest available store's price before purchasing.
 - The pricing option is off by default, preserving the existing shopping flow.
 
-### Version 1.0.0 - Initial Release
-
-🎉 Welcome to AdduGenet EShop!
-
-**New Features:**
-• Complete shopping experience from browse to checkout
-• Secure payment with Stripe and Telebirr
-• User account management with order history
-• Real-time order tracking
-• Product search and filtering
-• Shopping cart with quantity management
-• Multiple shipping addresses support
-• Email notifications for orders
-• In-app customer support
-• Admin panel for store management
-
-**Security:**
-• End-to-end encryption
-• Secure authentication
-• PCI DSS compliant payments
-
-**Performance:**
-• Fast loading times
-• Optimized for smooth scrolling
-• Efficient data synchronization
-
-Thank you for choosing AdduGenet EShop! Happy shopping!
+Write release notes for the exact build being submitted. Do not submit the
+example notes above unless every described feature is included in that build.
 
 ---
 
 ## Support URL
 
-**Required:** Must provide a valid support URL
-
-**Options:**
-1. Website: `https://www.addugenet.com/support`
-2. GitHub: `https://github.com/[username]/easy_shopping/issues`
-3. Email form: `https://www.addugenet.com/contact`
-
-**Temporary Solution:**
-Create a simple support page on GitHub Pages with:
-- FAQs
-- Contact information
-- Support email and phone
-- Common troubleshooting steps
+The published [Terms of Service](https://addugeneteshop.com/terms.html) lists
+`easyshop@addugeneteshop.com` for support. It may be used as the Support URL if
+it remains publicly accessible and the email is monitored; a dedicated support
+page is preferable. Verify the destination before submission.
 
 ---
 
 ## Marketing URL (Optional)
 
-**Website:** `https://www.addugenet.com`
-
-**Social Media Options:**
-- Facebook: `https://facebook.com/addugeneteshop`
-- Instagram: `https://instagram.com/addugenet`
-- Twitter: `https://twitter.com/addugenet`
+Enter the business website only if it is live and controlled by the app owner.
 
 ---
 
 ## Review Information (For Apple Reviewers)
 
-### Demo Account Credentials
-
-**Important:** Provide a test account for Apple reviewers
-
-```
-Username: reviewer@addugenet.com
-Password: ReviewerTest123!
-
-OR
-
-Phone: +251 900 000 000
-Password: AppleReview123
-```
+Create a dedicated, active reviewer account in the production review
+environment. Store its credentials in App Store Connect only; never commit them
+to this file or source control. Confirm the account can sign in and reach the
+features Apple needs to review.
 
 ### Review Notes
 
-```
-Thank you for reviewing AdduGenet EShop.
-
-TEST ACCOUNT:
-Email: reviewer@addugenet.com
-Password: ReviewerTest123!
-
-TESTING INSTRUCTIONS:
-1. Login with the provided credentials
-2. Browse products in various categories
-3. Add items to cart
-4. Proceed to checkout
-5. Payment testing: Use Stripe test cards (we're in test mode)
-   - Card: 4242 4242 4242 4242
-   - Expiry: Any future date
-   - CVC: Any 3 digits
-
-TELEBIRR TESTING:
-Currently in mock mode for review purposes. Live integration pending merchant approval.
-
-ADMIN FEATURES:
-Admin panel requires separate admin credentials (not needed for review).
-
-BACKEND:
-Production API hosted on Render: https://easy-shop-server-wldr.onrender.com
-
-CONTACT:
-For any questions: support@addugenet.com
-
-Thank you!
-```
+Write build-specific instructions, including any review credentials, purchase
+or location setup, enabled payment methods, and how to reach features that
+require an account. State whether a test transaction is possible. Keep
+credentials and payment secrets out of source control.
 
 ---
 
 ## Copyright
 
-**Copyright © 2025 AdduGenet EShop. All rights reserved.**
+Enter the current year and the app owner's legal name as registered in App
+Store Connect.
 
 ---
 
@@ -391,34 +263,26 @@ Thank you!
 
 **End User License Agreement (EULA):**
 
-Create a simple EULA or use standard template:
-- https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
-
-**Custom EULA URL:** `https://www.addugenet.com/eula`
+Use Apple's standard EULA unless the app owner has a reviewed, publicly
+accessible custom EULA URL. Do not use a placeholder URL.
 
 ---
 
 ## Pricing
 
-**Price Tier:** Free
+Set the app download price in App Store Connect.
 
-**In-App Purchases:** None (currently)
-
-**Future Monetization (Optional):**
-- Premium membership
-- Featured product listings
-- Ad-free experience
+No in-app purchases are configured in this app; verify this remains true for
+the release. Checkout is for physical goods.
 
 ---
 
 ## Availability
 
-**Countries/Regions:** 
-- Primary: Ethiopia
-- Optional: Kenya, Somalia, Eritrea, Djibouti, Sudan
-- Can expand to: Worldwide
+Select only regions where the business, fulfillment, support, and payment
+methods are actually available.
 
-**Language:** English (primary)
+**Language:** Confirm the supported metadata and app language in App Store Connect.
 
 **Future Languages:**
 - Amharic
@@ -429,30 +293,53 @@ Create a simple EULA or use standard template:
 
 ## Version & Build Information
 
-**Version:** 1.0.0
-**Build:** 1
+**Version:** 1.0.1 (configured in `app.json`)
+**Build:** Managed remotely by EAS; confirm the uploaded build in App Store Connect
 **Bundle ID:** com.addugenet.eshop
 
 ---
 
-## Checklist Before Submission
+## Submission Readiness Checklist
 
-- [ ] All screenshots uploaded (2-8 per size)
+- [ ] Confirm the app name, seller identity, support contact, and app availability.
+- [ ] Publish and verify the privacy policy, terms, and account-deletion page URLs.
+- [ ] Complete App Store Connect privacy disclosures from app and SDK data
+  practices, including location, account details, uploaded media, notifications,
+  payment processing, and linked data.
+- [ ] Review and complete the age-rating questionnaire for enabled features.
+- [ ] Upload screenshots for the required iPhone and iPad sizes.
 - [ ] App description written and proofread
 - [ ] Keywords selected (under 100 chars)
-- [ ] Support URL provided and accessible
-- [ ] Privacy policy URL accessible
-- [ ] Demo account credentials provided
-- [ ] Review notes completed
-- [ ] Age rating selected
+- [ ] Support URL and support email are real, monitored, and accessible
+- [ ] Provide active reviewer credentials and instructions for gated features.
+- [ ] Keep production backend and payment services available during review.
+- [ ] Explain non-obvious features in review notes without including real
+  customer data or secrets.
 - [ ] Copyright information filled
 - [ ] App categories selected
-- [ ] Pricing set
-- [ ] Countries/regions selected
-- [ ] Build uploaded and processed
-- [ ] Test demo account before submission
-- [ ] All metadata in English
+- [ ] Price and regions match actual business availability
+- [ ] Test the iOS build with TestFlight on supported iPhone and iPad devices,
+  including sign-in, checkout, location denial, and account deletion.
+- [ ] Upload the build and confirm App Store Connect processing succeeds.
+
+### Release gates to complete
+
+- Deploy the matching backend account-deletion update before release. Verify
+  customer, driver, and store-owner deletion, active-work conflicts, Cloudinary
+  media deletion, transaction anonymization, and rejection of old access tokens
+  against the production environment.
+- Confirm with the business/legal owner that retained financial fields and
+  retention periods are actually required in every launch region. Update the
+  public privacy and deletion pages after that review.
+- The app conditionally offers Google, Apple, and Facebook sign-in according to
+  backend settings. Verify each enabled provider works in the production iOS
+  build; if third-party sign-in is offered, ensure Apple's applicable Sign in
+  with Apple requirement is met.
+- Create and test reviewer credentials with access to the actual production
+  features. Do not include credentials in this file or source control.
 
 ---
 
-**🎯 You're ready for App Store submission once all items are checked!**
+This checklist is a preparation aid, not an approval guarantee. Verify current
+App Store Connect requirements and the [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/)
+when submitting.

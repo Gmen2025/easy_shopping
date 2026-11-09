@@ -1524,6 +1524,10 @@ Use a `From` email on the verified Resend subdomain `info.addugeneteshop.com`.
 - Build with EAS Build
 - Submit to App Store / Play Store
 - See `APP_STORE_DESCRIPTION.md` for submission guide
+- iOS EAS build and TestFlight steps are in `PRODUCTION_SETUP.md`. App Store
+  readiness still requires the checklist, deployment/verification of backend
+  account deletion, and publication of reviewed legal pages in
+  `APP_STORE_DESCRIPTION.md`; do not treat a successful build as approval-ready.
 
 ### Backend API
 - Deployed on Render: `https://easy-shop-server-wldr.onrender.com`

@@ -48,13 +48,15 @@
     "internal-testing": {
       "android": {
         "track": "internal"
-      }
+      },
+      "ios": {}
     },
     "production": {
       "android": {
         "track": "production",
         "releaseStatus": "completed"
-      }
+      },
+      "ios": {}
     }
   }
 }

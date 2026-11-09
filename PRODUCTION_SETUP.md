@@ -100,6 +100,43 @@ eas build --platform android --profile production
 eas build --platform ios --profile production
 ```
 
+For an iOS release, register `com.addugenet.eshop` with the Apple Developer
+account and create its App Store Connect app record before submitting. This
+repository does not include a checked-in `ios/` project; EAS generates and
+builds the native iOS project in the cloud. The `internal-testing` profile
+uploads to App Store Connect for TestFlight; `production` is the store build.
+EAS submission may prompt for App Store Connect credentials because this
+repository intentionally does not contain Apple account credentials or an
+App Store Connect app ID.
+
+Set and verify the required iOS values in the matching EAS environment before
+building:
+
+- `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` for the intended payment environment
+- `EXPO_PUBLIC_STRIPE_CURRENCY=usd`
+- `EXPO_PUBLIC_SOCKET_URL` pointing to the production socket service
+- `EXPO_PUBLIC_AUTH_REDIRECT_URI=addugeneteshop://auth`; verify that the
+  production backend allows this callback
+- `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` and
+  `EXPO_PUBLIC_GOOGLE_DIRECTIONS_API_KEY` if required by the enabled map flows
+- `EXPO_PUBLIC_TELEBIRR_MOCK_ENABLED=false`
+
+Build, upload to TestFlight, install the processed build on real iOS devices,
+and verify sign-in, checkout, notifications, location-denied/manual-address
+flows, and account deletion before requesting App Review:
+
+```bash
+eas build --platform ios --profile internal-testing
+eas submit --platform ios --profile internal-testing
+eas build --platform ios --profile production
+eas submit --platform ios --profile production
+```
+
+Use the [App Store submission checklist](APP_STORE_DESCRIPTION.md) for
+metadata, privacy disclosures, reviewer access, screenshots, and unresolved
+release gates. A successful EAS build alone does not mean the app is ready for
+App Review.
+
 ### Option 3: Standalone APK/IPA
 Follow the App Store/Play Store guides provided earlier.
 

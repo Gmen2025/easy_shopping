@@ -12,10 +12,9 @@
       "buildNumber": "2",
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "We need your location to calculate shipping costs and provide relevant product recommendations.",
-        "NSCameraUsageDescription": "This app uses the camera to upload product images and scan items.",
-        "NSPhotoLibraryUsageDescription": "This app accesses your photo library to select and upload product images.",
-        "NSPhotoLibraryAddUsageDescription": "This app saves product images to your photo library."
+        "NSLocationWhenInUseUsageDescription": "Allow AdduGenet EShop to use your location while the app is open to choose delivery or pickup locations, find nearby stores, and support rides and deliveries. You can enter an address instead.",
+        "NSCameraUsageDescription": "Allow camera access to take photos you choose to upload, such as a profile, store, driver, product, or service-request photo.",
+        "NSPhotoLibraryUsageDescription": "Allow photo-library access to choose photos or videos you want to upload for a profile, store, driver, product, or service request."
       },
       "icon": "./assets/addugenet_icon.png"
     },
