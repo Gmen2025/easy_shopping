@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { AuthContext } from '../Context/store/Auth';
 import { useMaintenance } from '../Context/store/MaintenanceContext';
@@ -32,7 +32,7 @@ const MaintenanceNavigator = () => {
 
 const MaintenanceWrapper = () => {
   const { user } = useContext(AuthContext);
-  const { maintenanceEnabled, loading } = useMaintenance();
+  const { maintenanceEnabled, testingAccess, error, loading, checkMaintenanceStatus } = useMaintenance();
 
   // Show loading while checking maintenance status
   if (loading) {
@@ -43,9 +43,11 @@ const MaintenanceWrapper = () => {
     );
   }
 
-  // If maintenance is enabled and user is logged in AND not admin, show maintenance screen
-  // Unauthenticated users (user === null) can still access login screens
-  if (maintenanceEnabled && user && !user?.isAdmin) {
+  if (error) return <View style={styles.loadingContainer}>
+    <Text accessibilityRole="alert">{error}</Text>
+    <TouchableOpacity accessibilityRole="button" onPress={checkMaintenanceStatus}><Text>Retry maintenance access</Text></TouchableOpacity>
+  </View>;
+  if (maintenanceEnabled && !user?.isAdmin && !testingAccess) {
     return <MaintenanceNavigator />;
   }
 

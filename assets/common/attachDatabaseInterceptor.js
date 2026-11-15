@@ -17,6 +17,9 @@ const hasStrictRequestBody = (requestUrl) => {
   return path === `${baseUrl}reviews` || path.startsWith(`${baseUrl}reviews/`) ||
     path === `${baseUrl}cloudinary/sign` || path === `${baseUrl}cloudinary/sign/` ||
     path === `${baseUrl}settings/service-availability` || path === `${baseUrl}settings/service-availability/` ||
+    path === `${baseUrl}settings/testing-access` || path === `${baseUrl}settings/testing-access/` ||
+    path === `${baseUrl}settings/maintenance` || path === `${baseUrl}settings/maintenance/` ||
+    path === `${baseUrl}settings/financial-health` || path === `${baseUrl}settings/financial-health/` ||
     path === `${baseUrl}rides/me/customer-profile` || path === `${baseUrl}rides/me/customer-profile/`;
 };
 

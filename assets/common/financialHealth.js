@@ -1,7 +1,7 @@
 import { apiRequest } from "./storefront";
 
 const validate = (data) => {
-  if (typeof data?.enabled !== "boolean") {
+  if (typeof data?.enabled !== "boolean" || (data.testingAccess !== undefined && typeof data.testingAccess !== "boolean")) {
     throw new Error("Financial Health availability could not be verified. Please retry.");
   }
   return data;

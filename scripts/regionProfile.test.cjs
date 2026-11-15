@@ -84,6 +84,44 @@ test("country switch refreshes profile before remounting navigation in both dire
   }
 });
 
+test("region-switch logout explains that customers must log back in, in both directions", async () => {
+  for (const [selectedCountry, target, db] of [
+    ["USA", "Ethio", "E_Shopping"], ["Ethio", "USA", "E_ShopUSA"],
+  ]) {
+    const alerts = [], events = [], errors = [];
+    const failure = new Error("User not found in this database");
+    const select = extract("Shared\\Header.js", "handleCountrySelect", {
+      selectedCountry, setIsDropdownVisible: () => {}, setSelectedCountry: () => {},
+      COUNTRY_DB_MAP: { Ethio: "E_Shopping", USA: "E_ShopUSA" },
+      DB_COUNTRY_MAP: { E_Shopping: "Ethio", E_ShopUSA: "USA" },
+      setDatabaseNameInStorage: async () => {},
+      AsyncStorage: { getItem: async () => "session" }, baseUrl: "",
+      axios: { post: async () => ({ data: { database: db } }) },
+      context: { refreshProfile: async () => { events.push("logout"); throw failure; } },
+      onDatabaseChanged: () => events.push("navigation"),
+      Alert: { alert: (...args) => alerts.push(args) },
+      console: { error: (...args) => errors.push(args) },
+    });
+    await select({ value: target });
+    assert.deepEqual(alerts, [["Region Changed", "Changing the region logged you out. Please log back in."]]);
+    assert.deepEqual(events, ["logout", "navigation"]);
+    assert.equal(errors[0][1], failure);
+  }
+});
+
+test("region-switch failures before profile refresh retain their actual error rather than claiming logout", async () => {
+  const alerts = [];
+  const select = extract("Shared\\Header.js", "handleCountrySelect", {
+    selectedCountry: "Ethio", setIsDropdownVisible: () => {},
+    COUNTRY_DB_MAP: { USA: "E_ShopUSA" },
+    setDatabaseNameInStorage: async () => { throw new Error("Storage unavailable"); },
+    onDatabaseChanged: () => {},
+    Alert: { alert: (...args) => alerts.push(args) },
+  });
+  await select({ value: "USA" });
+  assert.deepEqual(alerts, [["Database Switch Failed", "Storage unavailable"]]);
+});
+
 test("combined company-driver/store account qualifies for both dashboard tabs", () => {
   const profile = { isDriver: true, isCompanyOwnedDriver: true,
     isStoreOwner: true, isCompanyOwnedStore: true, isAdmin: false, role: "driver" };

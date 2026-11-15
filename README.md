@@ -54,11 +54,12 @@ Checks: `node --test scripts\multiDeliveryCheckout.test.cjs scripts\storeAssignm
 ## Ride and service request availability
 
 Open **Admin > Service availability**, select **USA** or **Ethiopia**, and
-toggle **Ride service** / **Service requests** independently. Switches default
-ON to preserve existing behavior and supplement country maintenance mode.
+toggle **Ride service**, **Service requests**, and **Financial Health** independently.
+Ride/service switches default ON; Financial Health retains its existing OFF default.
+These controls supplement country maintenance mode.
 Ride fare configuration must also be enabled for new rides.
 
-OFF hides the corresponding home booking badge and blocks new requests on both
+For ordinary users, OFF hides the corresponding home booking badge and blocks new requests on both
 mobile and website. The backend also rejects new submissions from stale/open
 forms. Existing trips and service requests can still be completed, cancelled,
 updated and paid; nothing is deleted. **Profile > My Rides** and **My Service
@@ -67,9 +68,19 @@ Availability refreshes on screen focus, app activation and every 30 seconds.
 Failed availability checks hide booking controls and show a retry action.
 
 Deploy the matching backend first: public `GET /settings/service-availability`
-returns `{ rides: boolean, services: boolean }`; admin `PUT` accepts partial
-boolean switches, scoped by `x-database-name`. Re-enabling restores new requests
+returns `{ rides, services, financialHealth, testingAccess }`; admin `PUT` accepts partial
+ride/service boolean switches or a separate Financial Health update, scoped by `x-database-name`. Re-enabling restores new requests
 without changing saved fare settings or country maintenance mode.
+
+**Approved testers** appears in both Service availability and Maintenance settings.
+Choose a region and save tester emails (one per line, or comma-separated). One list
+per region grants access to disabled services and maintenance to existing, signed-in
+users whose listed email is verified. Admin retains access without being listed.
+Removing an email revokes the exception; access refreshes on sign-in/focus/foreground
+and every 30 seconds. Testers do not receive Admin permissions or access to other
+customers' private Financial Health records. Saved work remains available when a
+service is OFF. Financial Health's original Admin switch and the new switch share
+one setting.
 
 Checks: `node --test scripts/serviceAvailability.test.cjs scripts/rides.test.cjs`.
 
@@ -78,6 +89,10 @@ dropdown (32px on phones, 40px on larger screens). Below 390px, the title can
 wrap to two lines and the tagline/country abbreviation are hidden to preserve
 space for the logo and controls. The flag and accessible country selector remain
 available; menu, home, notifications and cart behavior are unchanged.
+
+If changing between Ethiopia and USA logs the customer out during the regional
+profile refresh, the popup says: **"Changing the region logged you out. Please
+log back in."** Successful region switches keep their existing behavior.
 
 ## Store-created catalog and nearest-store pricing
 
@@ -748,7 +763,12 @@ Focused checks: `node --test scripts/authentication.test.cjs`.
   performed by adding this code.
 
 ### Ethiopia USD Purchasing
-- Customers select the **Ethiopia region**, then choose **ETB or USD** in the cart.
+- Customers select the **Ethiopia region**, then choose **ETB** or
+  **Pay USD & deliver in Ethiopia** in the cart. Customers in USA can pay by
+  configured, Admin-enabled card for Ethiopian family; enter the recipient's
+  Ethiopian address, not the payer's USA address. A postal code is not required.
+  Choose an address suggestion if the manually entered address cannot be verified.
+  Selected Google place IDs are retained for server verification and saved addresses.
   Domestic delivery and non-ride quoted services remain in Ethiopia by default.
   **Pay USD & ship Ethiopia products to USA** selects the separate export flow,
   including USA recipient addresses, Ethiopia hub transport, international

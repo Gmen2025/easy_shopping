@@ -75,6 +75,7 @@ const Header = ({
 
         const dbName = COUNTRY_DB_MAP[country.value];
         if (dbName) {
+            let refreshingProfile = false;
             try {
                 // Pre-persist immediately so any active interceptor uses the new database
                 await setDatabaseNameInStorage(dbName);
@@ -107,22 +108,28 @@ const Header = ({
                 setSelectedCountry(resolvedCountry);
 
                 if (token) {
+                    refreshingProfile = true;
                     await context.refreshProfile();
+                    refreshingProfile = false;
                 }
 
                 if (typeof onDatabaseChanged === 'function') {
                     onDatabaseChanged();
                 }
             } catch (error) {
-                const message =
-                    error?.response?.data?.message ||
+                const message = refreshingProfile
+                    ? "Changing the region logged you out. Please log back in."
+                    : error?.response?.data?.message ||
                     error?.message ||
                     "Could not switch database.";
 
+                if (refreshingProfile) {
+                    console.error("Profile refresh after changing region failed:", error);
+                }
                 if (typeof onDatabaseChanged === 'function') {
                     onDatabaseChanged();
                 }
-                Alert.alert("Database Switch Failed", message);
+                Alert.alert(refreshingProfile ? "Region Changed" : "Database Switch Failed", message);
             }
         }
     };

@@ -518,12 +518,12 @@ test("Financial Health availability validates responses and admin saves use the 
 
 test("admin service control starts off and toggles only customer availability", async () => {
   const h = hooks(), saved = [], alerts = [];
-  const availability = { enabled: false, error: "", reload: async () => {} };
+  const availability = { enabled: true, configuredEnabled: false, error: "", reload: async () => {} };
   const Settings = load("Screens\\Admin\\FinancialHealthSettings.js", {
     react: h.react, "react-native": { ...native, ScrollView: "ScrollView", Text: "Text", Switch: "Switch",
       ActivityIndicator: "ActivityIndicator", TouchableOpacity: "TouchableOpacity", Alert: { alert: (...args) => alerts.push(args) } },
     "../../assets/common/useFinancialHealth": { __esModule: true, default: () => availability },
-    "../../assets/common/financialHealth": { saveFinancialHealthSettings: async (enabled) => { saved.push(enabled); availability.enabled = enabled; } },
+    "../../assets/common/financialHealth": { saveFinancialHealthSettings: async (enabled) => { saved.push(enabled); availability.configuredEnabled = enabled; } },
   }).default;
   const render = () => h.render(Settings);
   let toggle = nodes(render()).find((node) => node.type === "Switch");
@@ -532,7 +532,7 @@ test("admin service control starts off and toggles only customer availability", 
   assert.equal(saved[0], true);
   assert.equal(nodes(render()).find((node) => node.type === "Switch").props.value, true);
   assert.match(alerts[0][1], /signed-in customers/);
-  availability.enabled = null; availability.error = "Unable to load availability";
+  availability.configuredEnabled = null; availability.error = "Unable to load availability";
   toggle = nodes(render()).find((node) => node.type === "Switch");
   assert.equal(toggle.props.disabled, true);
   assert.match(text(render()), /Unable to load availability/);

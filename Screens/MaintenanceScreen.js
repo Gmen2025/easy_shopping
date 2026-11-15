@@ -94,7 +94,7 @@ const MaintenanceScreen = ({ navigation: navProp, isAdmin = false }) => {
             onPress={handleAdminLogin}
             style={styles.adminButton}
           >
-            <Text style={styles.adminButtonText}>Admin Login</Text>
+            <Text style={styles.adminButtonText}>Admin / Tester Login</Text>
           </EasyButton>
         )}
 

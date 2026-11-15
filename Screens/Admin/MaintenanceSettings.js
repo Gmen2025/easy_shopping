@@ -15,6 +15,7 @@ import { useMaintenance } from '../../Context/store/MaintenanceContext';
 import { AuthContext } from '../../Context/store/Auth';
 import SocialLoginSettings from './SocialLoginSettings';
 import PaymentMethodSettings from './PaymentMethodSettings';
+import TestingAccessSettings from './TestingAccessSettings';
 
 const MaintenanceSettings = (props) => {
   const { maintenanceEnabled, toggleMaintenance } = useMaintenance();
@@ -60,7 +61,7 @@ const MaintenanceSettings = (props) => {
   const handleConfirmToggle = (value) => {
     const action = value ? 'enable' : 'disable';
     const message = value
-      ? 'Are you sure you want to put the application in maintenance mode?\n\nUsers will not be able to access the app.'
+      ? 'Enable maintenance mode?\n\nOnly Admin and approved verified testers will be able to access the app.'
       : 'Are you sure you want to disable maintenance mode?\n\nThe application will be available to all users.';
 
     Alert.alert('Confirm', message, [
@@ -94,6 +95,7 @@ const MaintenanceSettings = (props) => {
 
       <SocialLoginSettings />
       <PaymentMethodSettings />
+      <TestingAccessSettings />
 
       <Card style={styles.mainCard}>
         <Card.Content>
@@ -119,7 +121,7 @@ const MaintenanceSettings = (props) => {
                 </Text>
                 <Text style={styles.toggleDescription}>
                   {isEnabled
-                    ? 'Only admins can access the app'
+                    ? 'Only Admin and approved verified testers can access the app'
                     : 'All users can access the app'}
                 </Text>
               </View>
@@ -142,7 +144,7 @@ const MaintenanceSettings = (props) => {
               <View style={styles.infoItem}>
                 <Icon name="ban" size={16} color="#dc2626" />
                 <Text style={styles.infoText}>
-                  Non-admin users cannot access the application
+                  Users outside the approved tester list cannot access the application
                 </Text>
               </View>
               <View style={styles.infoItem}>
@@ -192,7 +194,7 @@ const MaintenanceSettings = (props) => {
                 </Text>
                 <Text style={styles.statusDescription}>
                   {isEnabled
-                    ? 'Application is in maintenance. Admin access only.'
+                    ? 'Application is in maintenance. Admin and approved tester access only.'
                     : 'Application is operational. All users can access.'}
                 </Text>
               </View>

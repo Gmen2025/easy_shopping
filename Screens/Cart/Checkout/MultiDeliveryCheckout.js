@@ -907,8 +907,11 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
                   ) : null}
                   {converted && !international ? (
                     <Text>
-                      Pay in USD; all delivery addresses and pickups must be in
-                      Ethiopia.
+                      Pay in USD from USA or elsewhere for family in Ethiopia.
+                      Enter the recipient's Ethiopian address; a postal code is
+                      not required. Delivery and pickup remain in Ethiopia.
+                      Card and USD bank transfer require Admin availability and
+                      payment configuration.
                     </Text>
                   ) : null}
                   <Text>
@@ -1259,9 +1262,8 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
                         Pickup or delivery by store
                       </Text>
                       <Text>
-                        Pickup has no domestic delivery charge. International
-                        pickup retains {shipmentRoute.origin} hub delivery and shipping; only
-                        {shipmentRoute.destination} final delivery is omitted.
+                        Pickup has no domestic delivery charge.
+                        {international ? ` International pickup retains ${shipmentRoute.origin} hub delivery and shipping; only ${shipmentRoute.destination} final delivery is omitted.` : ""}
                       </Text>
                       {[
                         ...new Map(

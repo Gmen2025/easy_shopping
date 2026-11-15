@@ -184,7 +184,7 @@ return (
             setPaymentCurrency(value === "usd-usa" ? "usd" : value);
           }}>
             <Picker.Item label={/usa/i.test(database) ? "Pay birr & ship to Ethiopia (ETB)" : "Pay in birr (ETB)"} value="etb" />
-            <Picker.Item label={/usa/i.test(database) ? "Pay USD & deliver in USA" : "Pay in US dollars (USD)"} value="usd" />
+            <Picker.Item label={/usa/i.test(database) ? "Pay USD & deliver in USA" : "Pay USD & deliver in Ethiopia"} value="usd" />
             {!/usa/i.test(database) ? <Picker.Item label="Pay USD & ship Ethiopia products to USA" value="usd-usa" /> : null}
           </Picker>
           {exchangeError ? <Text style={{ color: "#b91c1c" }}>{exchangeError}</Text> : null}
