@@ -5,6 +5,7 @@ import { NavigationContainer, useNavigationContainerRef } from "@react-navigatio
 import Toast from "react-native-toast-message";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
+import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-context";
 import stripeModule from "./assets/common/stripe";
 
 //Redux
@@ -302,42 +303,44 @@ export default function App() {
   ).length;
 
   return (
-    <AuthProvider>
-      <Provider store={store}>
-        <MaintenanceProvider>
-          <StripeProvider publishableKey={stripePublishableKey}>
-            <TelebirrProvider>
-              <NotificationBootstrap
-                onNotificationReceived={handleNotificationReceived}
-                onNotificationOpened={handleNotificationOpened}
-              />
-              <View style={styles.appContainer}>
-                <StatusBar style="dark" />
-                <View style={[styles.headerLayer, hideShoppingHeader && { display: "none" }]}>
-                  <Header
-                    key={`header-${dbRefreshKey}`}
-                    onNavigate={navigateFromHeader}
-                    onDatabaseChanged={handleDatabaseChanged}
-                    notificationCount={unreadNotificationCount}
-                    notifications={notificationItems}
-                    onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
-                    onMarkNotificationRead={handleMarkNotificationRead}
-                    onDeleteNotification={handleDeleteNotification}
-                  />
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      <AuthProvider>
+        <Provider store={store}>
+          <MaintenanceProvider>
+            <StripeProvider publishableKey={stripePublishableKey}>
+              <TelebirrProvider>
+                <NotificationBootstrap
+                  onNotificationReceived={handleNotificationReceived}
+                  onNotificationOpened={handleNotificationOpened}
+                />
+                <View style={styles.appContainer}>
+                  <StatusBar style="dark" />
+                  <View style={[styles.headerLayer, hideShoppingHeader && { display: "none" }]}>
+                    <Header
+                      key={`header-${dbRefreshKey}`}
+                      onNavigate={navigateFromHeader}
+                      onDatabaseChanged={handleDatabaseChanged}
+                      notificationCount={unreadNotificationCount}
+                      notifications={notificationItems}
+                      onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
+                      onMarkNotificationRead={handleMarkNotificationRead}
+                      onDeleteNotification={handleDeleteNotification}
+                    />
+                  </View>
+                  <View style={styles.navLayer}>
+                    <NavigationContainer ref={navigationRef} key={`db-${dbRefreshKey}`}
+                      onReady={updateCurrentScreen} onStateChange={updateCurrentScreen}>
+                      <ReviewAvailabilityProvider><MaintenanceWrapper /></ReviewAvailabilityProvider>
+                      <Toast />
+                    </NavigationContainer>
+                  </View>
                 </View>
-                <View style={styles.navLayer}>
-                  <NavigationContainer ref={navigationRef} key={`db-${dbRefreshKey}`}
-                    onReady={updateCurrentScreen} onStateChange={updateCurrentScreen}>
-                    <ReviewAvailabilityProvider><MaintenanceWrapper /></ReviewAvailabilityProvider>
-                    <Toast />
-                  </NavigationContainer>
-                </View>
-              </View>
-            </TelebirrProvider>
-          </StripeProvider>
-        </MaintenanceProvider>
-      </Provider>
-    </AuthProvider>
+              </TelebirrProvider>
+            </StripeProvider>
+          </MaintenanceProvider>
+        </Provider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
 
