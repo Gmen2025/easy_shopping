@@ -6,7 +6,7 @@ import { newPlacesSession, placeAddress, searchPlaces } from "../assets/common/r
 const MIN_CHARS = 3;
 const DEBOUNCE_MS = 350;
 
-const AddressSearchInput = ({ label, disabled, selectedText, onSelect, onFocus, onBlur }) => {
+const AddressSearchInput = ({ label, disabled, selectedText, country, onSelect, onFocus, onBlur }) => {
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -15,13 +15,13 @@ const AddressSearchInput = ({ label, disabled, selectedText, onSelect, onFocus, 
   const latest = useRef(0);
 
   useEffect(() => {
+    const request = ++latest.current;
     const text = query.trim();
     if (text.length < MIN_CHARS) { setSuggestions([]); setSearching(false); return undefined; }
-    const request = ++latest.current;
     setSearching(true);
     const timer = setTimeout(async () => {
       try {
-        const results = await searchPlaces(text, session.current);
+        const results = await searchPlaces(text, session.current, country);
         if (request === latest.current) { setSuggestions(results); setError(results.length ? "" : "No matching places. Try a nearby landmark or fill in the fields below."); }
       } catch (failure) {
         if (request === latest.current) { setSuggestions([]); setError(failure.response?.data?.message || "Address search failed. Fill in the fields below."); }
@@ -29,14 +29,14 @@ const AddressSearchInput = ({ label, disabled, selectedText, onSelect, onFocus, 
         if (request === latest.current) setSearching(false);
       }
     }, DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [query]);
+    return () => { clearTimeout(timer); latest.current++; };
+  }, [query, country]);
 
   const choose = async (suggestion) => {
     latest.current++;
     setSuggestions([]); setSearching(true); setError("");
     try {
-      const address = await placeAddress(suggestion.placeId, session.current);
+      const address = await placeAddress(suggestion.placeId, session.current, country);
       onSelect(address);
       setQuery("");
     } catch (failure) {

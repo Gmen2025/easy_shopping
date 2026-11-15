@@ -925,6 +925,12 @@ Focused checks: `node --test scripts/authentication.test.cjs`.
   Suggestions go through the server (`GET /rides/places/autocomplete` and
   `/rides/places/details/:placeId`) using `GOOGLE_PLACES_API_KEY` (or
   `GOOGLE_MAPS_API_KEY`); enable **Places API (New)** for that key.
+  Delivery checkout passes the recipient country as `region=US|ET` on both
+  autocomplete and place-detail requests, including cross-border deliveries.
+  Deploy the matching backend before updating the app. Backend Google keys must
+  not use website/referrer restrictions; keep them separate from browser/native
+  keys. Server checkout also requires Geocoding and Distance Matrix API access
+  and billing; customer GPS country does not determine API authorization.
 - **My rides & post-ride payments** shows only the customer's own booking,
   driver/contact/GPS, status and fare. Waiting/offered rides explain that driver
   tracking starts after acceptance, rather than reporting missing GPS as an error.

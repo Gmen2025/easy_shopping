@@ -1021,6 +1021,7 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
                       <AddressSearchInput
                         key={editor.id}
                         label="Search delivery address"
+                        country={recipientCountry}
                         disabled={busy}
                         selectedText={
                           editor.placeId
