@@ -112,6 +112,9 @@ test("Admin US shipping saves the tariff/hub and explicitly controls product exp
       },
     },
     "../../assets/common/databaseConfig": { getDatabaseNameFromStorage: async () => "E_ShopUSA" },
+    "../../assets/common/internationalShipping": load("assets\\common\\internationalShipping.js", {}),
+    "../../assets/common/rides": load("assets\\common\\rides.js", { "./storefront": {} }),
+    "../../Shared/AddressSearchInput": { __esModule: true, default: "AddressSearchInput" },
     "../../Shared/DeliveryCheckout": { styles: {} },
   }).default;
   const render = () => { h.reset(); return Component({ navigation: { navigate() {} } }); };
@@ -124,6 +127,30 @@ test("Admin US shipping saves the tariff/hub and explicitly controls product exp
   assert.equal(save.options.data.perKgUsd, "7.50");
   assert.equal(save.options.data.hub.country, "USA");
   assert.equal(alerts.at(-1)[0], "Saved");
+  tree(render()).filter((entry) => entry.type === "Switch").at(-1).props.onValueChange(true);
+  for (const [field, value] of [["address1", "Bole collection office"], ["city", "Addis Ababa"], ["phone", "123"]]) {
+    tree(render()).find((entry) => entry.type === "TextInput" && entry.props.label === `Ethiopia collection ${field}`)
+      .props.onChangeText(value);
+  }
+  await button("Save hub & shipping tariff").props.onPress();
+  const collection = calls.at(-1).options.data.ethiopiaPickup;
+  assert.equal(collection.address1, "Bole collection office");
+  assert.equal(collection.address2, "");
+  assert.equal(collection.zip, "");
+  const search = () => tree(render()).find((entry) => entry.type === "AddressSearchInput" && entry.props.country === "Ethiopia");
+  assert.ok(tree(render()).some((entry) => entry.type === "AddressSearchInput" && entry.props.country === "USA"));
+  search().props.onSelect({ placeId: "confirmed-hotel", address1: "Hotel", city: "Addis Ababa", country: "Ethiopia",
+    location: { type: "Point", coordinates: [38.73, 9.06] } });
+  await button("Save hub & shipping tariff").props.onPress();
+  const selected = calls.at(-1).options.data.ethiopiaPickup;
+  assert.equal(selected.placeId, "confirmed-hotel");
+  assert.equal(selected.phone, "123");
+  assert.equal(selected.label, "Ethiopia collection");
+  tree(render()).find((entry) => entry.type === "TextInput" && entry.props.label === "Ethiopia collection address1")
+    .props.onChangeText("Different collection street");
+  await button("Save hub & shipping tariff").props.onPress();
+  assert.equal(calls.at(-1).options.data.ethiopiaPickup.placeId, undefined);
+  assert.equal(calls.at(-1).options.data.ethiopiaPickup.location, undefined);
   await button("Approve for Ethiopia export").props.onPress();
   assert.equal(calls.at(-1).options.data.exportToEthiopia, true);
   assert.ok(button("Remove export approval"));

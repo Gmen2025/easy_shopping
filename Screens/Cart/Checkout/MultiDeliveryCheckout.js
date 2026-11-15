@@ -28,6 +28,7 @@ import {
   CargoSummary,
   CheckoutHeader,
   DeliverySummary,
+  InternationalDestinationMaps,
   DeliveryWindow,
   PackageMeasurements,
   styles as sharedStyles,
@@ -1251,6 +1252,7 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
           )}
           {quote && step > 1 ? (
             <>
+              <InternationalDestinationMaps group={quote} />
               {step === 2 || service ? (
                 <>
                   <Text>

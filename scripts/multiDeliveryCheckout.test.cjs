@@ -40,6 +40,44 @@ function text(value) {
   if (Array.isArray(value)) return value.map(text).join("");
   return text(value?.props?.children || []);
 }
+test("destination map renders Ethiopia coordinates and never uses device GPS when the dispatch origin is missing", async () => {
+  const opened = [];
+  const tracking = load("assets\\common\\orderTracking.js", {});
+  const preview = load("assets\\common\\checkoutLocationPreview.js", {
+    "./orderTracking": tracking, "./deliveryLocation": {}, "./stores": {},
+  });
+  const Map = load("Shared\\InternationalDeliveryMap.js", {
+    react: {
+      createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
+      useRef: () => ({ current: null }), useState: () => ["", () => {}],
+    },
+    "react-native": { View: "View", Text: "Text", TouchableOpacity: "Link",
+      StyleSheet: { create: (value) => value }, Linking: { openURL: async (url) => opened.push(url) } },
+    "react-native-maps": { __esModule: true, default: "MapView", Marker: "Marker" },
+    "react-native-maps-directions": { __esModule: true, default: "Directions" },
+    "expo-constants": { expoConfig: { extra: { googleDirectionsApiKey: "public-fixture" } } },
+    "../assets/common/mapsConfiguration": { canRenderNativeMap: true, formatDirectionsError: String },
+    "../assets/common/orderTracking": tracking,
+    "../assets/common/checkoutLocationPreview": preview,
+  }).default;
+  const origin = { location: { coordinates: [38.75, 9.02] } };
+  const destination = { location: { coordinates: [38.8, 8.98] } };
+  const routed = nodes(Map({ origin, destination }));
+  const route = routed.find((node) => node.type === "Directions");
+  assert.equal(route.props.origin.latitude, 9.02);
+  assert.equal(route.props.origin.longitude, 38.75);
+  assert.equal(route.props.destination.latitude, 8.98);
+  assert.equal(route.props.mode, "DRIVING");
+  assert.equal(routed.find((node) => node.type === "MapView").props.initialRegion.latitude, 8.98);
+  await routed.find((node) => node.type === "Link").props.onPress();
+  assert.match(opened.at(-1), /origin=9.02%2C38.75&destination=8.98%2C38.8/);
+  const pinOnly = nodes(Map({ destination }));
+  assert.equal(pinOnly.some((node) => node.type === "Directions"), false);
+  await pinOnly.find((node) => node.type === "Link").props.onPress();
+  assert.match(opened.at(-1), /maps\/search\/\?api=1&query=8.98%2C38.8/);
+  assert.doesNotMatch(opened.at(-1), /maps\/dir/);
+});
+
 function harness(
   request,
   {
@@ -113,21 +151,24 @@ function harness(
   const exchange = load("assets\\common\\exchangeRate.js", {
     "./storefront": { apiRequest: async () => exchangeState },
   });
+  const rides = load("assets\\common\\rides.js", {
+    "./storefront": {
+      apiRequest: async () => assert.fail("Place search is mocked"),
+    },
+  });
   const summary = load("Shared\\DeliveryCheckout.js", {
     react,
     "react-native": native,
     "react-native-safe-area-context": { useSafeAreaInsets: () => ({ top: 0 }) },
     "../assets/common/currency": currency,
     "../assets/common/exchangeRate": exchange,
+    "../assets/common/rides": rides,
+    "../assets/common/orderTracking": load("assets\\common\\orderTracking.js", {}),
+    "./InternationalDeliveryMap": { __esModule: true, default: "InternationalDeliveryMap" },
     "../assets/common/internationalShipping": load(
       "assets\\common\\internationalShipping.js",
       {},
     ),
-  });
-  const rides = load("assets\\common\\rides.js", {
-    "./storefront": {
-      apiRequest: async () => assert.fail("Place search is mocked"),
-    },
   });
   const deliveryPricing = load("assets\\common\\deliveryPricing.js", {});
   const deliveryMethods = {
@@ -1691,6 +1732,7 @@ test("international birr recovery preserves a stale rate snapshot and shows Ethi
         paymentStatus: "pending",
         paymentAmount: 7500,
         exchangeRate: policy,
+        deliveries: [{ address: { id: "family" } }],
         international: {
           shippingFee: 20,
           customsNotice: "Customs excluded",

@@ -76,6 +76,17 @@ zero. Final delivery is charged only to delivery products, once per recipient
 with any delivery products. Customers cannot confirm international collection
 until arrival in Ethiopia. Customs/duties are excluded.
 
+Checkout maps show destination final delivery separately from origin-country
+hub transport. The saved destination collection/dispatch address starts the
+final-delivery map; without it, only the recipient pin is shown, never USA GPS.
+Collection shows the destination collection point instead of a recipient route.
+Enter a real collection street, city, country and contact phone before saving;
+apartment/unit and Ethiopia postal code are optional. Recalculate unprepared
+quotes after changing settings; prepared payments retain their saved snapshot.
+Map previews do not calculate or change the configured final-delivery fee.
+Admin hub and collection forms include country-specific address suggestions.
+Select the exact verified landmark when Google cannot resolve a typed address.
+
 Deploy the matching backend first. Prepared payments keep their saved fees and
 addresses; interrupted requests can be recovered from the same checkout.
 Checks: `node --test scripts\multiDeliveryCheckout.test.cjs scripts\storeAssignments.test.cjs scripts\pickupConfirmation.test.cjs`.

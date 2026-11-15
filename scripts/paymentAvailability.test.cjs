@@ -63,6 +63,36 @@ test("reverse export preview combines USD shipping/delivery with one native conv
   assert.equal(exports.isUSA("United States"), true);
   assert.equal(exports.isUSA("Ethiopia"), false);
 });
+test("international maps separate final delivery and collection using only the saved destination snapshot", () => {
+  const filename = path.join(__dirname, "..", "assets", "common", "internationalShipping.js");
+  const { code } = babel.transformSync(fs.readFileSync(filename, "utf8"), {
+    filename, configFile: false, babelrc: false, plugins: ["@babel/plugin-transform-modules-commonjs"],
+  });
+  const exports = {};
+  vm.runInNewContext(code, { exports });
+  const dispatch = { country: "Ethiopia", location: { coordinates: [38.75, 9.02] } };
+  const recipient = { country: "Ethiopia", location: { coordinates: [38.8, 8.98] } };
+  const group = {
+    international: { hub: { location: { coordinates: [-87.65, 41.95] } },
+      tariff: { ethiopiaPickup: dispatch }, shipments: [{ id: "home", recipient }] },
+    deliveries: [{ address: { id: "home" } }, { address: { id: "home" }, fulfillmentMethod: "pickup" }],
+  };
+  let legs = exports.internationalDestinationLegs(group);
+  assert.equal(legs[0].origin, dispatch);
+  assert.equal(legs[0].destination, recipient);
+  assert.equal(legs[1].kind, "collection");
+  assert.equal(legs[1].destination, dispatch);
+  group.deliveries.shift();
+  assert.equal(exports.internationalDestinationLegs(group).length, 1);
+  group.deliveries[0].fulfillmentMethod = "delivery";
+  delete group.international.tariff.ethiopiaPickup;
+  legs = exports.internationalDestinationLegs(group);
+  assert.equal(legs[0].origin, undefined);
+  assert.equal(legs[0].destination, recipient);
+  group.international.direction = "ethiopia-to-usa";
+  group.international.tariff.usaPickup = { country: "USA" };
+  assert.equal(exports.internationalDestinationLegs(group)[0].origin, group.international.tariff.usaPickup);
+});
 test("USA cash eligibility is independent of the app build", () => {
   for (const database of ["E_ShopUSA", "E_ShoppingUSA"]) {
     assert.equal(isCashOnDeliveryAvailable(database, true), true);

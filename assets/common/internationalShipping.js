@@ -20,6 +20,31 @@ export const isUSA = (country) =>
     String(country || "").trim(),
   );
 
+export function internationalDestinationLegs(group) {
+  if (!group.international) return [];
+  const route = shippingRoute(group.international.direction);
+  const dispatch = group.international.tariff?.[route.pickupField];
+  return group.international.shipments.flatMap((shipment) => {
+    const members = group.deliveries.filter((delivery) => delivery.address.id === shipment.id);
+    const legs = [];
+    if (members.some((delivery) => delivery.fulfillmentMethod !== "pickup")) {
+      legs.push({ key: `${shipment.id}:delivery`, kind: "delivery", origin: dispatch, destination: shipment.recipient });
+    }
+    if (members.some((delivery) => delivery.fulfillmentMethod === "pickup")) {
+      legs.push({ key: `${shipment.id}:collection`, kind: "collection", destination: dispatch });
+    }
+    return legs;
+  });
+}
+
+export function editShippingAddress(address, field, value) {
+  const next = { ...address, [field]: value };
+  if (["address1", "address2", "city", "zip", "country"].includes(field)) {
+    for (const key of ["placeId", "location", "latitude", "longitude", "formattedAddress"]) delete next[key];
+  }
+  return next;
+}
+
 export function internationalPreview(quote, hubDeliveryFee) {
   const native = quote.itemsSubtotal + hubDeliveryFee;
   const fees = quote.international.shippingFee + (quote.finalDeliveryFee || 0);

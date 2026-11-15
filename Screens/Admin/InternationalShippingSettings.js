@@ -4,7 +4,9 @@ import { Button, Switch, TextInput } from "react-native-paper";
 import { storeRequest, apiRequest } from "../../assets/common/storefront";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
 import { styles } from "../../Shared/DeliveryCheckout";
-import { shippingRoute } from "../../assets/common/internationalShipping";
+import { editShippingAddress, shippingRoute } from "../../assets/common/internationalShipping";
+import { addressText } from "../../assets/common/rides";
+import AddressSearchInput from "../../Shared/AddressSearchInput";
 
 const addressFields = [["label", "Hub label"], ["address1", "Street address"], ["address2", "Unit (optional)"],
   ["city", "City"], ["zip", "Postal code (optional in Ethiopia)"], ["country", "Hub country"], ["phone", "Hub phone"]];
@@ -50,8 +52,11 @@ export default function InternationalShippingSettings({ navigation }) {
     {config ? <View style={styles.card}>
       <Text>Enable international shipping (the regional daily exchange policy must also be enabled/current)</Text>
       <Switch value={Boolean(config.enabled)} disabled={busy} onValueChange={(enabled) => setConfig((previous) => ({ ...previous, enabled }))} />
+      <AddressSearchInput label="Search consolidation hub address" country={route.origin} disabled={busy}
+        selectedText={config.hub.placeId ? addressText(config.hub) : ""}
+        onSelect={(place) => setConfig((previous) => ({ ...previous, hub: { ...previous.hub, ...place } }))} />
       {addressFields.map(([field, label]) => <TextInput key={field} label={label} disabled={busy} value={config.hub[field] || ""}
-        onChangeText={(value) => setConfig((previous) => ({ ...previous, hub: { ...previous.hub, [field]: value } }))} />)}
+        onChangeText={(value) => setConfig((previous) => ({ ...previous, hub: editShippingAddress(previous.hub, field, value) }))} />)}
       {tariffFields.map(([field, label]) => <TextInput key={field} label={label} disabled={busy} keyboardType="decimal-pad"
         value={config[field] == null ? "" : String(config[field])} onChangeText={(value) => setConfig((previous) => ({ ...previous, [field]: value }))} />)}
       <Text>For each recipient, billable kg is the greater of actual kg and the sum of each unit's packaged length x width x height / divisor. Rounded up to 0.001 kg.
@@ -60,12 +65,25 @@ export default function InternationalShippingSettings({ navigation }) {
         Duties/customs are excluded. Review carrier pricing, import/export restrictions and recipient coverage before approving products.</Text>
       <Text>Enable customer collection in {route.destination}</Text>
       <Switch value={Boolean(config[route.pickupField])} disabled={busy} onValueChange={(enabled) => setConfig((previous) => ({
-        ...previous, [route.pickupField]: enabled ? { label: `${route.destination} collection`, country: route.destination } : null,
+        ...previous, [route.pickupField]: enabled ? {
+          ...Object.fromEntries(addressFields.map(([field]) => [field, ""])),
+          label: `${route.destination} collection`, country: route.destination,
+        } : null,
       }))} />
-      {config[route.pickupField] ? addressFields.map(([field]) => <TextInput key={field} label={`${route.destination} collection ${field}${field === "address2" || field === "zip" && route.destination === "Ethiopia" ? " (optional)" : ""}`}
+      {config[route.pickupField] ? <>
+      <AddressSearchInput label={`Search ${route.destination} collection address`} country={route.destination} disabled={busy}
+        selectedText={config[route.pickupField].placeId ? addressText(config[route.pickupField]) : ""}
+        onSelect={(place) => setConfig((previous) => ({
+          ...previous, [route.pickupField]: { ...previous[route.pickupField], ...place },
+        }))} />
+      {addressFields.map(([field]) => <TextInput key={field} label={`${route.destination} collection ${field}${field === "address2" || field === "zip" && route.destination === "Ethiopia" ? " (optional)" : ""}`}
         disabled={busy} value={config[route.pickupField][field] || ""} onChangeText={(value) => setConfig((previous) => ({
-          ...previous, [route.pickupField]: { ...previous[route.pickupField], [field]: value },
-        }))} />) : null}
+          ...previous, [route.pickupField]: editShippingAddress(previous[route.pickupField], field, value),
+        }))} />)}
+      </> : null}
+      <Text>Enter the real {route.destination} collection/dispatch street, city, country and contact phone before saving.
+        Apartment/unit is optional; postal code is optional in Ethiopia. This saved location also starts the destination delivery map.
+        Choose an exact address suggestion if Google cannot verify a typed landmark. Turn collection off to save the tariff before the collection address is ready.</Text>
       <Button mode="contained" disabled={busy} onPress={() => run(async () => {
         setConfig(await storeRequest("international-shipping-config", { method: "put", data: config, timeout: 60000 }));
         Alert.alert("Saved", "Hub and shipping tariff saved. Outstanding quotes must be recalculated; prepared orders retain their snapshot.");

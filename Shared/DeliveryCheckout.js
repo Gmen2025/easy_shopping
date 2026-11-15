@@ -3,7 +3,10 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useCurrency } from "../assets/common/currency";
 import { paymentText } from "../assets/common/exchangeRate";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { shippingRoute } from "../assets/common/internationalShipping";
+import { internationalDestinationLegs, shippingRoute } from "../assets/common/internationalShipping";
+import { toLatLng } from "../assets/common/orderTracking";
+import { addressText } from "../assets/common/rides";
+import InternationalDeliveryMap from "./InternationalDeliveryMap";
 
 const measurementText = (value, unit) => Number.isFinite(value) && value > 0
   ? `${value} ${unit}` : "Not available currently";
@@ -107,6 +110,7 @@ export const DeliverySummary = ({ group }) => {
         <Text>{route.destination} recipient: {shipment.recipient.label} - {shipment.recipient.address1}, {shipment.recipient.city}, {shipment.recipient.zip}</Text>
         <Text>Shipment: {shipment.status} | {shipment.carrier || ""} {shipment.trackingNumber || ""}</Text>
       </View>)}
+      <InternationalDestinationMaps group={group} />
       {group.status === "bank_review" ? <Text>{group.currency?.toUpperCase()} transfer submitted for Admin review. Stock remains reserved; stores cannot start fulfillment before funds are verified. Do not pay again.</Text> : null}
     </> : null}
     <Text style={styles.heading}>Combined total: {formatPrice(group.totalPrice)}</Text>
@@ -120,6 +124,22 @@ export const DeliverySummary = ({ group }) => {
         : group.deliveries?.every((delivery) => delivery.fulfillmentMethod === "pickup") ? "Collect your products at the displayed supplying-store addresses. No driver is assigned."
         : "Each pickup/destination pair is a separate delivery, not one combined driver route."}</Text>}
   </View>;
+};
+
+export const InternationalDestinationMaps = ({ group }) => {
+  const route = shippingRoute(group.international?.direction);
+  return internationalDestinationLegs(group).map((leg) => <View key={leg.key}>
+    <Text style={styles.heading}>{route.destination} {leg.kind === "delivery" ? "final-delivery route" : "collection location"}</Text>
+    <Text>{leg.kind === "delivery"
+      ? `From collection/dispatch: ${leg.origin ? addressText(leg.origin) : "Not configured in this checkout"}. To recipient: ${addressText(leg.destination)}.`
+      : `Collect at: ${leg.destination ? addressText(leg.destination) : "Not configured in this checkout"}.`}</Text>
+    {leg.kind === "delivery" && !toLatLng(leg.origin?.location) ? <Text>
+      The {route.destination} dispatch origin is not configured in this saved checkout. Only the recipient pin is shown, not a driving route from your current location.
+      Admin must save the collection/dispatch address, then recalculate an unprepared quote. Prepared payments keep their saved snapshot.
+    </Text> : null}
+    <InternationalDeliveryMap origin={leg.origin} destination={leg.destination} />
+    <Text>Destination maps are previews only; they do not recalculate shipping or final-delivery fees.</Text>
+  </View>);
 };
 
 export const styles = StyleSheet.create({
