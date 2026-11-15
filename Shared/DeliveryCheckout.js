@@ -3,6 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useCurrency } from "../assets/common/currency";
 import { paymentText } from "../assets/common/exchangeRate";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { shippingRoute } from "../assets/common/internationalShipping";
 
 const measurementText = (value, unit) => Number.isFinite(value) && value > 0
   ? `${value} ${unit}` : "Not available currently";
@@ -32,9 +33,9 @@ export const CheckoutHeader = ({ step = 0, title, onBack, disabled }) => {
 export const DeliveryWindow = ({ value }) => value?.deliveryWindowStart && value?.deliveryWindowEnd &&
   (value.international || value.internationalShipping || value.fulfillmentMethod !== "pickup" &&
     !value.deliveries?.every((delivery) => delivery.fulfillmentMethod === "pickup")) ? <View>
-  <Text style={styles.heading}>{value.international || value.internationalShipping ? "Estimated US hub delivery" : "Estimated delivery"}</Text>
+  <Text style={styles.heading}>{value.international || value.internationalShipping ? `Estimated ${shippingRoute(value.international?.direction || value.internationalShipping?.direction).origin} hub delivery` : "Estimated delivery"}</Text>
   <Text>{new Date(value.deliveryWindowStart).toLocaleDateString()} - {new Date(value.deliveryWindowEnd).toLocaleDateString()}</Text>
-  {value.international || value.internationalShipping ? <Text>US delivery to consolidation hub only. International arrival is tracked separately.</Text> : null}
+  {value.international || value.internationalShipping ? <Text>{shippingRoute(value.international?.direction || value.internationalShipping?.direction).origin} delivery to consolidation hub only. International arrival is tracked separately.</Text> : null}
 </View> : null;
 
 export const PackageMeasurements = ({ size }) => <View>
@@ -59,14 +60,18 @@ export const ExchangeReceipt = ({ value }) => value.exchangeRate ? <View>
   <Text>Rate revision: {value.exchangeRate.revision}. {value.exchangeRate.direction === "usd-to-etb" ? "US catalog costs remain USD; recovery uses the saved birr amount." : "Birr costs remain unchanged; recovery uses this saved USD amount."}</Text>
 </View> : null;
 
-export const InternationalReceipt = ({ value }) => value.internationalShipping ? <View>
-  <Text style={styles.heading}>US-to-Ethiopia shipment: {value.internationalShipping.status}</Text>
-  <Text>US delivery status refers to the consolidation hub, not final delivery in Ethiopia.</Text>
-  <Text>International shipping: USD {Number(value.internationalShippingFee || 0).toFixed(2)} | Ethiopia final delivery: USD {Number(value.internationalShipping.finalDeliveryFee || 0).toFixed(2)}</Text>
-  <Text>Recipient: {value.internationalShipping.recipient?.address1}, {value.internationalShipping.recipient?.city}, Ethiopia</Text>
+export const InternationalReceipt = ({ value }) => {
+  if (!value.internationalShipping) return null;
+  const route = shippingRoute(value.internationalShipping.direction);
+  return <View>
+  <Text style={styles.heading}>{route.origin}-to-{route.destination} shipment: {value.internationalShipping.status}</Text>
+  <Text>{route.origin} delivery status refers to the consolidation hub, not final delivery in {route.destination}.</Text>
+  <Text>International shipping: USD {Number(value.internationalShippingFee || 0).toFixed(2)} | {route.destination} final delivery: USD {Number(value.internationalShipping.finalDeliveryFee || 0).toFixed(2)}</Text>
+  <Text>Recipient: {value.internationalShipping.recipient?.address1}, {value.internationalShipping.recipient?.city}, {route.destination}</Text>
   <Text>{value.internationalShipping.carrier || ""} {value.internationalShipping.trackingNumber || ""}</Text>
   <Text>{value.internationalShipping.customsNotice}</Text>
-</View> : null;
+</View>;
+};
 
 export const DeliveryPricingReceipt = ({ value }) => {
   const { formatPrice } = useCurrency();
@@ -86,6 +91,7 @@ export const DeliveryPricingReceipt = ({ value }) => {
 
 export const DeliverySummary = ({ group }) => {
   const { formatPrice } = useCurrency();
+  const route = shippingRoute(group.international?.direction);
   return <View style={styles.card}>
     <Text selectable style={styles.title}>Checkout #{String(group._id).slice(-6).toUpperCase()}</Text>
     <Text>Status: {group.status} | Payment: {group.paymentStatus}</Text>
@@ -93,15 +99,15 @@ export const DeliverySummary = ({ group }) => {
     <Text>{group.kind === "service" ? "Service quote" : "Products"}: {formatPrice(group.itemsSubtotal)}</Text>
     <Text>Delivery: {formatPrice(group.deliveryFee)}</Text>
     {group.international ? <>
-      <Text>US delivery is to the consolidation hub. It is not delivery to the Ethiopian recipient.</Text>
-      <Text>International shipping: {formatPrice(group.international.shippingFee)}</Text>
-      <Text>Ethiopia final delivery: {formatPrice(group.finalDeliveryFee || 0)}. Collection omits final delivery, not shipping.</Text>
+      <Text>{route.origin} delivery is to the consolidation hub. It is not delivery to the {route.destination} recipient.</Text>
+      <Text>International shipping: USD {Number(group.international.shippingFee).toFixed(2)}</Text>
+      <Text>{route.destination} final delivery: USD {Number(group.finalDeliveryFee || 0).toFixed(2)}. Collection omits final delivery, not shipping.</Text>
       <Text>{group.international.customsNotice}</Text>
       {group.international.shipments.map((shipment) => <View key={shipment.id}>
-        <Text>Ethiopian recipient: {shipment.recipient.label} - {shipment.recipient.address1}, {shipment.recipient.city}, {shipment.recipient.zip}</Text>
+        <Text>{route.destination} recipient: {shipment.recipient.label} - {shipment.recipient.address1}, {shipment.recipient.city}, {shipment.recipient.zip}</Text>
         <Text>Shipment: {shipment.status} | {shipment.carrier || ""} {shipment.trackingNumber || ""}</Text>
       </View>)}
-      {group.status === "bank_review" ? <Text>ETB transfer submitted for Admin review. Stock remains reserved; stores cannot start fulfillment before funds are verified. Do not pay again.</Text> : null}
+      {group.status === "bank_review" ? <Text>{group.currency?.toUpperCase()} transfer submitted for Admin review. Stock remains reserved; stores cannot start fulfillment before funds are verified. Do not pay again.</Text> : null}
     </> : null}
     <Text style={styles.heading}>Combined total: {formatPrice(group.totalPrice)}</Text>
     <ExchangeReceipt value={group} />

@@ -9,6 +9,7 @@ import { deliveryModeLabel } from "../../../assets/common/delivery";
 import { paymentText } from "../../../assets/common/exchangeRate";
 import { getDatabaseNameFromStorage } from "../../../assets/common/databaseConfig";
 import PickupConfirmation from "../../../Shared/PickupConfirmation";
+import { shippingRoute } from "../../../assets/common/internationalShipping";
 
 const DeliveryCheckouts = ({ navigation, route }) => {
   const [groups, setGroups] = useState([]);
@@ -21,6 +22,7 @@ const DeliveryCheckouts = ({ navigation, route }) => {
   const guard = useRef(false);
   const { formatPrice } = useCurrency();
   const admin = route.params?.admin === true;
+  const shipmentRoute = shippingRoute(selected?.international?.direction);
   const load = async (id = selected?._id || route.params?.groupId) => {
     if (id) setSelected(await storeRequest(`checkouts/${id}`));
     else setGroups(await storeRequest(`checkouts${admin ? "?all=true" : ""}`));
@@ -65,14 +67,14 @@ const DeliveryCheckouts = ({ navigation, route }) => {
         ])}>Reject reference: no funds received</Button> : null}
       </View> : null}
       {selected.international?.shipments.map((shipment) => {
-        const stages = ["awaiting_hub", "at_hub", "shipped", "arrived_ethiopia", "delivered"];
+        const stages = shipmentRoute.stages;
         const next = stages[stages.indexOf(shipment.status) + 1];
         const form = shipmentForms[shipment.id] || {};
         return <View key={shipment.id} style={styles.card}>
-          <Text style={styles.heading}>Ethiopia shipment: {shipment.status}</Text>
-          <Text>Recipient: {shipment.recipient.label} - {shipment.recipient.address1}, {shipment.recipient.city}, {shipment.recipient.zip}, Ethiopia</Text>
+          <Text style={styles.heading}>{shipmentRoute.destination} shipment: {shipment.status}</Text>
+          <Text>Recipient: {shipment.recipient.label} - {shipment.recipient.address1}, {shipment.recipient.city}, {shipment.recipient.zip}, {shipmentRoute.destination}</Text>
           <Text>Recipient phone: {shipment.recipient.phone}</Text>
-          <Text>Billable weight: {shipment.billableKg} kg | Shipping: {formatPrice(shipment.shippingUsd)}</Text>
+          <Text>Billable weight: {shipment.billableKg} kg | Shipping: USD {Number(shipment.shippingUsd).toFixed(2)}</Text>
           <Text selectable>{shipment.carrier || "Carrier pending"} {shipment.trackingNumber || ""}</Text>
           {(shipment.history || []).map((entry, index) => <Text key={index}>{entry.status} - {new Date(entry.at).toLocaleString()} - {entry.note}</Text>)}
           {admin && next && selected.status === "placed" ? <>
@@ -80,7 +82,7 @@ const DeliveryCheckouts = ({ navigation, route }) => {
               value={form[field] || ""} onChangeText={(value) => setShipmentForms((previous) => ({
                 ...previous, [shipment.id]: { ...previous[shipment.id], [field]: value },
               }))} />)}
-            <Button disabled={busy} onPress={() => Alert.alert("Advance international shipment?", `Mark ${next}. Verify all pickup deliveries reached the US hub and the actual shipment milestone occurred.`, [
+            <Button disabled={busy} onPress={() => Alert.alert("Advance international shipment?", `Mark ${next}. Verify all pickup deliveries reached the ${shipmentRoute.origin} hub and the actual shipment milestone occurred.`, [
               { text: "Cancel", style: "cancel" }, { text: "Confirm", onPress: () => change(`checkouts/${selected._id}/shipments/${shipment.id}`, { ...form, status: next }) },
             ])}>Mark shipment {next}</Button>
           </> : null}
@@ -117,7 +119,7 @@ const DeliveryCheckouts = ({ navigation, route }) => {
           ])}>Cancel this delivery</Button> : null}
         {admin && ["pending", "failed"].includes(order.refundStatus) ? selected.paymentMethod === "card" ?
           <Button disabled={busy} onPress={() => change(`checkouts/${selected._id}/deliveries/${order._id}/refund`, { retryFailed: order.refundStatus === "failed" })}>Retry / reconcile card refund</Button> :
-          <View><TextInput label="Completed bank refund reference" value={refundReference} onChangeText={setRefundReference} />
+          <View><TextInput label={`Completed ${selected.paymentMethod === "telebirr" ? "Telebirr" : "bank"} refund reference`} value={refundReference} onChangeText={setRefundReference} />
             <Button disabled={busy} onPress={() => change(`checkouts/${selected._id}/deliveries/${order._id}/manual-refund`, { reference: refundReference })}>Record money returned to customer</Button></View> : null}
       </View>)}
       <Button onPress={() => { setSelected(null); navigation.setParams({ groupId: undefined }); run(async () => {

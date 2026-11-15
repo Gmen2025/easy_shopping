@@ -2,6 +2,25 @@
 
 A full-featured React Native e-commerce mobile application built with Expo, featuring secure payments, order management, and admin capabilities.
 
+## Cash-fee deposit wallets
+
+The driver/store **Income** screen shows a separate prepaid deposit balance,
+deposit/submission/verification timestamps and fee history. Submit real bank or
+company-receipt claims for Admin verification, or open a live regional gateway
+(ETB Telebirr / USD card). Return to Income and verify or reopen the saved
+attempt after interruption; never create a second payment to resolve uncertainty.
+Backend reconciliation also checks saved gateway payments every minute.
+
+Admin can toggle the requirement region-wide or per account (including
+company-owned operators), set warning/minimum thresholds, approve/reject claims
+and itemize offline fees. Both switches default OFF; funds/history and pending
+verification survive OFF. Only confirmed cash/off-platform fees use the balance;
+online-paid transactions do not. New work is blocked below the minimum while
+active jobs can finish. Verified deposits restore deposit eligibility, not
+manual Admin suspensions. Inbox alerts and registered-device pushes notify
+operators of low balances/credits. Deploy backend schemas/indexes and verified
+live gateway/company bank configuration before enabling the feature.
+
 ## Customer pickup or delivery
 
 In checkout's **Delivery** step, choose **Pickup from store** or **Delivery**
@@ -600,9 +619,14 @@ Focused checks: `node --test scripts/authentication.test.cjs`.
   reconciliation remain accessible. Legacy order creation is a new submission
   and is blocked while its method is disabled; coordinate maintenance around
   already-paid legacy orders. Currency restrictions, provider configuration
-  and Stripe's native-build requirement still apply. Telebirr is supported by
-  legacy Ethio checkout, not grouped checkout/rides. USA-to-Ethiopia shipping
-  remains ETB bank-only; Ethiopia USD/service payments still exclude cash.
+  and Stripe's native-build requirement still apply. Ethiopia products paid in
+  USD support card with the dedicated USD merchant and USD bank transfer.
+  USA-to-Ethiopia products paid in ETB support bank transfer and a live Telebirr
+  gateway, each controlled by the USA admin switches. Telebirr opens the saved
+  gateway link; return and check payment status for server verification of the
+  locked total. Pending gateway payments retain stock until confirmed or closed.
+  Telebirr is not supported for grouped domestic checkout/rides or USD payments.
+  Ethiopia USD/service payments still exclude cash.
 - **USA Car Delivery**: In vehicle checkout, calculate routes and select
   **Car** under **Delivery vehicle** for each pickup/destination. The previewed
   fee updates and the saved order requires a car driver. Car is shown only when
@@ -725,9 +749,11 @@ Focused checks: `node --test scripts/authentication.test.cjs`.
 
 ### Ethiopia USD Purchasing
 - Customers select the **Ethiopia region**, then choose **ETB or USD** in the cart.
-  Goods and non-ride quoted services are delivered/performed in Ethiopia for
-  their recipients, not shipped internationally. Prices and store/driver
-  accounting remain birr; checkout displays a separate converted USD charge.
+  Domestic delivery and non-ride quoted services remain in Ethiopia by default.
+  **Pay USD & ship Ethiopia products to USA** selects the separate export flow,
+  including USA recipient addresses, Ethiopia hub transport, international
+  shipping and USA final delivery in one USD checkout. Prices and store/driver
+  accounting remain birr; checkout displays a separate USD charge.
   USD is not available for passenger rides.
 - **Admin > FX Rate** in Ethiopia enables/disables this service, separately toggles automatic
   fetching, selects a server-configured provider, or manually applies a
@@ -749,6 +775,17 @@ Focused checks: `node --test scripts/authentication.test.cjs`.
   snapshot, separately from ETB prices. Interrupted reservations recover at
   that saved amount even if the rate later expires or USD is switched off.
   Check payment status before retrying; do not start a second payment.
+- **Ethiopia > Admin > Intl Shipping** controls an independent Ethiopian hub,
+  USD shipping tariff and USA final-delivery fee, and approves products for USA
+  export. Exports require complete packaged measurements; domestic delivery does
+  not. Shipping is charged once per recipient, even with multiple pickup stores.
+  The USD charge converts products/hub delivery once and adds exact USD shipping
+  fees. Card and USD bank transfer remain controlled by Ethiopia admin payment
+  switches; bank funds must be verified before fulfillment. Admin books the
+  carrier and manages shipment stages through `arrived_usa` and `delivered`.
+  No automatic labels are purchased; customs/duties are excluded. Optional USA
+  collection omits final delivery, not shipping or hub transport. Deploy the
+  matching backend and configure the export policy before enabling this option.
 - **My Service Requests > Accept & pay quote in USD** uses the Admin's stored ETB
   quote. Service payment does not alter the product cart. Admin receives bank
   confirmation in combined payments. Prepared service prices are locked;

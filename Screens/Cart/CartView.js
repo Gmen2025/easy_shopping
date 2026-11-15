@@ -35,6 +35,7 @@ const CartView = (props) => {
   const [checking, setChecking] = useState(false);
   const [regionReady, setRegionReady] = useState(false);
   const [paymentCurrency, setPaymentCurrency] = useState("etb");
+  const [shipToUSA, setShipToUSA] = useState(false);
   const [exchange, setExchange] = useState(null);
   const [database, setDatabase] = useState("");
   const [exchangeError, setExchangeError] = useState("");
@@ -47,6 +48,7 @@ const CartView = (props) => {
         if (!mounted) return;
         setDatabase(db);
         setPaymentCurrency(/usa/i.test(db) ? "usd" : "etb");
+        setShipToUSA(false);
         setRegionReady(true);
         setExchange(null); setExchangeError("");
         if (context.isAuthenticated) {
@@ -105,9 +107,10 @@ const CartView = (props) => {
         setExchange(latest);
         if (!rateIsActive(latest)) throw new Error(latest.message || (exportPurchase ? exportInactiveMessage : usdInactiveMessage));
         if (!config.enabled) throw new Error("Admin must enable inventory and vehicle checkout before cross-currency product purchases.");
-        if (exportPurchase && !(await storeRequest("international-shipping-config")).enabled) throw new Error("US-to-Ethiopia international shipping is not enabled.");
+        if ((exportPurchase || shipToUSA) && !(await storeRequest("international-shipping-config")).enabled) throw new Error("International shipping is not enabled for this shopping region.");
       }
-      if (config.enabled) props.navigation.push("MultiDeliveryCheckout", { paymentCurrency });
+      if (config.enabled) props.navigation.push("MultiDeliveryCheckout", { paymentCurrency,
+        destinationCountry: shipToUSA || /usa/i.test(database) && paymentCurrency === "usd" ? "USA" : "Ethiopia" });
       else {
         getStorefrontScope(cartItems);
         props.navigation.navigate("Checkout");
@@ -175,10 +178,14 @@ return (
       <View style={{ padding: 10 }}>
         {database && context.isAuthenticated ? <>
           <Text>{/usa/i.test(database) ? "Pay USD for US delivery, or birr to ship approved US products to Ethiopia. Products only; shipping is added." :
-            "Pay for Ethiopia deliveries in birr or US dollars. Rides are not included."}</Text>
-          <Picker selectedValue={paymentCurrency} enabled={regionReady && !checking} onValueChange={setPaymentCurrency}>
+            "Pay in birr or USD for Ethiopia delivery, or pay USD to ship approved Ethiopia products to USA. Shipping and delivery are added. Rides are not included."}</Text>
+          <Picker selectedValue={shipToUSA ? "usd-usa" : paymentCurrency} enabled={regionReady && !checking} onValueChange={(value) => {
+            setShipToUSA(value === "usd-usa");
+            setPaymentCurrency(value === "usd-usa" ? "usd" : value);
+          }}>
             <Picker.Item label={/usa/i.test(database) ? "Pay birr & ship to Ethiopia (ETB)" : "Pay in birr (ETB)"} value="etb" />
             <Picker.Item label={/usa/i.test(database) ? "Pay USD & deliver in USA" : "Pay in US dollars (USD)"} value="usd" />
+            {!/usa/i.test(database) ? <Picker.Item label="Pay USD & ship Ethiopia products to USA" value="usd-usa" /> : null}
           </Picker>
           {exchangeError ? <Text style={{ color: "#b91c1c" }}>{exchangeError}</Text> : null}
           {!unresolvedPrices && paymentCurrency === (/usa/i.test(database) ? "etb" : "usd") ? rateIsActive(exchange) ? <>

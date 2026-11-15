@@ -4,7 +4,21 @@ import baseUrl from "./baseUrl";
 import { getDatabaseNameFromStorage } from "./databaseConfig";
 
 export async function financeRequest(path, { method = "get", data } = {}) {
-  return operatorRequest(`finance/${path}`, { method, data });
+  const result = await operatorRequest(`finance/${path}`, { method, data });
+  if (/^accounts\/(driver|store)\/[^/]+$/.test(path)) validateDepositWallet(result.wallet, result.account?.depositPolicy);
+  return result;
+}
+
+export function validateDepositWallet(wallet, policy) {
+  if (!wallet || typeof wallet.enabled !== "boolean" || !["ETB", "USD"].includes(wallet.currency) ||
+      !Number.isFinite(wallet.balance) || !["off", "healthy", "low", "blocked"].includes(wallet.state) ||
+      !Array.isArray(wallet.transactions) || !Array.isArray(wallet.legacyTransactions) || !Array.isArray(wallet.bankAccounts) ||
+      !["bank", "card", "telebirr"].every((method) => typeof wallet.methods?.[method] === "boolean") ||
+      typeof policy?.enabled !== "boolean" || !Number.isFinite(policy.lowBalance) ||
+      !Number.isFinite(policy.minimumBalance) || policy.minimumBalance < 0 || policy.lowBalance <= policy.minimumBalance) {
+    throw new Error("The server returned incomplete deposit wallet data.");
+  }
+  return wallet;
 }
 
 export async function operatorRequest(path, { method = "get", data } = {}) {

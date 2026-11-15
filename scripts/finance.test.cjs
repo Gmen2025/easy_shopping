@@ -40,7 +40,7 @@ test("shared website/mobile finance screens and navigators compile", () => {
     ["Shared", "OwnershipReport.js"], ["Screens", "Admin", "FinanceAccounts.js"],
     ["Screens", "Admin", "AdminAccount.js"], ["Screens", "Admin", "ProductForm.js"],
     ["assets", "common", "operatorWorkspace.js"],
-    ["Screens", "Finance", "IncomeDashboard.js"], ["Screens", "Admin", "Payouts.js"],
+    ["Screens", "Finance", "IncomeDashboard.js"], ["Screens", "Finance", "DepositWallet.js"], ["Screens", "Admin", "Payouts.js"],
     ["Screens", "Admin", "AdminDashboard.js"], ["Screens", "Store", "CompanyStoreDashboard.js"],
     ["Screens", "Driver", "CompanyDriverDashboard.js"], ["Navigators", "AdminNavigator.js"],
     ["Navigators", "CompanyStoreNavigator.js"], ["Navigators", "CompanyDriverNavigator.js"], ["Navigators", "Main.js"],
