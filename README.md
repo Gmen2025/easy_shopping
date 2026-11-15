@@ -2,6 +2,35 @@
 
 A full-featured React Native e-commerce mobile application built with Expo, featuring secure payments, order management, and admin capabilities.
 
+## Regional payment sandbox setup
+
+Use the matching backend's README sandbox steps on an isolated test deployment.
+Set mobile `EXPO_PUBLIC_API_URL` to that backend, including `/api/v1/`, and
+`EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` to the sandbox `pk_test_*` paired with its
+USA merchant secret key. The backend must use `STRIPE_MODE=test`; never put
+`sk_*` keys or Telebirr credentials in the mobile app. Restart/rebuild after
+environment changes. Card entry requires a native development/production build,
+not Expo Go. Existing local live credentials are not changed automatically.
+
+USA uses Stripe USD. Ethiopia domestic ETB products (including multi-delivery),
+completed/Admin-reviewed ETB rides, and ETB driver/store wallet deposits support
+configured Telebirr. Eligible Ethiopia USD product/service quotes retain their
+dedicated USD merchant; rides and wallets remain ETB, with no USD conversion.
+Enable each region's Admin payment switches after provider setup.
+
+Telebirr uses merchant-approved sandbox endpoints/accounts configured on the
+backend, with genuine signing, certificate verification and authenticated
+status queries, not mock success. Configure approved web/mobile return URLs
+(this app's scheme is `addugeneteshop`) and a public HTTPS notification URL.
+`STRIPE_MODE` does not select Telebirr's environment. Return to the same checkout,
+ride or Income deposit and check payment status; never create a second payment
+after a timeout. Wallet deposits additionally need both regional/account deposit
+switches and the backend's HTTPS `WALLET_PAYMENT_RETURN_URL`.
+
+Before production, test successful/declined payments, interruptions, disabled
+methods and repeated verification/credit. Keep production credentials and data
+separate; do not switch environments with outstanding payments or refunds.
+
 ## Cash-fee deposit wallets
 
 The driver/store **Income** screen shows a separate prepaid deposit balance,
@@ -640,7 +669,8 @@ Focused checks: `node --test scripts/authentication.test.cjs`.
   gateway, each controlled by the USA admin switches. Telebirr opens the saved
   gateway link; return and check payment status for server verification of the
   locked total. Pending gateway payments retain stock until confirmed or closed.
-  Telebirr is not supported for grouped domestic checkout/rides or USD payments.
+  Ethiopia grouped domestic ETB product checkout and post-ride ETB payments
+  also support configured Telebirr; USD payments never support Telebirr.
   Ethiopia USD/service payments still exclude cash.
 - **USA Car Delivery**: In vehicle checkout, calculate routes and select
   **Car** under **Delivery vehicle** for each pickup/destination. The previewed

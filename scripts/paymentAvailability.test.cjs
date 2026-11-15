@@ -14,6 +14,17 @@ const exportsObject = {};
 vm.runInNewContext(code, { exports: exportsObject });
 const { isCashOnDeliveryAvailable, isCashOnDeliveryMethod, deliveryPaymentMethods } = exportsObject;
 
+test("domestic Telebirr requires configured Ethiopia ETB products and the regional switch", () => {
+  const all = { cash: true, bank: true, card: true, telebirr: true };
+  const group = { currency: "etb", kind: "products" };
+  assert.deepEqual(Array.from(deliveryPaymentMethods(group, "E_Shopping", true, true, all)), ["bank", "telebirr", "cash"]);
+  for (const [value, database, gateway, settings] of [
+    [group, "E_ShopUSA", true, all], [{ ...group, currency: "usd" }, "E_Shopping", true, all],
+    [group, "E_Shopping", false, all], [group, "E_Shopping", true, { ...all, telebirr: false }],
+    [{ ...group, exchangeRate: {} }, "E_Shopping", true, all],
+  ]) assert.equal(deliveryPaymentMethods(value, database, true, gateway, settings).includes("telebirr"), false);
+});
+
 test("converted product methods honor currency, gateway support, native card builds and independent admin switches", () => {
   const all = { cash: true, bank: true, card: true, telebirr: true };
   const options = (group, database, card, telebirr, settings = all) =>

@@ -228,10 +228,10 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
       const destination = exportPurchase ? "Ethiopia" :
         route.params?.destinationCountry || (/usa/i.test(db) ? "USA" : "Ethiopia");
       const matchesDestination = (country) => destination === "USA" ? isUSA(country) : isEthiopia(country);
-      if (exportPurchase || (currency === "usd" && !/usa/i.test(db))) {
+      if (exportPurchase || !/usa/i.test(db)) {
         const policy = await exchangeRequest();
         setExchange(policy);
-        if (!rateIsActive(policy))
+        if ((exportPurchase || currency === "usd") && !rateIsActive(policy))
           throw new Error(
             policy.message ||
               (exportPurchase ? exportInactiveMessage : usdInactiveMessage),

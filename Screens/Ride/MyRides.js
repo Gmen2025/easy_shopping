@@ -39,6 +39,7 @@ export default function MyRides({ route, navigation }) {
   const [rides, setRides] = useState([]);
   const [selected, setSelected] = useState(null);
   const [banks, setBanks] = useState([]);
+  const [telebirrAvailable, setTelebirrAvailable] = useState(false);
   const [method, setMethod] = useState("bank");
   const [bankId, setBankId] = useState("");
   const [sender, setSender] = useState("");
@@ -72,7 +73,10 @@ export default function MyRides({ route, navigation }) {
     setSelected(ride); setSender(ride.bankSender || ""); setReference(ride.bankReference || "");
   };
   const load = () => run(async () => {
-    const [list, accounts] = await Promise.all([rideRequest(), storeRequest("delivery-bank-accounts")]);
+    setTelebirrAvailable(false);
+    const [list, accounts, config] = await Promise.all([rideRequest(), storeRequest("delivery-bank-accounts"), rideRequest("config")]);
+    if (typeof config?.telebirrAvailable !== "boolean") throw new Error("Unable to load ride gateway availability.");
+    setTelebirrAvailable(config.telebirrAvailable);
     setRides(list); setBanks(accounts); setBankId(accounts[0]?._id || "");
     if (route.params?.rideId) await selectRide(route.params.rideId);
   });
@@ -104,7 +108,8 @@ export default function MyRides({ route, navigation }) {
     await update("payment-confirm", {});
   });
   const active = selected && !["completed", "cancelled", "terminated", "quote"].includes(selected.status);
-  const paymentMethods = ["bank", ...(/usa/i.test(database) && canPayByCard ? ["card"] : []), "cash"]
+  const paymentMethods = ["bank", ...(/usa/i.test(database) && canPayByCard ? ["card"] : []),
+    ...(selected?.currency === "etb" && telebirrAvailable ? ["telebirr"] : []), "cash"]
     .filter((key) => availability.methods?.[key] === true);
   const trackingDriver = selected && ["assigned", "onboard"].includes(selected.status);
   const driverLocation = trackingDriver ? rideStopPoint({ address: { location: selected.assignedDriver?.location } }) : null;
@@ -218,6 +223,7 @@ export default function MyRides({ route, navigation }) {
               <Picker.Item label="Select payment method..." value="" />
               {paymentMethods.includes("bank") ? <Picker.Item label="Bank transfer" value="bank" /> : null}
               {paymentMethods.includes("card") ? <Picker.Item label="Card" value="card" /> : null}
+              {paymentMethods.includes("telebirr") ? <Picker.Item label="Telebirr" value="telebirr" /> : null}
               {paymentMethods.includes("cash") ? <Picker.Item label="Cash to driver" value="cash" /> : null}
             </Picker>
             {method === "bank" && paymentMethods.includes("bank") ? <Picker selectedValue={bankId} enabled={!busy} onValueChange={setBankId}>
@@ -228,6 +234,18 @@ export default function MyRides({ route, navigation }) {
             {canPayByCard ? <CardPayment pay={pay} disabled={busy} label="Pay ride fare" /> : <Text style={styles.error}>Card payment requires a configured development/production build, not Expo Go.</Text>}
             <Button disabled={busy} onPress={() => run(() => update("payment-confirm", {}))}>Check existing card payment</Button>
             <Text>After interruptions, resume this ride's existing payment. Never pay a second time.</Text>
+          </> : selected.paymentMethod === "telebirr" ? <>
+            <Button disabled={busy} onPress={() => run(async () => {
+              const payment = await rideRequest(`${selected._id}/payment`, {
+                method: "post", data: { clientType: "mobile" }, timeout: 60000,
+              });
+              setSelected(payment.ride);
+              if (payment.ride.paymentStatus === "completed") return;
+              if (!/^https:\/\//.test(payment.paymentUrl || "")) throw new Error("Telebirr returned no secure link. Check this ride before retrying.");
+              await Linking.openURL(payment.paymentUrl);
+            })}>Open saved Telebirr payment</Button>
+            <Button disabled={busy} onPress={() => run(() => update("payment-confirm", {}))}>Check Telebirr payment status</Button>
+            <Text>Pay the saved ETB fare once, then return to verify it. Never start a second payment after an uncertain result.</Text>
           </> : selected.paymentMethod === "bank" ? <>
             <Text>{selected.bankAccount?.bankName} - {selected.bankAccount?.accountHolderName}</Text>
             <Text selectable>{selected.bankAccount?.accountNumber} {selected.bankAccount?.bankCode}</Text>

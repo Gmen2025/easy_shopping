@@ -100,6 +100,7 @@ function harness(file, request, params = {}, auth = { isAuthenticated: true, loa
       getCurrentPositionAsync: async () => ({ coords: { latitude: 41.95, longitude: -87.65 } }) },
     "../../assets/common/rides": { ...helpers, rideRequest: async (route = "", requestOptions) => {
       calls.push({ route, options: requestOptions });
+      if (file === "Screens\\Ride\\MyRides.js" && route === "config") return { enabled: true, telebirrAvailable: options.telebirrAvailable ?? false };
       if (route === "places/current-location") {
         if (options.currentLocation) return options.currentLocation(requestOptions);
         return { address1: "123 Current Street", city: "Chicago", zip: "60613",
@@ -1363,6 +1364,43 @@ for (const database of ["E_Shopping", "E_ShopUSA"]) {
       ["cash", "bank", "card"].includes(node.props.value)), false);
   });
 }
+
+test("ETB rider can open and verify the same saved Telebirr payment after a gateway return", async () => {
+  let ride = { _id: "ride", currency: "etb", estimate: 150, finalFare: 150, status: "completed",
+    paymentStatus: "pending", paymentMethod: "telebirr", stops: [{ key: "0", type: "pickup", address }] };
+  const ui = harness("Screens\\Ride\\MyRides.js", async (route, options) => {
+    if (route === "ride/payment") {
+      assert.equal(options.data.clientType, "mobile");
+      return { ride, paymentUrl: "https://gateway.example.test/ride" };
+    }
+    if (route === "ride/payment-confirm") {
+      ride = { ...ride, paymentStatus: "completed" };
+      return ride;
+    }
+    return route ? ride : [ride];
+  }, { rideId: "ride", database: "E_Shopping" }, undefined, {
+    database: async () => "E_Shopping", telebirrAvailable: true,
+  });
+  await ui.start();
+  await ui.button("Open saved Telebirr payment").props.onPress();
+  assert.ok(ui.calls.some((call) => call.url === "https://gateway.example.test/ride"));
+  assert.equal(ride.paymentStatus, "pending");
+  await ui.button("Check Telebirr payment status").props.onPress();
+  assert.equal(ui.button("Open saved Telebirr payment"), undefined);
+  assert.match(text(ui.render()), /Payment received/);
+});
+
+test("new ETB ride Telebirr choice requires gateway readiness and the regional switch", async () => {
+  const ride = { _id: "ride", currency: "etb", estimate: 150, finalFare: 150, status: "completed",
+    paymentStatus: "pending", stops: [{ key: "0", type: "pickup", address }] };
+  for (const [ready, enabled] of [[true, true], [false, true], [true, false]]) {
+    const ui = harness("Screens\\Ride\\MyRides.js", async (route) => route ? ride : [ride],
+      { rideId: "ride", database: "E_Shopping" }, undefined, { telebirrAvailable: ready,
+        database: async () => "E_Shopping", paymentMethods: { bank: true, cash: true, card: true, telebirr: enabled } });
+    await ui.start();
+    assert.equal(nodes(ui.render()).some((node) => node.type === "PickerItem" && node.props.value === "telebirr"), ready && enabled);
+  }
+});
 
 test("terminated rider payment stays blocked until Admin review and respects a waived fare", async () => {
   let ride = { _id: "ride", currency: "usd", estimate: 8, status: "terminated",

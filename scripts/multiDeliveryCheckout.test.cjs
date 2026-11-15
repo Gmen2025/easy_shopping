@@ -313,6 +313,29 @@ const freshExchange = () => ({
   expiresAt: new Date(Date.now() + 86400000).toISOString(),
 });
 
+test("native Ethiopia checkout loads Telebirr readiness without requiring an active USD exchange rate", async () => {
+  const current = { label: "Home", address1: "Bole Road", city: "Addis Ababa", country: "Ethiopia", phone: "0911000000" };
+  const ui = harness(async (route, options) => {
+    if (route === "delivery-current-address") return current;
+    if (route === "delivery-addresses") return options ? { ...options.data, _id: "saved" } : [];
+    if (route.startsWith("delivery-bank-accounts")) return [];
+    if (route === "checkouts/quote") return {
+      _id: "etb-checkout", status: "quote", currency: "etb", cart: options.data.cart,
+      itemsSubtotal: 30, deliveryFee: 3, totalPrice: 33, expiresAt: new Date(Date.now() + 600000).toISOString(),
+      deliveries: [{ key: "delivery", store: { _id: "store", name: "ET store" }, address: current,
+        lines: [{ product: "product", name: "Box", quantity: 3 }], cargo: { weightKg: 3, volumeLiters: 3 },
+        distanceKm: 2, vehicle: "car", vehicleOptions: [{ type: "car", fee: 3 }] }],
+    };
+    throw new Error(route);
+  }, { database: "E_Shopping", exchangeState: { enabled: false, active: false, telebirrAvailable: true } });
+  await ui.start();
+  await ui.calculate();
+  ui.payment();
+  assert.match(text(ui.render()), /Telebirr/);
+  assert.ok(ui.radio("Telebirr"));
+  assert.equal(ui.dialogs.length, 0);
+});
+
 test("USD payment for Ethiopian family quotes an Ethiopian suggested address without ZIP and honors card availability", async () => {
   for (const [nativeCards, adminCard, configuredCard] of [
     [true, true, true],

@@ -20,6 +20,14 @@ export function deliveryPaymentMethods(
           ...(!group?.international &&
           !group?.exchangeRate &&
           group?.kind !== "service" &&
+          group?.currency === "etb" &&
+          !/usa/i.test(databaseName) &&
+          telebirrAvailable
+            ? ["telebirr"]
+            : []),
+          ...(!group?.international &&
+          !group?.exchangeRate &&
+          group?.kind !== "service" &&
           isCashOnDeliveryAvailable(databaseName)
             ? ["cash"]
             : []),
