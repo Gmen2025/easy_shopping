@@ -110,7 +110,7 @@ const normalizeQueueEntry = (entry = {}) => {
 
 const CompanyDriverDashboard = ({ navigation }) => {
   const { logout, user } = useContext(AuthContext);
-  const companyDriver = Boolean(user?.isCompanyOwnedDriver);
+  const companyDriver = Boolean(user?.isDriver && !user?.isAdmin);
   const { formatPrice } = useCurrency();
   const [orders, setOrders] = useState([]);
   const [queue, setQueue] = useState([]);

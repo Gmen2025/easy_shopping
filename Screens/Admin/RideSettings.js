@@ -79,7 +79,7 @@ export default function RideSettings() {
       })}>Save ride configuration</Button>
     </View> : null}
     <View style={styles.card}>
-      <Text style={styles.heading}>Company drivers: vehicles, car classes & passenger seats</Text>
+      <Text style={styles.heading}>Drivers: vehicles, car classes & passenger seats</Text>
       <Text>Set usable seats excluding the driver, only for car/van vehicles. Drivers independently choose delivery, regular and/or shared service modes.
         Seat capacity cannot be changed while a trip or offer is active.</Text>
       {drivers.map((driver) => <View key={driver._id}>

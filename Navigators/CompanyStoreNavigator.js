@@ -1,5 +1,4 @@
-import React, { useContext } from "react";
-import { AuthContext } from "../Context/store/Auth";
+import React from "react";
 import { createStackNavigator } from "@react-navigation/stack";
 import CompanyStoreDashboard from "../Screens/Store/CompanyStoreDashboard";
 import CompanyStoreOrderDetails from "../Screens/Store/CompanyStoreOrderDetails";
@@ -12,9 +11,8 @@ import Categories from "../Screens/Admin/Categories";
 const Stack = createStackNavigator();
 
 const CompanyStoreNavigator = () => {
-  const { user } = useContext(AuthContext);
   return (
-  <Stack.Navigator initialRouteName={user?.isCompanyOwnedStore ? "CompanyStoreHome" : "IncomeDashboard"}>
+  <Stack.Navigator initialRouteName="CompanyStoreHome">
     <Stack.Screen name="IncomeDashboard" component={IncomeDashboard} initialParams={{ kind: "store" }} options={{ title: "Store income & payouts" }} />
     <Stack.Screen name="StoreManagement" component={StoreManagement} options={{ title: "My store" }} />
     <Stack.Screen name="StoreProductForm" component={ProductForm} options={{ title: "Store product" }} />

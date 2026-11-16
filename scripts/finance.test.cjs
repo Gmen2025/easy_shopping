@@ -53,6 +53,32 @@ test("shared website/mobile finance screens and navigators compile", () => {
   }
 });
 
+test("all store owners open the same store operations dashboard", () => {
+  const filename = path.join(root, "Navigators", "CompanyStoreNavigator.js");
+  const { code } = babel.transformSync(fs.readFileSync(filename, "utf8"), {
+    filename, configFile: false, babelrc: false,
+    plugins: ["@babel/plugin-transform-react-jsx", "@babel/plugin-transform-modules-commonjs"],
+  });
+  const exports = {};
+  const dependencies = {
+    react: { createElement: (type, props, ...children) => ({ type, props: { ...props, children } }) },
+    "@react-navigation/stack": { createStackNavigator: () => ({ Navigator: "Navigator", Screen: "Screen" }) },
+    "../Screens/Store/CompanyStoreDashboard": "CompanyStoreDashboard",
+    "../Screens/Store/CompanyStoreOrderDetails": "CompanyStoreOrderDetails",
+    "../Screens/Store/StoreManagement": "StoreManagement",
+    "../Screens/Store/StoreAssignments": "StoreAssignments",
+    "../Screens/Finance/IncomeDashboard": "IncomeDashboard",
+    "../Screens/Admin/ProductForm": "ProductForm",
+    "../Screens/Admin/Categories": "Categories",
+  };
+  vm.runInNewContext(code, { exports, require: (name) => {
+    assert.ok(name in dependencies, `Unexpected import: ${name}`);
+    return dependencies[name];
+  } });
+  const tree = exports.default();
+  assert.equal(tree.props.initialRouteName, "CompanyStoreHome");
+});
+
 test("admin business paths retain explicit account scope and malformed responses fail visibly", () => {
   const filename = path.join(root, "assets", "common", "operatorWorkspace.js");
   const { code } = babel.transformSync(fs.readFileSync(filename, "utf8"), {

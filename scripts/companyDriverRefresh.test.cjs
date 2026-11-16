@@ -421,7 +421,7 @@ test("accepted company batches expose confirmed pre-pickup reroute and refresh t
   assert.equal(f.acceptedResponse("Reject accepted delivery"), undefined);
 });
 
-test("partner drivers claim shared assignments through the authenticated driver endpoint without company or ride controls", async () => {
+test("independent drivers can claim deliveries and access ride controls", async () => {
   const f = fixture({ user: { isDriver: true, isCompanyOwnedDriver: false } });
   f.button(); f.focus();
   await new Promise(setImmediate);
@@ -430,7 +430,7 @@ test("partner drivers claim shared assignments through the authenticated driver 
     queue: [],
   } });
   await new Promise(setImmediate);
-  assert.doesNotMatch(f.text(), /RIDE SERVICE|Open ride assignments/);
+  assert.match(f.text(), /RIDE SERVICE|Open ride assignments/);
   assert.equal(f.reject(), undefined);
   assert.equal(f.reroute(), undefined);
   const claim = f.claim().props.onPress();
