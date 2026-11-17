@@ -588,6 +588,11 @@ const CompanyDriverDashboard = ({ navigation }) => {
               : "Open ride assignments & route"}</Text>
           </TouchableOpacity>
         </View> : null}
+        <TouchableOpacity style={styles.refreshLink} accessibilityRole="button"
+          accessibilityLabel="International deliveries"
+          onPress={() => navigation.navigate("InternationalDeliveries")}>
+          <Text style={styles.refreshLinkText}>International hub deliveries</Text>
+        </TouchableOpacity>
         <View style={styles.headerCard}>
           <View style={styles.headerRow}>
             <View>

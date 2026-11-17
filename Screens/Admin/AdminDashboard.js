@@ -40,6 +40,7 @@ const QUICK_ACTIONS = [
   { label: "Rides", icon: "taxi", route: "RideSettings" },
   { label: "FX Rate", icon: "dollar", route: "ExchangeRateSettings" },
   { label: "Intl Shipping", icon: "plane", route: "InternationalShippingSettings" },
+  { label: "Inbound hub", icon: "inbox", route: "InboundHub" },
   { label: "Payments", icon: "credit-card", route: "DeliveryCheckouts" },
   { label: "Payouts", icon: "money", route: "Payouts" },
   { label: "Income & ownership", icon: "line-chart", route: "FinanceAccounts" },

@@ -70,6 +70,7 @@ test("all store owners open the same store operations dashboard", () => {
     "../Screens/Finance/IncomeDashboard": "IncomeDashboard",
     "../Screens/Admin/ProductForm": "ProductForm",
     "../Screens/Admin/Categories": "Categories",
+    "../Screens/International/InboundHub": "InboundHub",
   };
   vm.runInNewContext(code, { exports, require: (name) => {
     assert.ok(name in dependencies, `Unexpected import: ${name}`);

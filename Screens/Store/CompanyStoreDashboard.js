@@ -36,6 +36,20 @@ const CompanyStoreDashboard = ({ navigation }) => {
   const [loadingDashboard, setLoadingDashboard] = useState(true);
   const [dashboardError, setDashboardError] = useState("");
   const [actingId, setActingId] = useState("");
+  const [inboundHub, setInboundHub] = useState(false);
+
+  const loadHubAccess = useCallback(async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const currentDb = await getDatabaseNameFromStorage();
+      const response = await axios.get(`${baseUrl}international/hub/access`, {
+        headers: { Authorization: `Bearer ${token}`, "x-database-name": currentDb },
+      });
+      setInboundHub(response.data?.allowed === true);
+    } catch {
+      setInboundHub(false);
+    }
+  }, []);
 
   const loadProducts = useCallback(async () => {
     setLoading(true);
@@ -74,7 +88,8 @@ const CompanyStoreDashboard = ({ navigation }) => {
   const refreshDashboard = useCallback(() => {
     loadProducts();
     loadDashboard();
-  }, [loadProducts, loadDashboard]);
+    loadHubAccess();
+  }, [loadProducts, loadDashboard, loadHubAccess]);
 
   useFocusEffect(useCallback(() => { refreshDashboard(); }, [refreshDashboard]));
 
@@ -177,6 +192,11 @@ const CompanyStoreDashboard = ({ navigation }) => {
         <TouchableOpacity style={styles.quickLink} onPress={() => navigation.navigate("StoreAssignments")}>
           <Text style={styles.retryText}>Store assignments</Text>
         </TouchableOpacity>
+        {inboundHub ? (
+          <TouchableOpacity style={styles.quickLink} onPress={() => navigation.navigate("InboundHub")}>
+            <Text style={styles.retryText}>Inbound international hub</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
       <View style={styles.analyticsCard}>
         <View style={styles.analyticsHeading}>

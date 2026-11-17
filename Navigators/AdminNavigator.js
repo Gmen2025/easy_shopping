@@ -33,6 +33,7 @@ import FinancialManagement from "../Screens/Finance/FinancialManagement";
 import FinancialHealthSettings from "../Screens/Admin/FinancialHealthSettings";
 import ReviewSettings from "../Screens/Admin/ReviewSettings";
 import ServiceAvailabilitySettings from "../Screens/Admin/ServiceAvailabilitySettings";
+import InboundHub from "../Screens/International/InboundHub";
 
 const Stack = createStackNavigator();
 
@@ -51,6 +52,7 @@ function MyStack() {
       <Stack.Screen name="RideSettings" component={RideSettings} options={{ title: "Ride fares, drivers & payments" }} />
       <Stack.Screen name="ExchangeRateSettings" component={ExchangeRateSettings} options={{ title: "Cross-currency daily rate" }} />
       <Stack.Screen name="InternationalShippingSettings" component={InternationalShippingSettings} options={{ title: "USA to Ethiopia shipping" }} />
+      <Stack.Screen name="InboundHub" component={InboundHub} options={{ title: "Inbound international hub" }} />
       <Stack.Screen name="VehicleDeliverySettings" component={VehicleDeliverySettings} options={{ title: "Vehicles & packaged sizes" }} />
       <Stack.Screen name="DeliveryCheckouts" component={DeliveryCheckouts} initialParams={{ admin: true }} options={{ title: "Combined payments & refunds" }} />
       <Stack.Screen

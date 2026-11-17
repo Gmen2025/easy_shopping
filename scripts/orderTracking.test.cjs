@@ -267,6 +267,7 @@ test("tracking renders known coordinates without drawing a straight-line route a
     "react-native-vector-icons/FontAwesome": "Icon",
     "../../assets/common/baseUrl": "https://example.invalid/",
     "../../assets/common/socketClient": {},
+    "../../assets/common/internationalHub": { chargeStatusLabel: String, formatMoney: String, stageLabel: String },
   };
   const screenExports = {};
   vm.runInNewContext(screenCode, {

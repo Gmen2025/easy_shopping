@@ -7,6 +7,7 @@ import StoreAssignments from "../Screens/Store/StoreAssignments";
 import IncomeDashboard from "../Screens/Finance/IncomeDashboard";
 import ProductForm from "../Screens/Admin/ProductForm";
 import Categories from "../Screens/Admin/Categories";
+import InboundHub from "../Screens/International/InboundHub";
 
 const Stack = createStackNavigator();
 
@@ -18,6 +19,7 @@ const CompanyStoreNavigator = () => {
     <Stack.Screen name="StoreProductForm" component={ProductForm} options={{ title: "Store product" }} />
     <Stack.Screen name="StoreCategories" component={Categories} options={{ title: "Shared categories" }} />
     <Stack.Screen name="StoreAssignments" component={StoreAssignments} options={{ title: "Assignments" }} />
+    <Stack.Screen name="InboundHub" component={InboundHub} options={{ title: "Inbound international hub" }} />
     <Stack.Screen
       name="CompanyStoreHome"
       component={CompanyStoreDashboard}

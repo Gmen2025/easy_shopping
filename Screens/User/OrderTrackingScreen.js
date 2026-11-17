@@ -14,6 +14,7 @@ import MapViewDirections from "react-native-maps-directions";
 import { canRenderNativeMap, formatDirectionsError, MAP_UNAVAILABLE_MESSAGE } from "../../assets/common/mapsConfiguration";
 import { formatDistance, getTrackingAddress, getShippingAddressText, getTrackingLocations, getTrackingRoute, toLatLng } from "../../assets/common/orderTracking";
 import { resolveDeliveryLocation } from "../../assets/common/deliveryLocation";
+import { chargeStatusLabel, formatMoney, stageLabel } from "../../assets/common/internationalHub";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import Constants from "expo-constants";
@@ -380,6 +381,9 @@ const OrderTrackingScreen = (props) => {
           <Text style={styles.mutedText}>This map tracks the US store-to-hub delivery only, not the international journey.</Text>
           <Text style={styles.mutedText}>Ethiopian recipient: {internationalShipping.recipient?.address1}, {internationalShipping.recipient?.city}</Text>
           <Text selectable style={styles.mutedText}>{internationalShipping.carrier || "Carrier pending"} {internationalShipping.trackingNumber || ""}</Text>
+          {internationalShipping.trackingCode ? <Text selectable style={styles.cardHeader}>Tracking number: {internationalShipping.trackingCode}</Text> : null}
+          {internationalShipping.destination ? <Text style={styles.mutedText}>Destination: {stageLabel(internationalShipping.destination.stage)}
+            {internationalShipping.destination.charges ? ` | Customs charges: ${chargeStatusLabel(internationalShipping.destination.charges.status)} ${formatMoney(internationalShipping.destination.charges.total, internationalShipping.destination.charges.currency)}` : ""}</Text> : null}
           <Text style={styles.mutedText}>{internationalShipping.customsNotice}</Text>
         </View> : null}
         {dropoffError ? <Text style={styles.errorText}>{dropoffError}</Text> : null}

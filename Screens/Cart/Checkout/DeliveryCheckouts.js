@@ -10,6 +10,7 @@ import { paymentText } from "../../../assets/common/exchangeRate";
 import { getDatabaseNameFromStorage } from "../../../assets/common/databaseConfig";
 import PickupConfirmation from "../../../Shared/PickupConfirmation";
 import { shippingRoute } from "../../../assets/common/internationalShipping";
+import InternationalShipmentStatus from "../../../Shared/InternationalShipmentStatus";
 
 const DeliveryCheckouts = ({ navigation, route }) => {
   const [groups, setGroups] = useState([]);
@@ -77,6 +78,8 @@ const DeliveryCheckouts = ({ navigation, route }) => {
           <Text>Billable weight: {shipment.billableKg} kg | Shipping: USD {Number(shipment.shippingUsd).toFixed(2)}</Text>
           <Text selectable>{shipment.carrier || "Carrier pending"} {shipment.trackingNumber || ""}</Text>
           {(shipment.history || []).map((entry, index) => <Text key={index}>{entry.status} - {new Date(entry.at).toLocaleString()} - {entry.note}</Text>)}
+          {shipment.trackingCode || shipment.destination ? <InternationalShipmentStatus groupId={selected._id} shipment={shipment} admin={admin}
+            onChanged={() => load(selected._id)} /> : null}
           {admin && next && selected.status === "placed" ? <>
             {["carrier", "trackingNumber", "note"].map((field) => <TextInput key={field} label={field === "note" ? "Shipment note / delivery proof" : field}
               value={form[field] || ""} onChangeText={(value) => setShipmentForms((previous) => ({

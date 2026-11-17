@@ -777,7 +777,9 @@ Focused checks: `node --test scripts/authentication.test.cjs`.
   shipping and any configured Ethiopia final-delivery fee, followed by the converted ETB payment. Shipping is charged once per
   recipient, based on the greater of actual or volumetric packaged weight.
   Vehicle upgrades affect only domestic hub-delivery fees. **Import/customs
-  duties and clearance charges are excluded and paid separately by the recipient.**
+  duties and clearance charges are not part of checkout; the Ethiopia hub
+  records them after arrival and the customer pays them online (see Inbound
+  International Hub).**
 - In the **USA region**, **Admin > FX Rate** independently controls this
   feature and its daily birr-per-USD rate, manual Apply and automatic provider
   refresh. Every successful Apply/Fetch records a timestamp/revision even if
@@ -802,6 +804,37 @@ Focused checks: `node --test scripts/authentication.test.cjs`.
   MongoDB transaction concurrency and international shipping operations in
   staging before enabling. No deployment, migration or live activation is
   performed by adding this code.
+
+### Inbound International Hub (USA ↔ Ethiopia)
+Applies to both USA → Ethiopia and Ethiopia → USA product shipments.
+- **Tracking number:** when Admin marks a shipment **shipped**, the customer
+  is notified and receives an AdduGenet tracking number (`AG-USET-…` or
+  `AG-ETUS-…`). Combined checkouts and Order tracking show the number,
+  destination stage timeline, hub, driver and itemized charges.
+- **Hub store:** in the destination region, **Admin > Inbound hub** selects an
+  approved AdduGenet company-owned store as the hub. Its owner sees
+  **Inbound international hub** on the company store dashboard, and Admin can
+  use the same screen. The hub is notified when shipments are sent and when
+  they arrive.
+- **Hub steps:**
+  1. **Mark arrived**.
+  2. **Record customs & duty charges**: customs duty, tariff, import tax/VAT,
+     clearance, storage or another described cost. No charges waives payment.
+  3. **Mark collected from customs**.
+  4. **Release**, allowed only after the charges are paid or waived.
+  5. **Dispatch to driver** for delivery packages, or **Record pickup
+     handover** for pickup packages.
+- **Customer charge payment:** the customer is notified of the amount and pays
+  from the combined checkout in the shopping region where they placed the
+  order. ETB charges use Telebirr or ETB bank transfer; USD charges use card or
+  USD bank transfer. Admin confirms or rejects bank transfers in combined
+  payments. Once a payment method is started, finish or check that same method.
+- **Driver:** approved destination-region drivers open **International hub
+  deliveries** from the driver dashboard. They confirm pickup from the hub, then
+  confirm delivery with a proof note (who received it), which completes the
+  shipment.
+- Every step notifies the customer. Deploy the backend first. Test the full
+  flow, payments and notifications in staging before rollout.
 
 ### Ethiopia USD Purchasing
 - Customers select the **Ethiopia region**, then choose **ETB** or
