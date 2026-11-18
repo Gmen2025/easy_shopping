@@ -10,6 +10,7 @@ import { paymentText } from "../../../assets/common/exchangeRate";
 import { getDatabaseNameFromStorage } from "../../../assets/common/databaseConfig";
 import PickupConfirmation from "../../../Shared/PickupConfirmation";
 import { shippingRoute } from "../../../assets/common/internationalShipping";
+import { formatMoney, unpaidCharges } from "../../../assets/common/internationalHub";
 import InternationalShipmentStatus from "../../../Shared/InternationalShipmentStatus";
 
 const DeliveryCheckouts = ({ navigation, route }) => {
@@ -135,6 +136,8 @@ const DeliveryCheckouts = ({ navigation, route }) => {
         <Text>#{group._id.slice(-6).toUpperCase()} - {group.status} - {formatPrice(group.totalPrice)}</Text>
         {group.exchangeRate ? <Text>Payment: {paymentText(group)}</Text> : null}
         <Text>{group.kind === "service" ? "Quoted service" : `${group.deliveries.length} separate deliveries`} | {group.paymentStatus}</Text>
+        {unpaidCharges(group.international?.shipments).map((charges, index) => <Text key={index} style={styles.error}>
+          Customs charges {charges.status === "bank_review" ? "under review" : "due"}: {formatMoney(charges.total, charges.currency)} - open to pay</Text>)}
         <Button disabled={busy} onPress={() => run(() => load(group._id))}>View deliveries / recover payment</Button>
       </View>)}
     </>}

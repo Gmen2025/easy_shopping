@@ -268,6 +268,7 @@ test("tracking renders known coordinates without drawing a straight-line route a
     "../../assets/common/baseUrl": "https://example.invalid/",
     "../../assets/common/socketClient": {},
     "../../assets/common/internationalHub": { chargeStatusLabel: String, formatMoney: String, stageLabel: String },
+    "../../Shared/InternationalShipmentStatus": () => null,
   };
   const screenExports = {};
   vm.runInNewContext(screenCode, {

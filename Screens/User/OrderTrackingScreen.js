@@ -15,6 +15,7 @@ import { canRenderNativeMap, formatDirectionsError, MAP_UNAVAILABLE_MESSAGE } fr
 import { formatDistance, getTrackingAddress, getShippingAddressText, getTrackingLocations, getTrackingRoute, toLatLng } from "../../assets/common/orderTracking";
 import { resolveDeliveryLocation } from "../../assets/common/deliveryLocation";
 import { chargeStatusLabel, formatMoney, stageLabel } from "../../assets/common/internationalHub";
+import InternationalShipmentStatus from "../../Shared/InternationalShipmentStatus";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import Constants from "expo-constants";
@@ -194,6 +195,8 @@ const OrderTrackingScreen = (props) => {
   );
   const isDelivered = deliveryStatus === "Delivered";
   const internationalShipping = tracking?.internationalShipping || order?.internationalShipping;
+  const chargesGroupId = tracking?.checkoutGroup ? String(tracking.checkoutGroup)
+    : order?.checkoutGroup ? String(order.checkoutGroup?._id || order.checkoutGroup) : "";
   const isDeliveryLeg = deliveryStatus === "Picked Up";
 
   const { origin: routeOrigin, destination: routeDestination } =
@@ -382,8 +385,12 @@ const OrderTrackingScreen = (props) => {
           <Text style={styles.mutedText}>Ethiopian recipient: {internationalShipping.recipient?.address1}, {internationalShipping.recipient?.city}</Text>
           <Text selectable style={styles.mutedText}>{internationalShipping.carrier || "Carrier pending"} {internationalShipping.trackingNumber || ""}</Text>
           {internationalShipping.trackingCode ? <Text selectable style={styles.cardHeader}>Tracking number: {internationalShipping.trackingCode}</Text> : null}
-          {internationalShipping.destination ? <Text style={styles.mutedText}>Destination: {stageLabel(internationalShipping.destination.stage)}
-            {internationalShipping.destination.charges ? ` | Customs charges: ${chargeStatusLabel(internationalShipping.destination.charges.status)} ${formatMoney(internationalShipping.destination.charges.total, internationalShipping.destination.charges.currency)}` : ""}</Text> : null}
+          {chargesGroupId && internationalShipping.shipmentId ? <InternationalShipmentStatus groupId={chargesGroupId}
+            shipment={{ id: internationalShipping.shipmentId, trackingCode: internationalShipping.trackingCode || "",
+              destination: internationalShipping.destination || null, history: [] }}
+            onChanged={fetchTracking} /> :
+            internationalShipping.destination ? <Text style={styles.mutedText}>Destination: {stageLabel(internationalShipping.destination.stage)}
+              {internationalShipping.destination.charges ? ` | Customs charges: ${chargeStatusLabel(internationalShipping.destination.charges.status)} ${formatMoney(internationalShipping.destination.charges.total, internationalShipping.destination.charges.currency)}` : ""}</Text> : null}
           <Text style={styles.mutedText}>{internationalShipping.customsNotice}</Text>
         </View> : null}
         {dropoffError ? <Text style={styles.errorText}>{dropoffError}</Text> : null}

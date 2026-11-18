@@ -81,3 +81,16 @@ test("hub steps walk arrive, charges, customs, release and completion with waiti
   assert.ok(Object.values(delivered).every((step) => step.state !== "current"));
   assert.equal(delivered.complete.state, "done");
 });
+
+test("unpaid charges surface only shipments awaiting payment or bank review", () => {
+  const shipments = [
+    { destination: { charges: { status: "awaiting_payment", total: 150.25, currency: "etb" } } },
+    { destination: { charges: { status: "bank_review", total: 10, currency: "etb" } } },
+    { destination: { charges: { status: "paid", total: 5, currency: "etb" } } },
+    { destination: { charges: { status: "waived", total: 0, currency: "etb" } } },
+    { destination: null },
+    {},
+  ];
+  assert.deepEqual(JSON.parse(JSON.stringify(hub.unpaidCharges(shipments).map((charges) => charges.status))), ["awaiting_payment", "bank_review"]);
+  assert.equal(hub.unpaidCharges(undefined).length, 0);
+});

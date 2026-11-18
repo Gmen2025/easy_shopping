@@ -95,6 +95,11 @@ export function chargesPayload(rows, note = "") {
   return { body: { charges, ...(note.trim() ? { note: note.trim() } : {}) }, total };
 }
 
+// Shipments whose customs charges still need customer payment or bank-transfer review.
+export const unpaidCharges = (shipments) => (shipments || [])
+  .map((shipment) => shipment?.destination?.charges)
+  .filter((charges) => charges && ["awaiting_payment", "bank_review"].includes(charges.status));
+
 export function destinationTimeline(shipment) {
   return (shipment?.destination?.history || []).map((entry) => ({
     key: `${entry.stage}-${entry.at}`,

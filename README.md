@@ -826,9 +826,13 @@ Applies to both USA → Ethiopia and Ethiopia → USA product shipments.
      handover** for pickup packages.
 - **Customer charge payment:** the customer is notified of the amount and pays
   from the combined checkout in the shopping region where they placed the
-  order. ETB charges use Telebirr or ETB bank transfer; USD charges use card or
-  USD bank transfer. Admin confirms or rejects bank transfers in combined
-  payments. Once a payment method is started, finish or check that same method.
+  order. The order tracking screen shows the same shipment panel with the
+  payment options, and the delivery checkouts list flags checkouts with
+  customs charges due. ETB charges use Telebirr or ETB bank transfer; USD
+  charges use card or USD bank transfer. Admin confirms or rejects bank
+  transfers in combined payments. Once a payment method is started, finish or
+  check that same method. Paying (or admin confirming a bank transfer)
+  notifies the hub so it can release the shipment.
 - **Driver:** approved destination-region drivers open **International hub
   deliveries** from the driver dashboard. They confirm pickup from the hub, then
   confirm delivery with a proof note (who received it), which completes the
