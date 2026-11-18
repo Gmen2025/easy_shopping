@@ -1681,7 +1681,7 @@ test("international product checkout adds shipping before converting to birr, on
   );
   await ui.start();
   await ui.calculate();
-  assert.match(text(ui.render()), /International shipping: \$20.00/);
+  assert.match(text(ui.render()), /International shipping: USD \$20.00\. Ethiopia final delivery: USD \$0.00/);
   assert.match(text(ui.render()), /Birr payment estimate: ETB 7950.00/);
   assert.match(text(ui.render()), /Customs\/import charges are excluded/);
   assert.equal(
@@ -1758,7 +1758,7 @@ test("international birr recovery preserves a stale rate snapshot and shows Ethi
   );
   await ui.start();
   assert.match(text(ui.render()), /Birr payment: ETB 7500.00/);
-  assert.match(text(ui.render()), /Ethiopian recipient: Family - Addis/);
+  assert.match(text(ui.render()), /Ethiopia recipient: Family - Addis/);
   assert.equal(ui.button("Submit transfer reference"), undefined);
   assert.equal(ui.actions.length, 0);
 });

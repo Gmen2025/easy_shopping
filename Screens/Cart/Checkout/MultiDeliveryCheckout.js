@@ -1570,7 +1570,7 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
                 {quote.international ? (
                   <Text>
                     International shipping:{" "}
-                    {usdText(quote.international.shippingFee)}. {shipmentRoute.destination}
+                    {usdText(quote.international.shippingFee)}. {shipmentRoute.destination}{" "}
                     final delivery: {usdText(quote.finalDeliveryFee || 0)}.
                     Pickup keeps shipping charges but omits final delivery.
                   </Text>

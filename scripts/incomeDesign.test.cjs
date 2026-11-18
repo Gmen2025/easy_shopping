@@ -29,7 +29,7 @@ test("store income UI retains currencies, period totals and confirmed manual pay
     products: [], inventory: [], locations: [], payouts: [
       { _id: "payout-etb", currency: "ETB", amount: 20, payoutType: "early", status: "pending", dateRequested: "2026-11-01" },
       { _id: "payout-usd", currency: "USD", amount: 7, payoutType: "early", status: "paid", dateRequested: "2026-11-01" },
-    ], entries: [], schedule: "Manual payment schedule",
+    ], entries: [], schedule: "Manual payment schedule", wallet: { enabled: false },
   };
   const values = []; const calls = []; const alerts = [];
   let cursor = 0, focus;
@@ -45,6 +45,7 @@ test("store income UI retains currencies, period totals and confirmed manual pay
     "@react-native-picker/picker": { Picker: Object.assign((props) => ({ type: "Picker", props }), { Item: "PickerItem" }) },
     "@react-navigation/native": { useFocusEffect: (callback) => { focus = callback; } },
     "expo-crypto": { randomUUID: () => "request-key" },
+    "./DepositWallet": () => null,
     "../../assets/common/finance": { financeMoney: (value, currency) => `${currency} ${value.toFixed(2)}`, financeError: (error) => error.message,
       financeRequest: async (url, options) => { calls.push({ url, options }); return options ? { message: "Manual payment requested" } : data; } },
   };

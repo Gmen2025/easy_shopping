@@ -4,7 +4,7 @@ import { Button, TextInput } from "react-native-paper";
 import { useFocusEffect } from "@react-navigation/native";
 import { apiRequest } from "../../assets/common/storefront";
 import {
-  ACTION_LABELS, CHARGE_TYPES, chargeStatusLabel, chargesPayload, destinationTimeline, errorMessage, formatMoney, stageLabel,
+  ACTION_LABELS, CHARGE_TYPES, chargeStatusLabel, chargesPayload, destinationTimeline, errorMessage, formatMoney, hubSteps, stageLabel,
 } from "../../assets/common/internationalHub";
 
 const request = (path, options) => apiRequest("international", path, options);
@@ -66,8 +66,15 @@ function ShipmentCard({ shipment, busy, act, loadDrivers, drivers }) {
     {charges ? <Text style={styles.bold}>Charges: {formatMoney(charges.total, charges.currency)} - {chargeStatusLabel(charges.status)}{charges.method ? ` (${charges.method})` : ""}</Text> : null}
     {destination?.driver ? <Text>Driver: {destination.driver.name} {destination.driver.phone} {destination.driver.deliveredAt ? "- delivered" : destination.driver.pickedUpAt ? "- picked up" : "- assigned"}</Text> : null}
     {destinationTimeline(shipment).map((entry) => <Text key={entry.key} style={styles.muted}>{entry.label} - {new Date(entry.at).toLocaleString()} {entry.note}</Text>)}
+    <View style={styles.steps}>
+      <Text style={styles.stepsTitle}>Hub steps</Text>
+      {hubSteps(shipment).map((step, index) => <Text key={step.key}
+        style={[styles.step, step.state === "done" ? styles.stepDone : step.state === "current" ? styles.stepCurrent : null]}>
+        {step.state === "done" ? "✓" : `${index + 1}.`} {step.label}{step.hint ? ` — ${step.hint}` : ""}
+      </Text>)}
+    </View>
     <View style={styles.chips}>
-      {shipment.actions.map((action) => <Button key={action} compact mode={open === action ? "contained" : "outlined"} style={styles.chip} disabled={busy}
+      {(shipment.actions || []).map((action) => <Button key={action} compact mode={open === action ? "contained" : "outlined"} style={styles.chip} disabled={busy}
         onPress={() => choose(action)}>{ACTION_LABELS[action] || action}</Button>)}
     </View>
     {open === "charges" ? <ChargesForm currency={shipment.currency} busy={busy} onSubmit={(body) => submit("charges", body)} /> : null}
@@ -162,6 +169,11 @@ const styles = StyleSheet.create({
   heading: { fontSize: 16, fontWeight: "700", marginBottom: 4 },
   bold: { fontWeight: "700", marginTop: 4 },
   muted: { color: "#6b7280", fontSize: 12 },
+  steps: { marginTop: 8, backgroundColor: "#f9fafb", borderRadius: 8, padding: 8 },
+  stepsTitle: { fontWeight: "700", fontSize: 12, marginBottom: 2 },
+  step: { fontSize: 12, color: "#6b7280", marginTop: 2 },
+  stepDone: { color: "#15803d" },
+  stepCurrent: { color: "#1d4ed8", fontWeight: "700" },
   card: { backgroundColor: "#fff", borderRadius: 10, padding: 12, marginBottom: 12 },
   form: { marginTop: 8 },
   row: { borderBottomWidth: 1, borderBottomColor: "#e5e7eb", paddingBottom: 6, marginBottom: 6 },

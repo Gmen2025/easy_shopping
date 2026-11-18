@@ -52,3 +52,32 @@ test("payment methods follow the shipment currency and lock to the started metho
   for (const status of ["bank_review", "paid", "waived"]) assert.equal(hub.chargePaymentState({ status }).payable, false);
   assert.equal(hub.chargePaymentState(null).payable, false);
 });
+
+test("hub steps walk arrive, charges, customs, release and completion with waiting hints", () => {
+  const byKey = (steps) => Object.fromEntries(steps.map((step) => [step.key, step]));
+  const shipped = byKey(hub.hubSteps({ status: "shipped", destination: { stage: "in_transit" }, packages: [] }));
+  assert.deepEqual([shipped.arrive.state, shipped.charges.state], ["current", "pending"]);
+  assert.match(shipped.arrive.hint, /mark it arrived/);
+
+  const legacy = byKey(hub.hubSteps({ status: "arrived_ethiopia", destination: null, packages: [] }));
+  assert.equal(legacy.arrive.state, "current");
+  assert.match(legacy.arrive.hint, /start hub processing/);
+
+  const inCustoms = byKey(hub.hubSteps({ status: "arrived_ethiopia", destination: { stage: "in_customs" }, packages: [] }));
+  assert.deepEqual([inCustoms.arrive.state, inCustoms.charges.state, inCustoms.clear.state], ["done", "current", "pending"]);
+
+  const unpaid = byKey(hub.hubSteps({ status: "arrived_ethiopia",
+    destination: { stage: "cleared", charges: { status: "awaiting_payment" } }, packages: [] }));
+  assert.deepEqual([unpaid.charges.state, unpaid.clear.state, unpaid.ready.state], ["done", "done", "current"]);
+  assert.match(unpaid.ready.hint, /customer to pay/);
+
+  const dispatched = byKey(hub.hubSteps({ status: "arrived_ethiopia",
+    destination: { stage: "dispatched", charges: { status: "paid" }, driver: { name: "Abebe" } }, packages: [] }));
+  assert.deepEqual([dispatched.ready.state, dispatched.complete.state], ["done", "current"]);
+  assert.match(dispatched.complete.hint, /driver to pick up/);
+
+  const delivered = byKey(hub.hubSteps({ status: "delivered",
+    destination: { stage: "delivered", charges: { status: "waived" } }, packages: [] }));
+  assert.ok(Object.values(delivered).every((step) => step.state !== "current"));
+  assert.equal(delivered.complete.state, "done");
+});
