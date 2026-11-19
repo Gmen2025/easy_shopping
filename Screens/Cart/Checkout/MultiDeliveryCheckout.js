@@ -38,6 +38,7 @@ import AddressSearchInput from "../../../Shared/AddressSearchInput";
 import { addressText, isEthiopia } from "../../../assets/common/rides";
 import {
   exchangeRequest,
+  productCheckoutService,
   rateIsActive,
   usdAmount,
   usdText,
@@ -232,6 +233,9 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
       if (exportPurchase || !/usa/i.test(db)) {
         const policy = await exchangeRequest();
         setExchange(policy);
+        const selected = productCheckoutService(db, currency, destination);
+        if (selected && policy.services?.[selected] === false)
+          throw new Error("This checkout service is temporarily turned off by Admin. Return to the cart and choose another option.");
         if ((exportPurchase || currency === "usd") && !rateIsActive(policy))
           throw new Error(
             policy.message ||

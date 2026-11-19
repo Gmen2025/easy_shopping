@@ -88,10 +88,24 @@ export default function ExchangeRateSettings({ navigation }) {
       {config ? (
         <>
           <View style={styles.card}>
+            <Text style={styles.heading}>Checkout services</Text>
+            <Text>Each switch controls new quotes and payment preparation separately. Existing prepared payments and shipments can finish. Enabled services still require a current enabled exchange rate, available payment methods and, for exports, shipping configuration.</Text>
+            {(international ? [["usaEtbExport", "Pay birr & ship USA products to Ethiopia"]] : [
+              ["ethiopiaUsdDelivery", "Pay USD & deliver Ethiopia products in Ethiopia"],
+              ["ethiopiaUsdExport", "Pay USD & ship Ethiopia products to USA"],
+            ]).map(([name, label]) => <View key={name}>
+              <Text>{label} - {savedPolicy.services?.[name] === false ? "Off" : "On"}</Text>
+              <Switch disabled={busy} value={savedPolicy.services?.[name] !== false} onValueChange={(enabled) => run(async () => {
+                const result = await exchangeRequest(`services/${name}`, { method: "put", data: { enabled } });
+                setSavedPolicy((previous) => ({ ...previous, services: result.services }));
+                setConfig((previous) => ({ ...previous, services: result.services }));
+              })} />
+            </View>)}
+            <Text>Switch shopping region to manage the other region's services. USD payments for quoted non-ride services are not controlled by these product switches.</Text>
+          </View>
+          <View style={styles.card}>
             <Text style={styles.heading}>
-              {international
-                ? "Allow birr checkout for USA exports"
-                : "Allow USD purchasing"}
+              Enable regional exchange-rate policy (required for converted checkouts)
             </Text>
             <Switch
               disabled={busy}

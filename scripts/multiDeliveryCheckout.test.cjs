@@ -1779,6 +1779,21 @@ test("stale international birr exchange policy prevents address/payment requests
   assert.match(text(ui.render()), /Birr checkout inactive/);
   assert.equal(ui.dialogs.length, 1);
 });
+test("disabled product services block new mobile checkout before loading addresses", async () => {
+  for (const [database, params, service] of [
+    ["E_Shopping", { paymentCurrency: "usd", destinationCountry: "Ethiopia" }, "ethiopiaUsdDelivery"],
+    ["E_Shopping", { paymentCurrency: "usd", destinationCountry: "USA" }, "ethiopiaUsdExport"],
+    ["E_ShopUSA", { paymentCurrency: "etb", destinationCountry: "Ethiopia" }, "usaEtbExport"],
+  ]) {
+    let calls = 0;
+    const ui = harness(async () => { calls++; throw new Error("Unexpected request"); }, {
+      database, params, exchangeState: { ...freshExchange(), services: { [service]: false } },
+    });
+    await ui.start();
+    assert.equal(calls, 0);
+    assert.match(text(ui.render()), /temporarily turned off by Admin/);
+  }
+});
 test("USD product checkout retains ETB totals, previews vehicle-adjusted dollars, excludes cash and submits currency", async () => {
   const policy = freshExchange();
   let quoted;

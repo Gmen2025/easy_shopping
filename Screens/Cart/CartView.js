@@ -11,7 +11,7 @@ import { storeRequest, getStorefrontScope } from '../../assets/common/storefront
 import { getDatabaseNameFromStorage, sanitizeDatabaseName } from '../../assets/common/databaseConfig';
 import { useFocusEffect } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
-import { exchangeRequest, rateIsActive, usdAmount, usdText, usdInactiveMessage, birrAmount, etbText, exportInactiveMessage } from '../../assets/common/exchangeRate';
+import { exchangeRequest, productCheckoutService, rateIsActive, usdAmount, usdText, usdInactiveMessage, birrAmount, etbText, exportInactiveMessage } from '../../assets/common/exchangeRate';
 import { CheckoutHeader } from '../../Shared/DeliveryCheckout';
 import useCatalogPricing from '../../assets/common/useCatalogPricing';
 import { getCatalogSettings, requiresStoreSelection } from '../../assets/common/catalog';
@@ -39,6 +39,7 @@ const CartView = (props) => {
   const [exchange, setExchange] = useState(null);
   const [database, setDatabase] = useState("");
   const [exchangeError, setExchangeError] = useState("");
+  const selectedService = productCheckoutService(database, paymentCurrency, shipToUSA ? "USA" : "Ethiopia");
   useFocusEffect(useCallback(() => {
     let mounted = true;
     setRegionReady(false);
@@ -105,6 +106,8 @@ const CartView = (props) => {
       if (exportPurchase || (!/usa/i.test(database) && paymentCurrency === "usd")) {
         const latest = await exchangeRequest();
         setExchange(latest);
+        const selected = productCheckoutService(database, paymentCurrency, shipToUSA ? "USA" : "Ethiopia");
+        if (selected && latest.services?.[selected] === false) throw new Error("This checkout service is temporarily turned off by Admin. Choose another option.");
         if (!rateIsActive(latest)) throw new Error(latest.message || (exportPurchase ? exportInactiveMessage : usdInactiveMessage));
         if (!config.enabled) throw new Error("Admin must enable inventory and vehicle checkout before cross-currency product purchases.");
         if ((exportPurchase || shipToUSA) && !(await storeRequest("international-shipping-config")).enabled) throw new Error("International shipping is not enabled for this shopping region.");
@@ -183,11 +186,12 @@ return (
             setShipToUSA(value === "usd-usa");
             setPaymentCurrency(value === "usd-usa" ? "usd" : value);
           }}>
-            <Picker.Item label={/usa/i.test(database) ? "Pay birr & ship to Ethiopia (ETB)" : "Pay in birr (ETB)"} value="etb" />
-            <Picker.Item label={/usa/i.test(database) ? "Pay USD & deliver in USA" : "Pay USD & deliver in Ethiopia"} value="usd" />
-            {!/usa/i.test(database) ? <Picker.Item label="Pay USD & ship Ethiopia products to USA" value="usd-usa" /> : null}
+            <Picker.Item label={/usa/i.test(database) ? `Pay birr & ship to Ethiopia (ETB)${exchange?.services?.usaEtbExport === false ? " (temporarily off)" : ""}` : "Pay in birr (ETB)"} value="etb" />
+            <Picker.Item label={/usa/i.test(database) ? "Pay USD & deliver in USA" : `Pay USD & deliver in Ethiopia${exchange?.services?.ethiopiaUsdDelivery === false ? " (temporarily off)" : ""}`} value="usd" />
+            {!/usa/i.test(database) ? <Picker.Item label={`Pay USD & ship Ethiopia products to USA${exchange?.services?.ethiopiaUsdExport === false ? " (temporarily off)" : ""}`} value="usd-usa" /> : null}
           </Picker>
           {exchangeError ? <Text style={{ color: "#b91c1c" }}>{exchangeError}</Text> : null}
+          {selectedService && exchange?.services?.[selectedService] === false ? <Text style={{ color: "#b91c1c" }}>This checkout service is temporarily turned off by Admin. Choose another option.</Text> : null}
           {!unresolvedPrices && paymentCurrency === (/usa/i.test(database) ? "etb" : "usd") ? rateIsActive(exchange) ? <>
             <Text>Products estimate: {/usa/i.test(database) ?
               etbText(birrAmount(productsData.reduce((sum, item) => sum + item.price * item.quantity, 0), exchange.birrPerUsd)) :

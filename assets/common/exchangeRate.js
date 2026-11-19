@@ -4,6 +4,9 @@ export const exchangeRequest = (path = "", options) => apiRequest("exchange-rate
 export const rateIsActive = (state, now = Date.now()) => Boolean(state?.active && state?.enabled &&
   Number.isFinite(state.birrPerUsd) && state.birrPerUsd > 0 && new Date(state.appliedAt).getTime() <= now &&
   new Date(state.expiresAt).getTime() > now);
+export const productCheckoutService = (database, currency, destination) => /usa/i.test(database)
+  ? currency === "etb" ? "usaEtbExport" : null
+  : currency === "usd" ? destination === "USA" ? "ethiopiaUsdExport" : "ethiopiaUsdDelivery" : null;
 export const usdAmount = (etb, rate) => Math.round(Number(etb) / rate * 100) / 100;
 export const usdText = (amount) => `USD $${Number(amount).toFixed(2)}`;
 export const birrAmount = (usd, rate) => Math.round(Number(usd) * rate * 100) / 100;

@@ -52,6 +52,45 @@ test("client rate freshness expires at the exact server boundary and never relab
   assert.equal(calls[0][0], "exchange-rate");
   assert.equal(calls[0][1], "apply");
 });
+test("product checkout service selection follows shopping region, currency and destination", () => {
+  const fx = load("assets\\common\\exchangeRate.js", { "./storefront": {} });
+  assert.equal(fx.productCheckoutService("E_Shopping", "usd", "Ethiopia"), "ethiopiaUsdDelivery");
+  assert.equal(fx.productCheckoutService("E_Shopping", "usd", "USA"), "ethiopiaUsdExport");
+  assert.equal(fx.productCheckoutService("E_ShopUSA", "etb", "Ethiopia"), "usaEtbExport");
+  assert.equal(fx.productCheckoutService("E_ShopUSA", "usd", "USA"), null);
+  assert.equal(fx.productCheckoutService("E_Shopping", "etb", "Ethiopia"), null);
+});
+test("Admin can switch each Ethiopian product service without changing the other", async () => {
+  const h = hooks(); const calls = [];
+  const fx = load("assets\\common\\exchangeRate.js", { "./storefront": {} });
+  const config = { enabled: true, providers: [], services: { ethiopiaUsdDelivery: true, ethiopiaUsdExport: true } };
+  const Component = load("Screens\\Admin\\ExchangeRateSettings.js", {
+    react: h.react,
+    "react-native": { ActivityIndicator: "ActivityIndicator", Alert: { alert: () => assert.fail("Unexpected alert") }, ScrollView: "ScrollView", Text: "Text", View: "View" },
+    "react-native-paper": { Button: "Button", Switch: "Switch", TextInput: "TextInput" },
+    "@react-native-picker/picker": { Picker: Object.assign((props) => ({ type: "Picker", props }), { Item: "Item" }) },
+    "../../assets/common/exchangeRate": { ...fx, exchangeRequest: async (endpoint, options) => {
+      if (endpoint?.startsWith("services/")) {
+        calls.push({ endpoint, options });
+        config.services = { ...config.services, [endpoint.split("/")[1]]: options.data.enabled };
+        return { services: config.services };
+      }
+      return { ...config, services: { ...config.services } };
+    } },
+    "../../assets/common/databaseConfig": { getDatabaseNameFromStorage: async () => "E_Shopping" },
+    "../../Shared/DeliveryCheckout": { styles: {} },
+  }).default;
+  const render = () => { h.reset(); return Component({ navigation: { navigate() {} } }); };
+  render(); h.effects[0]();
+  for (let index = 0; index < 5; index++) await new Promise(setImmediate);
+  const serviceView = (label) => tree(render()).find((entry) => entry.type === "View" &&
+    entry.props.children.some((child) => child?.type === "Text" && text(child).includes(label)));
+  const switchFor = (label) => tree(serviceView(label)).find((entry) => entry.type === "Switch");
+  await switchFor("deliver Ethiopia products").props.onValueChange(false);
+  assert.equal(calls[0].endpoint, "services/ethiopiaUsdDelivery");
+  assert.equal(switchFor("deliver Ethiopia products").props.value, false);
+  assert.equal(switchFor("ship Ethiopia products").props.value, true);
+});
 test("Admin same-rate Apply remains an explicit action and displays successful update history", async () => {
   const h = hooks(); const calls = []; const alerts = [];
   const fx = load("assets\\common\\exchangeRate.js", { "./storefront": { apiRequest: async () => {} } });

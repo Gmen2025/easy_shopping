@@ -766,6 +766,12 @@ Focused checks: `node --test scripts/authentication.test.cjs`.
 - **Password Recovery**: Forgot password functionality
 
 ### US Products to Ethiopia, Paid in Birr
+- In **Admin > Exchange rate settings**, Admin can independently enable or
+  disable the two Ethiopia USD product services, or switch to the USA region
+  to control birr-paid USA-to-Ethiopia shipping. Disabling a service blocks new
+  quotes and reservations; prepared payments and shipments can finish. Each
+  service still requires the regional exchange rate and applicable shipping and
+  payment settings. USD payments for quoted non-ride services are separate.
 - Select the **USA catalog**, then **Pay birr & ship to Ethiopia (ETB)** in the
   cart. This is **products only**: USA rides and other services do not accept
   birr through this feature. Domestic US USD purchases are unchanged.
