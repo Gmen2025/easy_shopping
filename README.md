@@ -820,8 +820,11 @@ Applies to both USA → Ethiopia and Ethiopia → USA product shipments.
   1. **Mark arrived**.
   2. **Record customs & duty charges**: customs duty, tariff, import tax/VAT,
      clearance, storage or another described cost. No charges waives payment.
-  3. **Mark collected from customs**.
-  4. **Release**, allowed only after the charges are paid or waived.
+  3. **Mark collected from customs**: select the packages actually received,
+     or select all pending packages. The count shows how many are selected and
+     partial collections can be recorded separately.
+  4. **Release**, allowed only after all active packages are collected and the
+     charges are paid or waived.
   5. **Dispatch to driver** for delivery packages, or **Record pickup
      handover** for pickup packages.
 - **Customer charge payment:** the customer is notified of the amount and pays

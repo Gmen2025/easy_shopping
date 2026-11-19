@@ -82,6 +82,84 @@ test("hub steps walk arrive, charges, customs, release and completion with waiti
   assert.equal(delivered.complete.state, "done");
 });
 
+test("customs collection submits only selected pending packages and rejects stale selections", () => {
+  const shipment = { destination: { stage: "in_customs", charges: { status: "paid" } }, packages: [
+    { orderId: "one", customsCollected: true },
+    { orderId: "two", customsCollected: false },
+    { orderId: "three", customsCollected: false },
+    { orderId: "cancelled", cancelled: true },
+  ] };
+  assert.deepEqual(Array.from(hub.pendingCustomsPackages(shipment), (entry) => entry.orderId), ["two", "three"]);
+  assert.deepEqual(JSON.parse(JSON.stringify(hub.customsCollectionPayload(shipment, ["three"], " Received one "))),
+    { orderIds: ["three"], note: "Received one" });
+  assert.deepEqual(JSON.parse(JSON.stringify(hub.customsCollectionPayload(shipment, ["two", "three"]))),
+    { orderIds: ["two", "three"] });
+  for (const ids of [[], ["one"], ["cancelled"], ["two", "two"], ["missing"]]) {
+    assert.throws(() => hub.customsCollectionPayload(shipment, ids), /awaiting customs/);
+  }
+  const clear = hub.hubSteps(shipment).find((step) => step.key === "clear");
+  assert.equal(clear.hint, "1 of 3 active packages collected.");
+});
+
+test("inbound hub lets the operator select packages before submitting a partial customs collection", async () => {
+  const filename = path.join(__dirname, "..", "Screens", "International", "InboundHub.js");
+  const { code } = babel.transformSync(fs.readFileSync(filename, "utf8"), {
+    filename, configFile: false, babelrc: false,
+    plugins: ["@babel/plugin-transform-react-jsx", "@babel/plugin-transform-modules-commonjs"],
+  });
+  const states = [];
+  let stateIndex = 0;
+  const react = {
+    createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
+    useState: (initial) => {
+      const index = stateIndex++;
+      if (!(index in states)) states[index] = initial;
+      return [states[index], (value) => { states[index] = typeof value === "function" ? value(states[index]) : value; }];
+    },
+    useCallback: (fn) => fn,
+    useRef: (value) => ({ current: value }),
+  };
+  const deps = {
+    react,
+    "react-native": new Proxy({ StyleSheet: { create: (styles) => styles }, Alert: { alert: () => assert.fail("Unexpected alert") } },
+      { get: (target, key) => target[key] || key }),
+    "react-native-paper": { Button: "Button", TextInput: "TextInput" },
+    "@react-navigation/native": { useFocusEffect: () => {} },
+    "../../assets/common/storefront": { apiRequest: () => assert.fail("Unexpected request") },
+    "../../assets/common/internationalHub": hub,
+  };
+  const exports = {};
+  vm.runInNewContext(`${code}\nexports.ShipmentCard = ShipmentCard;`, { exports, require: (name) => {
+    assert.ok(name in deps, `Unexpected dependency: ${name}`);
+    return deps[name];
+  } });
+  const shipment = { shipmentId: "home", actions: ["clear"], destination: { stage: "in_customs" }, packages: [
+    { orderId: "one", items: [], customsCollected: true },
+    { orderId: "two", items: [{ name: "Shirt", quantity: 1 }] },
+    { orderId: "three", items: [{ name: "Shoes", quantity: 1 }] },
+    { orderId: "cancelled", items: [], cancelled: true },
+  ] };
+  const calls = [];
+  const render = () => {
+    stateIndex = 0;
+    return exports.ShipmentCard({ shipment, busy: false, act: async (...args) => { calls.push(args); return true; }, drivers: [] });
+  };
+  const nodes = (node) => !node || typeof node !== "object" ? []
+    : Array.isArray(node) ? node.flatMap(nodes) : [node, ...nodes(node.props?.children)];
+  const button = (text) => nodes(render()).find((node) => node.type === "Button" && node.props.children.join("").includes(text));
+  button("Mark collected from customs").props.onPress();
+  assert.equal(button("Mark selected packages collected").props.disabled, true);
+  const options = nodes(render()).filter((node) => node.props?.accessibilityRole === "checkbox");
+  assert.deepEqual(options.map((node) => node.props.accessibilityLabel), ["Select package two", "Select package three"]);
+  options[1].props.onPress();
+  assert.equal(button("Mark selected packages collected").props.disabled, false);
+  button("Mark selected packages collected").props.onPress();
+  await new Promise(setImmediate);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][1], "clear");
+  assert.deepEqual(JSON.parse(JSON.stringify(calls[0][2])), { orderIds: ["three"] });
+});
+
 test("unpaid charges surface only shipments awaiting payment or bank review", () => {
   const shipments = [
     { destination: { charges: { status: "awaiting_payment", total: 150.25, currency: "etb" } } },

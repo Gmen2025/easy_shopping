@@ -40,6 +40,18 @@ export const chargeStatusLabel = (status) => CHARGE_STATUS[status] || status || 
 const STAGE_ORDER = ["in_transit", "in_customs", "cleared", "ready", "dispatched", "out_for_delivery", "awaiting_collection", "delivered"];
 const SETTLED = ["paid", "waived"];
 
+export const pendingCustomsPackages = (shipment) => (shipment?.packages || [])
+  .filter((entry) => !entry.cancelled && !entry.customsCollected);
+
+export function customsCollectionPayload(shipment, orderIds, note = "") {
+  const pending = new Set(pendingCustomsPackages(shipment).map((entry) => entry.orderId));
+  if (!Array.isArray(orderIds) || !orderIds.length || new Set(orderIds).size !== orderIds.length ||
+      orderIds.some((orderId) => !pending.has(orderId))) {
+    throw new Error("Select at least one package still awaiting customs collection.");
+  }
+  return { orderIds, ...(note.trim() ? { note: note.trim() } : {}) };
+}
+
 // The five hub steps with done/current/pending state and a waiting hint, so operators always see the whole workflow.
 export function hubSteps(shipment) {
   const destination = shipment?.destination || null;
@@ -48,13 +60,16 @@ export function hubSteps(shipment) {
   const settled = Boolean(charges) && SETTLED.includes(charges.status);
   const delivered = shipment?.status === "delivered" || destination?.stage === "delivered";
   const driver = destination?.driver || null;
-  const pickups = (shipment?.packages || []).filter((entry) => entry.fulfillmentMethod === "pickup" && !entry.cancelled);
+  const active = (shipment?.packages || []).filter((entry) => !entry.cancelled);
+  const pickups = active.filter((entry) => entry.fulfillmentMethod === "pickup");
+  const collected = active.filter((entry) => entry.customsCollected).length;
   const steps = [
     { key: "arrive", label: "Mark arrived", done: stage >= 1,
       hint: stage >= 1 ? "" : destination ? "In transit - mark it arrived once it reaches customs." : "Mark the shipment arrived to start hub processing." },
     { key: "charges", label: "Record customs & duty charges", done: Boolean(charges),
       hint: charges ? chargeStatusLabel(charges.status) : stage >= 1 && !delivered ? "Record the charges (or no charges) so the customer can pay." : "" },
-    { key: "clear", label: "Collect from customs", done: stage >= 2, hint: "" },
+    { key: "clear", label: "Collect from customs", done: stage >= 2,
+      hint: stage === 1 && active.length ? `${collected} of ${active.length} active packages collected.` : "" },
     { key: "ready", label: "Release for delivery / pickup", done: stage >= 3,
       hint: stage !== 2 || delivered ? "" : !charges ? "Record the charges first." : settled ? "" : "Waiting for the customer to pay the charges." },
     { key: "complete", label: "Deliver / hand over", done: delivered,

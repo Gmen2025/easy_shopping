@@ -1,10 +1,10 @@
 import React, { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Button, TextInput } from "react-native-paper";
 import { useFocusEffect } from "@react-navigation/native";
 import { apiRequest } from "../../assets/common/storefront";
 import {
-  ACTION_LABELS, CHARGE_TYPES, chargeStatusLabel, chargesPayload, destinationTimeline, errorMessage, formatMoney, hubSteps, stageLabel,
+  ACTION_LABELS, CHARGE_TYPES, chargeStatusLabel, chargesPayload, customsCollectionPayload, destinationTimeline, errorMessage, formatMoney, hubSteps, pendingCustomsPackages, stageLabel,
 } from "../../assets/common/internationalHub";
 
 const request = (path, options) => apiRequest("international", path, options);
@@ -43,11 +43,18 @@ function ShipmentCard({ shipment, busy, act, loadDrivers, drivers }) {
   const [open, setOpen] = useState("");
   const [note, setNote] = useState("");
   const [orderId, setOrderId] = useState("");
+  const [customsOrderIds, setCustomsOrderIds] = useState([]);
   const destination = shipment.destination;
   const charges = destination?.charges;
+  const pendingCustoms = pendingCustomsPackages(shipment);
+  const selectedCustoms = pendingCustoms.filter((entry) => customsOrderIds.includes(entry.orderId)).map((entry) => entry.orderId);
   const pendingPickups = shipment.packages.filter((entry) => entry.fulfillmentMethod === "pickup" && !entry.cancelled && !entry.pickupConfirmation.operatorAt);
   const submit = async (action, body) => {
-    if (await act(shipment, action, body)) { setOpen(""); setNote(""); setOrderId(""); }
+    if (await act(shipment, action, body)) { setOpen(""); setNote(""); setOrderId(""); setCustomsOrderIds([]); }
+  };
+  const collectCustoms = () => {
+    try { submit("clear", customsCollectionPayload(shipment, selectedCustoms, note)); }
+    catch (failure) { Alert.alert("Check packages", failure.message); }
   };
   const choose = (action) => {
     setOpen(open === action ? "" : action);
@@ -59,8 +66,10 @@ function ShipmentCard({ shipment, busy, act, loadDrivers, drivers }) {
     <Text selectable>Carrier: {shipment.carrier || "-"} {shipment.trackingNumber || ""}</Text>
     {shipment.customer ? <Text>Customer: {shipment.customer.name} {shipment.customer.phone}</Text> : null}
     <Text>Recipient: {shipment.recipient?.label} - {shipment.recipient?.address1}, {shipment.recipient?.city} ({shipment.recipient?.phone})</Text>
+    <Text style={styles.bold}>Packages ({shipment.packages.length})</Text>
+    {shipment.packageIssue ? <Text style={styles.error}>{shipment.packageIssue}</Text> : null}
     {shipment.packages.map((entry) => <Text key={entry.orderId}>
-      • {entry.fulfillmentMethod === "pickup" ? "Pickup" : "Delivery"}{entry.cancelled ? " (cancelled)" : ""}: {entry.items.map((item) => `${item.quantity} x ${item.name}`).join(", ")}
+      • #{entry.orderId} - {entry.fulfillmentMethod === "pickup" ? "Pickup" : "Delivery"}{entry.cancelled ? " (cancelled)" : entry.customsCollected ? " (collected from customs)" : " (not collected from customs)"}: {entry.items.map((item) => `${item.quantity} x ${item.name}`).join(", ")}
       {entry.fulfillmentMethod === "pickup" ? ` | customer ${entry.pickupConfirmation.customerAt ? "confirmed" : "pending"}, hub ${entry.pickupConfirmation.operatorAt ? "handed over" : "pending"}` : ""}
     </Text>)}
     {charges ? <Text style={styles.bold}>Charges: {formatMoney(charges.total, charges.currency)} - {chargeStatusLabel(charges.status)}{charges.method ? ` (${charges.method})` : ""}</Text> : null}
@@ -78,9 +87,27 @@ function ShipmentCard({ shipment, busy, act, loadDrivers, drivers }) {
         onPress={() => choose(action)}>{ACTION_LABELS[action] || action}</Button>)}
     </View>
     {open === "charges" ? <ChargesForm currency={shipment.currency} busy={busy} onSubmit={(body) => submit("charges", body)} /> : null}
-    {["arrive", "clear", "ready"].includes(open) ? <View style={styles.form}>
+    {["arrive", "ready"].includes(open) ? <View style={styles.form}>
       <TextInput dense label="Note (optional)" value={note} onChangeText={setNote} />
       <Button mode="contained" disabled={busy} onPress={() => submit(open, { note })}>{ACTION_LABELS[open]}</Button>
+    </View> : null}
+    {open === "clear" ? <View style={styles.form}>
+      <Text>Select the packages collected from customs. All active packages must be collected and charges settled before release.</Text>
+      <Button disabled={busy || !pendingCustoms.length || selectedCustoms.length === pendingCustoms.length}
+        onPress={() => setCustomsOrderIds(pendingCustoms.map((entry) => entry.orderId))}>Select all pending packages</Button>
+      {pendingCustoms.map((entry) => {
+        const selected = selectedCustoms.includes(entry.orderId);
+        return <Pressable key={entry.orderId} accessibilityRole="checkbox" accessibilityLabel={`Select package ${entry.orderId}`}
+          accessibilityState={{ checked: selected, disabled: busy }} disabled={busy} style={styles.packageOption}
+          onPress={() => setCustomsOrderIds(selected ? selectedCustoms.filter((id) => id !== entry.orderId) : [...selectedCustoms, entry.orderId])}>
+          <Text>{selected ? "☑" : "☐"} #{entry.orderId} - {entry.items.map((item) => `${item.quantity} x ${item.name}`).join(", ")}</Text>
+        </Pressable>;
+      })}
+      {!pendingCustoms.length ? <Text>No packages are awaiting customs collection. Refresh the shipment.</Text> : null}
+      <TextInput dense label="Customs collection note (optional)" maxLength={300} value={note} onChangeText={setNote} />
+      <Button mode="contained" disabled={busy || !selectedCustoms.length} onPress={collectCustoms}>
+        Mark selected packages collected ({selectedCustoms.length})
+      </Button>
     </View> : null}
     {open === "dispatch" ? <View style={styles.form}>
       {!drivers.length ? <Text>No approved drivers available.</Text> : null}
@@ -179,5 +206,6 @@ const styles = StyleSheet.create({
   row: { borderBottomWidth: 1, borderBottomColor: "#e5e7eb", paddingBottom: 6, marginBottom: 6 },
   chips: { flexDirection: "row", flexWrap: "wrap", marginTop: 6 },
   chip: { marginRight: 6, marginBottom: 6 },
+  packageOption: { paddingVertical: 8 },
   error: { color: "#b91c1c", marginBottom: 8 },
 });
