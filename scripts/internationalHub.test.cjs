@@ -10,12 +10,82 @@ function load() {
   const { code } = babel.transformSync(fs.readFileSync(filename, "utf8"), {
     filename, configFile: false, babelrc: false, plugins: ["@babel/plugin-transform-modules-commonjs"],
   });
+  const trackingFile = path.join(__dirname, "..", "assets", "common", "orderTracking.js");
+  const trackingCode = babel.transformSync(fs.readFileSync(trackingFile, "utf8"), {
+    filename: trackingFile, configFile: false, babelrc: false, plugins: ["@babel/plugin-transform-modules-commonjs"],
+  }).code;
+  const tracking = {};
+  vm.runInNewContext(trackingCode, { exports: tracking });
   const exports = {};
-  vm.runInNewContext(code, { exports, require: (name) => assert.fail(`Unexpected dependency: ${name}`) });
+  vm.runInNewContext(code, { exports, require: (name) => {
+    if (name === "./orderTracking") return tracking;
+    assert.fail(`Unexpected dependency: ${name}`);
+  } });
   return exports;
 }
 
 const hub = load();
+
+test("driver route uses the actual hub address and recipient pin or address, never an implicit origin", () => {
+  const shipment = { pickupFrom: { address: "Bole hub" }, destinationCountry: "Ethiopia",
+    recipient: { address1: "Main St", city: "Addis", location: { coordinates: [38.8, 8.98] } } };
+  const route = hub.driverDeliveryRoute(shipment);
+  assert.equal(route.pickup, "Bole hub, Ethiopia");
+  assert.match(route.url, /origin=Bole%20hub%2C%20Ethiopia&destination=8.98%2C38.8&travelmode=driving/);
+  shipment.recipient.location = null;
+  assert.match(hub.driverDeliveryRoute(shipment).url, /destination=Main%20St%2C%20Addis%2C%20Ethiopia/);
+  shipment.pickupFrom.address = "";
+  assert.equal(hub.driverDeliveryRoute(shipment).url, "");
+  shipment.pickupFrom.address = "Hub";
+  shipment.recipient.address1 = "";
+  assert.equal(hub.driverDeliveryRoute(shipment).url, "");
+});
+
+test("driver card keeps hub pickup and proof confirmation alongside its route", () => {
+  const filename = path.join(__dirname, "..", "Screens", "International", "DriverInternationalDeliveries.js");
+  const { code } = babel.transformSync(fs.readFileSync(filename, "utf8"), {
+    filename, configFile: false, babelrc: false,
+    plugins: ["@babel/plugin-transform-react-jsx", "@babel/plugin-transform-modules-commonjs"],
+  });
+  let proof = "";
+  const alerts = [];
+  const react = {
+    createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
+    useState: () => [proof, (value) => { proof = value; }],
+  };
+  const deps = {
+    react,
+    "react-native": { View: "View", Text: "Text", StyleSheet: { create: (styles) => styles }, Alert: { alert: (...args) => alerts.push(args) } },
+    "react-native-paper": { Button: "Button", TextInput: "TextInput" },
+    "@react-navigation/native": {},
+    "../../assets/common/storefront": {},
+    "../../assets/common/internationalHub": hub,
+    "../../Shared/InternationalDriverMap": { __esModule: true, default: "InternationalDriverMap" },
+  };
+  const exports = {};
+  vm.runInNewContext(`${code}\nexports.DeliveryCard = DeliveryCard;`, { exports, require: (name) => {
+    assert.ok(name in deps, `Unexpected dependency: ${name}`);
+    return deps[name];
+  } });
+  const shipment = { trackingCode: "AG-TEST", pickupFrom: { address: "Hub" }, recipient: {}, packages: [], actions: ["pickup"] };
+  const calls = [];
+  const render = () => exports.DeliveryCard({ shipment, busy: false, act: (...args) => calls.push(args) });
+  const nodes = (node) => !node || typeof node !== "object" ? []
+    : Array.isArray(node) ? node.flatMap(nodes) : [node, ...nodes(node.props?.children)];
+  const button = (label) => nodes(render()).find((node) => node.type === "Button" && node.props.children.join("").includes(label));
+  assert.equal(nodes(render()).find((node) => node.type === "InternationalDriverMap").props.shipment, shipment);
+  button("Confirm pickup from hub").props.onPress();
+  alerts.pop()[2][1].onPress();
+  assert.equal(calls[0][1], "pickup");
+  shipment.actions = ["deliver"];
+  button("Confirm delivery").props.onPress();
+  assert.equal(alerts.pop()[0], "Proof required");
+  nodes(render()).find((node) => node.type === "TextInput").props.onChangeText(" Received by Sara ");
+  button("Confirm delivery").props.onPress();
+  alerts.pop()[2][1].onPress();
+  assert.equal(calls[1][1], "deliver");
+  assert.equal(calls[1][2].note, "Received by Sara");
+});
 
 test("charges payload skips blank rows, totals in cents and keeps the note", () => {
   const { body, total } = hub.chargesPayload([

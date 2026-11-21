@@ -1,3 +1,21 @@
+import { toLatLng } from "./orderTracking";
+
+export function driverDeliveryRoute(shipment) {
+  const address = String(shipment?.pickupFrom?.address || "").trim();
+  const country = String(shipment?.destinationCountry || "").trim();
+  const recipient = shipment?.recipient || {};
+  const pickup = address ? [address, country].filter(Boolean).join(", ") : "";
+  const point = toLatLng(recipient.location);
+  const destination = point || (recipient.address1
+    ? [recipient.address1, recipient.address2, recipient.city, recipient.zip, recipient.country || country].filter(Boolean).join(", ")
+    : "");
+  const destinationQuery = point ? `${point.latitude},${point.longitude}` : destination;
+  const url = pickup && destinationQuery
+    ? `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(pickup)}&destination=${encodeURIComponent(destinationQuery)}&travelmode=driving`
+    : "";
+  return { pickup, destination, url };
+}
+
 export const CHARGE_TYPES = [
   { value: "customs_duty", label: "Customs duty" },
   { value: "tariff", label: "Tariff" },

@@ -4,6 +4,7 @@ import { Button, TextInput } from "react-native-paper";
 import { useFocusEffect } from "@react-navigation/native";
 import { apiRequest } from "../../assets/common/storefront";
 import { errorMessage, stageLabel } from "../../assets/common/internationalHub";
+import InternationalDriverMap from "../../Shared/InternationalDriverMap";
 
 const request = (path, options) => apiRequest("international", path, options);
 
@@ -25,12 +26,13 @@ function DeliveryCard({ shipment, busy, act }) {
     <Text>Pick up from: {shipment.pickupFrom?.name} {shipment.pickupFrom?.address ? `- ${shipment.pickupFrom.address}` : ""}</Text>
     <Text>Deliver to: {recipient.label} - {recipient.address1}{recipient.address2 ? `, ${recipient.address2}` : ""}, {recipient.city}</Text>
     {recipient.phone ? <Text selectable>Phone: {recipient.phone}</Text> : null}
+    <InternationalDriverMap key={`${shipment.pickupFrom?.address}-${JSON.stringify(recipient)}`} shipment={shipment} />
     {(shipment.packages || []).filter((entry) => entry.fulfillmentMethod !== "pickup" && !entry.cancelled).map((entry) => <Text key={entry.orderId}>
       • {entry.items.map((item) => `${item.quantity} x ${item.name}`).join(", ")}
     </Text>)}
     {shipment.actions.includes("pickup") ? <Button mode="contained" style={styles.button} disabled={busy} onPress={pickup}>Confirm pickup from hub</Button> : null}
     {shipment.actions.includes("deliver") ? <View>
-      <TextInput dense label="Received by / delivery proof" value={proof} onChangeText={setProof} />
+      <TextInput dense label="Received by / delivery proof" maxLength={300} value={proof} onChangeText={setProof} />
       <Button mode="contained" style={styles.button} disabled={busy} onPress={deliver}>Confirm delivery</Button>
     </View> : null}
   </View>;
