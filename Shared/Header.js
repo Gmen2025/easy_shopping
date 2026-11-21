@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from "react";
+import React, { useState, useContext, useEffect, useRef } from "react";
 import { 
     StyleSheet, 
     View, 
@@ -18,9 +18,6 @@ import { AuthContext } from "../Context/store/Auth";
 import Icon from "react-native-vector-icons/FontAwesome5";
 // import { FontAwesome as Icon } from '@expo/vector-icons'
 
-import axios from "axios";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import baseUrl from "../assets/common/baseUrl";
 import { COUNTRY_DB_MAP, getDatabaseNameFromStorage, setDatabaseNameInStorage } from "../assets/common/databaseConfig";
 import CartIcon from "./CartIcon";
 import useServiceAvailability from "../assets/common/useServiceAvailability";
@@ -49,6 +46,8 @@ const Header = ({
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     const [isNotificationModalVisible, setIsNotificationModalVisible] = useState(false);
     const [selectedCountry, setSelectedCountry] = useState('Ethio');
+    const [switchingRegion, setSwitchingRegion] = useState(false);
+    const regionSwitchGuard = useRef(false);
     const context = useContext(AuthContext);
 
     const countries = [
@@ -69,72 +68,34 @@ const Header = ({
     const handleCountrySelect = async (country) => {
         setIsDropdownVisible(false);
 
-        if (country.value === selectedCountry) {
+        if (country.value === selectedCountry || regionSwitchGuard.current) {
             return;
         }
 
         const dbName = COUNTRY_DB_MAP[country.value];
         if (dbName) {
-            let refreshingProfile = false;
+            regionSwitchGuard.current = true;
+            setSwitchingRegion(true);
             try {
-                // Pre-persist immediately so any active interceptor uses the new database
+                await context.logout();
                 await setDatabaseNameInStorage(dbName);
-
-                const token = await AsyncStorage.getItem("token");
-                const switchUrl = `${baseUrl}database/switch`;
-                let resolvedDbName = dbName;
-
-                if (token) {
-                    try {
-                        const response = await axios.post(
-                            switchUrl,
-                            { database: dbName, databaseName: dbName },
-                            { 
-                                headers: { 
-                                    Authorization: `Bearer ${token}`,
-                                    "x-database-name": dbName,
-                                } 
-                            }
-                        );
-                        resolvedDbName = response?.data?.database || dbName;
-                    } catch (switchError) {
-                        // Fallback to local database selection if server-side switch is restricted.
-                        resolvedDbName = dbName;
-                    }
-                }
-
-                const resolvedCountry = DB_COUNTRY_MAP[resolvedDbName] || country.value;
-                await setDatabaseNameInStorage(resolvedDbName);
-                setSelectedCountry(resolvedCountry);
-
-                if (token) {
-                    refreshingProfile = true;
-                    await context.refreshProfile();
-                    refreshingProfile = false;
-                }
+                setSelectedCountry(country.value);
 
                 if (typeof onDatabaseChanged === 'function') {
                     onDatabaseChanged();
                 }
+                Alert.alert("Region changed", `You are now shopping in ${country.value === "USA" ? "USA" : "Ethiopia"}. Sign in to your account for this region.`);
             } catch (error) {
-                const message = refreshingProfile
-                    ? "Changing the region logged you out. Please log back in."
-                    : error?.response?.data?.message ||
-                    error?.message ||
-                    "Could not switch database.";
-
-                if (refreshingProfile) {
-                    console.error("Profile refresh after changing region failed:", error);
-                }
-                if (typeof onDatabaseChanged === 'function') {
-                    onDatabaseChanged();
-                }
-                Alert.alert(refreshingProfile ? "Region Changed" : "Database Switch Failed", message);
+                Alert.alert("Region switch failed", error?.message || "Could not change region. Please try again.");
+            } finally {
+                regionSwitchGuard.current = false;
+                setSwitchingRegion(false);
             }
         }
     };
 
     const toggleDropdown = () => {
+        if (regionSwitchGuard.current) return;
         if (Platform.OS === "ios") {
             const options = countries.map((country) => `${country.flag} ${country.label} (${country.currency})`);
             const cancelButtonIndex = options.length;
@@ -168,6 +129,7 @@ const Header = ({
                 selectedCountry === item.value && styles.selectedItem
             ]}
             onPress={() => handleCountrySelect(item)}
+            disabled={switchingRegion}
         >
             <Text style={styles.flagEmoji}>{item.flag}</Text>
             <View style={styles.countryInfo}>
@@ -265,6 +227,7 @@ const Header = ({
                     <TouchableOpacity
                         style={styles.countrySelector}
                         onPress={toggleDropdown}
+                        disabled={switchingRegion}
                         accessibilityRole="button"
                         accessibilityLabel={`Shopping country: ${selectedCountry === "USA" ? "USA" : "Ethiopia"}. Change country`}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}

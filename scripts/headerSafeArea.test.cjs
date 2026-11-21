@@ -29,6 +29,7 @@ function renderHeader(platform, width) {
     },
     useContext: () => ({}),
     useEffect: () => {},
+    useRef: (initial) => ({ current: initial }),
   };
   const native = {
     StyleSheet: { create: (styles) => styles },

@@ -61,65 +61,100 @@ test("failed role refresh clears stale profile and propagates failure", async ()
   assert.equal(actions.at(-1).type, "LOGOUT");
 });
 
-test("country switch refreshes profile before remounting navigation in both directions", async () => {
+test("country switch signs out before saving the new region and remounting navigation in both directions", async () => {
   for (const [selectedCountry, target, db] of [
     ["USA", "Ethio", "E_Shopping"], ["Ethio", "USA", "E_ShopUSA"],
   ]) {
-    const events = [];
+    const events = [], alerts = [];
     const select = extract("Shared\\Header.js", "handleCountrySelect", {
       selectedCountry, setIsDropdownVisible: () => {}, setSelectedCountry: (value) => events.push(value),
+      regionSwitchGuard: { current: false }, setSwitchingRegion: () => {},
       COUNTRY_DB_MAP: { Ethio: "E_Shopping", USA: "E_ShopUSA" },
-      DB_COUNTRY_MAP: { E_Shopping: "Ethio", E_ShopUSA: "USA" },
       setDatabaseNameInStorage: async (value) => events.push(value),
-      AsyncStorage: { getItem: async () => "session" }, baseUrl: "",
-      axios: { post: async () => ({ data: { database: db } }) },
-      context: { refreshProfile: async () => events.push("profile") },
-      onDatabaseChanged: () => events.push("navigation"),
-      Alert: { alert: () => assert.fail("Unexpected switch failure") },
-    });
-    await select({ value: target });
-    assert.equal(events.at(-2), "profile");
-    assert.equal(events.at(-1), "navigation");
-    assert.ok(events.indexOf(db) < events.indexOf("profile"));
-  }
-});
-
-test("region-switch logout explains that customers must log back in, in both directions", async () => {
-  for (const [selectedCountry, target, db] of [
-    ["USA", "Ethio", "E_Shopping"], ["Ethio", "USA", "E_ShopUSA"],
-  ]) {
-    const alerts = [], events = [], errors = [];
-    const failure = new Error("User not found in this database");
-    const select = extract("Shared\\Header.js", "handleCountrySelect", {
-      selectedCountry, setIsDropdownVisible: () => {}, setSelectedCountry: () => {},
-      COUNTRY_DB_MAP: { Ethio: "E_Shopping", USA: "E_ShopUSA" },
-      DB_COUNTRY_MAP: { E_Shopping: "Ethio", E_ShopUSA: "USA" },
-      setDatabaseNameInStorage: async () => {},
-      AsyncStorage: { getItem: async () => "session" }, baseUrl: "",
-      axios: { post: async () => ({ data: { database: db } }) },
-      context: { refreshProfile: async () => { events.push("logout"); throw failure; } },
+      context: { logout: async () => events.push("logout"), refreshProfile: () => assert.fail("Old session must not be refreshed in the new region") },
       onDatabaseChanged: () => events.push("navigation"),
       Alert: { alert: (...args) => alerts.push(args) },
-      console: { error: (...args) => errors.push(args) },
     });
     await select({ value: target });
-    assert.deepEqual(alerts, [["Region Changed", "Changing the region logged you out. Please log back in."]]);
-    assert.deepEqual(events, ["logout", "navigation"]);
-    assert.equal(errors[0][1], failure);
+    assert.deepEqual(events, ["logout", db, target, "navigation"]);
+    assert.equal(alerts[0][0], "Region changed");
+    assert.match(alerts[0][1], /Sign in to your account for this region/);
   }
 });
 
-test("region-switch failures before profile refresh retain their actual error rather than claiming logout", async () => {
-  const alerts = [];
+test("region switch stops before persistence or remount when logout fails", async () => {
+  const alerts = [], guard = { current: false };
   const select = extract("Shared\\Header.js", "handleCountrySelect", {
     selectedCountry: "Ethio", setIsDropdownVisible: () => {},
+    regionSwitchGuard: guard, setSwitchingRegion: () => {},
     COUNTRY_DB_MAP: { USA: "E_ShopUSA" },
-    setDatabaseNameInStorage: async () => { throw new Error("Storage unavailable"); },
-    onDatabaseChanged: () => {},
+    setDatabaseNameInStorage: () => assert.fail("Region must not change while logout failed"),
+    context: { logout: async () => { throw new Error("Unable to clear session"); } },
+    onDatabaseChanged: () => assert.fail("Navigation must not remount"),
     Alert: { alert: (...args) => alerts.push(args) },
   });
   await select({ value: "USA" });
-  assert.deepEqual(alerts, [["Database Switch Failed", "Storage unavailable"]]);
+  assert.deepEqual(alerts, [["Region switch failed", "Unable to clear session"]]);
+  assert.equal(guard.current, false);
+});
+
+test("region-switch persistence failure keeps the current region and allows retry", async () => {
+  const alerts = [], guard = { current: false };
+  const select = extract("Shared\\Header.js", "handleCountrySelect", {
+    selectedCountry: "Ethio", setIsDropdownVisible: () => {},
+    regionSwitchGuard: guard, setSwitchingRegion: () => {},
+    COUNTRY_DB_MAP: { USA: "E_ShopUSA" },
+    context: { logout: async () => {} },
+    setDatabaseNameInStorage: async () => { throw new Error("Storage unavailable"); },
+    setSelectedCountry: () => assert.fail("Selection must not change without persistence"),
+    onDatabaseChanged: () => assert.fail("Navigation must not remount"),
+    Alert: { alert: (...args) => alerts.push(args) },
+  });
+  await select({ value: "USA" });
+  assert.deepEqual(alerts, [["Region switch failed", "Storage unavailable"]]);
+  assert.equal(guard.current, false);
+});
+
+test("region switch ignores the current selection and concurrent taps", async () => {
+  let release;
+  const events = [];
+  const guard = { current: false };
+  const select = extract("Shared\\Header.js", "handleCountrySelect", {
+    selectedCountry: "Ethio", setIsDropdownVisible: () => {},
+    regionSwitchGuard: guard, setSwitchingRegion: () => {}, setSelectedCountry: () => {},
+    COUNTRY_DB_MAP: { Ethio: "E_Shopping", USA: "E_ShopUSA" },
+    context: { logout: () => { events.push("logout"); return new Promise((resolve) => { release = resolve; }); } },
+    setDatabaseNameInStorage: async (value) => events.push(value),
+    onDatabaseChanged: () => events.push("navigation"),
+    Alert: { alert: () => {} },
+  });
+  await select({ value: "Ethio" });
+  assert.equal(events.length, 0);
+  const pending = select({ value: "USA" });
+  await select({ value: "USA" });
+  assert.deepEqual(events, ["logout"]);
+  release();
+  await pending;
+  assert.deepEqual(events, ["logout", "E_ShopUSA", "navigation"]);
+});
+
+test("logout clears the persisted session before publishing signed-out state", async () => {
+  const events = [];
+  const logout = extract("Context\\store\\Auth.js", "logout", {
+    useCallback: (fn) => fn,
+    AsyncStorage: { removeItem: async (key) => events.push(key) },
+    dispatch: (action) => events.push(action.type),
+  });
+  await logout();
+  assert.deepEqual(events, ["token", "lastActivityTime", "LOGOUT"]);
+});
+
+test("saving a region propagates storage failures rather than reporting a successful switch", async () => {
+  const save = extract("assets\\common\\databaseConfig.js", "setDatabaseNameInStorage", {
+    sanitizeDatabaseName: (name) => name, DB_STORAGE_KEY: "selectedDatabaseName",
+    AsyncStorage: { setItem: async () => { throw new Error("Storage unavailable"); } },
+  });
+  await assert.rejects(save("E_ShopUSA"), /Storage unavailable/);
 });
 
 test("combined company-driver/store account qualifies for both dashboard tabs", () => {

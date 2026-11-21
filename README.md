@@ -130,9 +130,11 @@ wrap to two lines and the tagline/country abbreviation are hidden to preserve
 space for the logo and controls. The flag and accessible country selector remain
 available; menu, home, notifications and cart behavior are unchanged.
 
-If changing between Ethiopia and USA logs the customer out during the regional
-profile refresh, the popup says: **"Changing the region logged you out. Please
-log back in."** Successful region switches keep their existing behavior.
+Changing between Ethiopia and USA signs out first, clears the stored session,
+then saves the new region and reloads shopping navigation. Sign in to the
+account for the selected region. The old region's token is never used to
+refresh a profile in the new region. Repeated taps are blocked while switching;
+storage or sign-out failures are shown without changing the selected region.
 
 ## Store-created catalog and nearest-store pricing
 

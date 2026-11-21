@@ -56,11 +56,7 @@ export const getDatabaseNameFromStorage = async () => {
 export const setDatabaseNameInStorage = async (name) => {
   const safeName = sanitizeDatabaseName(name);
 
-  try {
-    await AsyncStorage.setItem(DB_STORAGE_KEY, safeName);
-  } catch (error) {
-    // Ignore persistence failures and keep runtime state.
-  }
+  await AsyncStorage.setItem(DB_STORAGE_KEY, safeName);
 
   return safeName;
 };

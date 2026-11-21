@@ -389,9 +389,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = useCallback(async () => {
-    dispatch({ type: "LOGOUT" });
     await AsyncStorage.removeItem("token");
     await AsyncStorage.removeItem("lastActivityTime");
+    dispatch({ type: "LOGOUT" });
   }, []);
 
   return (
