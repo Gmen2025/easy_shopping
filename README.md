@@ -843,12 +843,13 @@ Applies to both USA → Ethiopia and Ethiopia → USA product shipments.
   check that same method. Paying (or admin confirming a bank transfer)
   notifies the hub so it can release the shipment.
 - **Driver:** approved destination-region drivers open **International hub
-  deliveries** from the driver dashboard. Each assignment shows the driving
-  route from the hub pickup address to the recipient, with external Google Maps
-  navigation. Confirm the mapped addresses before driving; this route does not
-  include travel to the hub. In-app directions require the configured Maps and
-  Directions keys. Confirm pickup from the hub, then confirm delivery with a
-  proof note (who received it); any customer-collection packages are completed
+  deliveries** from the driver dashboard. Open **Active driving route** for a
+  live GPS road route, distance and ETA to the hub. After confirming pickup, the
+  route switches to the recipient. The route screen also offers external
+  navigation and delivery confirmation with a proof note. The assignment's
+  separate hub-to-recipient map is a preview; verify both mapped locations.
+  Live routes require the backend Routes API key, location permission and the
+  native Maps configuration. Any customer-collection packages are completed
   separately.
 - Every step notifies the customer. Deploy the backend first. Test the full
   flow, payments and notifications in staging before rollout.

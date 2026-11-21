@@ -69,11 +69,14 @@ test("driver card keeps hub pickup and proof confirmation alongside its route", 
   } });
   const shipment = { trackingCode: "AG-TEST", pickupFrom: { address: "Hub" }, recipient: {}, packages: [], actions: ["pickup"] };
   const calls = [];
-  const render = () => exports.DeliveryCard({ shipment, busy: false, act: (...args) => calls.push(args) });
+  let opened;
+  const render = () => exports.DeliveryCard({ shipment, busy: false, act: (...args) => calls.push(args), openRoute: (value) => { opened = value; } });
   const nodes = (node) => !node || typeof node !== "object" ? []
     : Array.isArray(node) ? node.flatMap(nodes) : [node, ...nodes(node.props?.children)];
   const button = (label) => nodes(render()).find((node) => node.type === "Button" && node.props.children.join("").includes(label));
   assert.equal(nodes(render()).find((node) => node.type === "InternationalDriverMap").props.shipment, shipment);
+  button("Open active driving route").props.onPress();
+  assert.equal(opened, shipment);
   button("Confirm pickup from hub").props.onPress();
   alerts.pop()[2][1].onPress();
   assert.equal(calls[0][1], "pickup");
@@ -85,6 +88,104 @@ test("driver card keeps hub pickup and proof confirmation alongside its route", 
   alerts.pop()[2][1].onPress();
   assert.equal(calls[1][1], "deliver");
   assert.equal(calls[1][2].note, "Received by Sara");
+});
+
+test("active international route follows GPS to the hub, then to the recipient after confirmed pickup", async () => {
+  const filename = path.join(__dirname, "..", "Screens", "International", "InternationalRouteScreen.js");
+  const { code } = babel.transformSync(fs.readFileSync(filename, "utf8"), {
+    filename, configFile: false, babelrc: false,
+    plugins: ["@babel/plugin-transform-react-jsx", "@babel/plugin-transform-modules-commonjs"],
+  });
+  const trackingFile = path.join(__dirname, "..", "assets", "common", "orderTracking.js");
+  const tracking = {};
+  vm.runInNewContext(babel.transformSync(fs.readFileSync(trackingFile, "utf8"), {
+    filename: trackingFile, configFile: false, babelrc: false, plugins: ["@babel/plugin-transform-modules-commonjs"],
+  }).code, { exports: tracking });
+  const states = [], refs = [], effects = [], timers = [], calls = [], alerts = [];
+  let stateIndex = 0, refIndex = 0, effectIndex = 0, time = 100000;
+  const react = {
+    createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
+    useState: (initial) => {
+      const index = stateIndex++;
+      if (!(index in states)) states[index] = initial;
+      return [states[index], (value) => { states[index] = typeof value === "function" ? value(states[index]) : value; }];
+    },
+    useRef: (initial) => { const index = refIndex++; if (!(index in refs)) refs[index] = { current: initial }; return refs[index]; },
+    useEffect: (fn, deps) => {
+      const index = effectIndex++, previous = effects[index];
+      if (!previous || deps.some((value, i) => value !== previous.deps[i])) {
+        previous?.cleanup?.();
+        effects[index] = { deps, run: fn };
+      }
+    },
+  };
+  const shipment = { groupId: "group", shipmentId: "home", trackingCode: "AG-TEST", actions: ["pickup"],
+    destinationCountry: "Ethiopia", pickupFrom: { address: "Hub" }, recipient: { address1: "Home" } };
+  const deps = {
+    react,
+    "react-native": { Alert: { alert: (...args) => alerts.push(args) }, Linking: { openURL: async () => {} },
+      StyleSheet: { create: (value) => value }, ScrollView: "ScrollView", Text: "Text", View: "View", TouchableOpacity: "Touchable" },
+    "react-native-paper": { TextInput: "TextInput" },
+    "react-native-safe-area-context": { SafeAreaView: "SafeAreaView" },
+    "@react-navigation/native": { useNavigation: () => ({ goBack: () => calls.push("back") }), useRoute: () => ({ params: { shipment } }) },
+    "react-native-maps": { __esModule: true, default: "MapView", Marker: "Marker", Polyline: "Polyline" },
+    "expo-location": { Accuracy: { High: 1 }, requestForegroundPermissionsAsync: async () => ({ status: "granted" }),
+      getCurrentPositionAsync: async () => ({ coords: { latitude: 9, longitude: 38 }, timestamp: time }),
+      watchPositionAsync: async () => ({ remove() {} }) },
+    "../../assets/common/storefront": { apiRequest: async (resource, path, options) => {
+      calls.push({ path, data: options.data });
+      if (path.endsWith("/route")) return { stage: states[0], coordinates: [{ latitude: 9, longitude: 38 }, { latitude: 9.1, longitude: 38.1 }],
+        destination: { latitude: 9.1, longitude: 38.1 }, distance: 4, duration: 10 };
+      return {};
+    } },
+    "../../assets/common/internationalHub": hub,
+    "../../assets/common/orderTracking": tracking,
+    "../../assets/common/mapsConfiguration": { canRenderNativeMap: true },
+  };
+  const exports = {};
+  vm.runInNewContext(code, { exports, Date: { now: () => time }, setInterval: (fn) => { timers.push(fn); return fn; },
+    clearInterval: (fn) => { const i = timers.indexOf(fn); if (i >= 0) timers.splice(i, 1); },
+    require: (name) => { assert.ok(name in deps, `Unexpected dependency: ${name}`); return deps[name]; } });
+  const render = () => {
+    stateIndex = 0; refIndex = 0; effectIndex = 0;
+    const tree = exports.default();
+    effects.forEach((effect) => { if (effect.run) { const run = effect.run; delete effect.run; effect.cleanup = run(); } });
+    return tree;
+  };
+  const nodes = (node) => !node || typeof node !== "object" ? []
+    : Array.isArray(node) ? node.flatMap(nodes) : [node, ...nodes(node.props?.children)];
+  const text = (node) => typeof node === "string" ? node : Array.isArray(node) ? node.map(text).join("") : text(node?.props?.children || []);
+  const button = (tree, label) => nodes(tree).find((node) => node.type === "Touchable" && text(node).includes(label));
+  render();
+  await new Promise(setImmediate);
+  render();
+  await timers[0]();
+  let tree = render();
+  assert.equal(calls[0].path, "driver/deliveries/group/home/route");
+  assert.equal(calls[0].data.origin.latitude, 9);
+  assert.ok(nodes(tree).some((node) => node.type === "Polyline"));
+  assert.match(text(tree), /Stage 1: Drive to hub/);
+  button(tree, "Confirm pickup").props.onPress();
+  alerts.pop()[2][1].onPress();
+  await new Promise(setImmediate);
+  tree = render();
+  assert.match(text(tree), /Stage 2: Drive to recipient/);
+  assert.ok(!nodes(tree).some((node) => node.type === "Polyline"), "old pickup route must not be shown after pickup");
+  time += 11000;
+  await timers[0]();
+  tree = render();
+  assert.ok(nodes(tree).some((node) => node.type === "Polyline"));
+  button(tree, "Confirm delivery").props.onPress();
+  assert.equal(alerts.pop()[0], "Proof required");
+  nodes(tree).find((node) => node.type === "TextInput").props.onChangeText(" Sara ");
+  tree = render();
+  button(tree, "Confirm delivery").props.onPress();
+  alerts.pop()[2][1].onPress();
+  await new Promise(setImmediate);
+  const delivered = calls.find((call) => call.path?.endsWith("/deliver"));
+  assert.equal(delivered.data.note, "Sara");
+  assert.ok(calls.includes("back"));
+  effects.forEach((effect) => effect.cleanup?.());
 });
 
 test("charges payload skips blank rows, totals in cents and keeps the note", () => {

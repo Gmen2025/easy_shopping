@@ -1,14 +1,14 @@
 import React, { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Button, TextInput } from "react-native-paper";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { apiRequest } from "../../assets/common/storefront";
 import { errorMessage, stageLabel } from "../../assets/common/internationalHub";
 import InternationalDriverMap from "../../Shared/InternationalDriverMap";
 
 const request = (path, options) => apiRequest("international", path, options);
 
-function DeliveryCard({ shipment, busy, act }) {
+function DeliveryCard({ shipment, busy, act, openRoute }) {
   const [proof, setProof] = useState("");
   const recipient = shipment.recipient || {};
   const pickup = () => Alert.alert("Confirm pickup", `Confirm you collected ${shipment.trackingCode} from ${shipment.pickupFrom?.name || "the hub"}.`, [
@@ -26,6 +26,7 @@ function DeliveryCard({ shipment, busy, act }) {
     <Text>Pick up from: {shipment.pickupFrom?.name} {shipment.pickupFrom?.address ? `- ${shipment.pickupFrom.address}` : ""}</Text>
     <Text>Deliver to: {recipient.label} - {recipient.address1}{recipient.address2 ? `, ${recipient.address2}` : ""}, {recipient.city}</Text>
     {recipient.phone ? <Text selectable>Phone: {recipient.phone}</Text> : null}
+    <Button mode="outlined" style={styles.button} disabled={busy} onPress={() => openRoute(shipment)}>Open active driving route</Button>
     <InternationalDriverMap key={`${shipment.pickupFrom?.address}-${JSON.stringify(recipient)}`} shipment={shipment} />
     {(shipment.packages || []).filter((entry) => entry.fulfillmentMethod !== "pickup" && !entry.cancelled).map((entry) => <Text key={entry.orderId}>
       • {entry.items.map((item) => `${item.quantity} x ${item.name}`).join(", ")}
@@ -39,6 +40,7 @@ function DeliveryCard({ shipment, busy, act }) {
 }
 
 export default function DriverInternationalDeliveries() {
+  const navigation = useNavigation();
   const [shipments, setShipments] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -61,7 +63,8 @@ export default function DriverInternationalDeliveries() {
     {busy ? <ActivityIndicator /> : null}
     {error ? <Text style={styles.error}>{error}</Text> : null}
     {!busy && !error && !shipments.length ? <Text>No international deliveries assigned to you.</Text> : null}
-    {shipments.map((shipment) => <DeliveryCard key={`${shipment.groupId}-${shipment.shipmentId}`} shipment={shipment} busy={busy} act={act} />)}
+    {shipments.map((shipment) => <DeliveryCard key={`${shipment.groupId}-${shipment.shipmentId}`} shipment={shipment} busy={busy} act={act}
+      openRoute={(selected) => navigation.navigate("InternationalRoute", { shipment: selected })} />)}
   </ScrollView>;
 }
 
