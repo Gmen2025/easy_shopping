@@ -19,6 +19,7 @@ const hasStrictRequestBody = (requestUrl) => {
     path === `${baseUrl}settings/service-availability` || path === `${baseUrl}settings/service-availability/` ||
     path === `${baseUrl}settings/testing-access` || path === `${baseUrl}settings/testing-access/` ||
     path === `${baseUrl}settings/maintenance` || path === `${baseUrl}settings/maintenance/` ||
+    path === `${baseUrl}settings/usa-availability` || path === `${baseUrl}settings/usa-availability/` ||
     path === `${baseUrl}settings/financial-health` || path === `${baseUrl}settings/financial-health/` ||
     path === `${baseUrl}rides/me/customer-profile` || path === `${baseUrl}rides/me/customer-profile/`;
 };

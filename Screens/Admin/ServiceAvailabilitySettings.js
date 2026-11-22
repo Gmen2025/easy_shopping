@@ -4,6 +4,7 @@ import { Button } from "react-native-paper";
 import { Picker } from "@react-native-picker/picker";
 import { SERVICE_LABELS, serviceAvailabilityRequest } from "../../assets/common/serviceAvailability";
 import TestingAccessSettings from "./TestingAccessSettings";
+import UsaAvailabilitySettings from "./UsaAvailabilitySettings";
 
 export default function ServiceAvailabilitySettings() {
   const [database, setDatabase] = useState("E_Shopping");
@@ -50,6 +51,7 @@ export default function ServiceAvailabilitySettings() {
         disabled={busy || !settings} onValueChange={(value) => save(key, value)} />
     </View>)}
     <Button disabled={busy} onPress={() => { setBusy(true); setSettings(null); setRevision((value) => value + 1); }}>Refresh availability</Button>
+    <UsaAvailabilitySettings />
     <TestingAccessSettings key={database} database={database} />
     <Text>Ride and service-request switches default ON; Financial Health retains its existing OFF default. Ride fare configuration must also be enabled before rides can be booked. These switches do not change maintenance mode or erase settings.</Text>
   </ScrollView>;

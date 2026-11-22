@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Picker } from "@react-native-picker/picker";
 import * as Crypto from "expo-crypto";
 import {
   financeError,
@@ -17,6 +16,12 @@ import {
   financeRequest,
   operatorRequest,
 } from "../../assets/common/finance";
+
+const depositMethods = [
+  { value: "bank", label: "Bank transfer / company receipt" },
+  { value: "card", label: "Card" },
+  { value: "telebirr", label: "Telebirr" },
+];
 
 export default function DepositWallet({
   wallet,
@@ -27,7 +32,7 @@ export default function DepositWallet({
 }) {
   const [policy, setPolicy] = useState(account.depositPolicy);
   const [amount, setAmount] = useState("");
-  const [method, setMethod] = useState("bank");
+  const [method, setMethod] = useState(() => depositMethods.find((item) => wallet.methods[item.value])?.value || "");
   const [reference, setReference] = useState("");
   const [depositedAt, setDepositedAt] = useState("");
   const [notes, setNotes] = useState("");
@@ -35,6 +40,7 @@ export default function DepositWallet({
   const inFlight = useRef(false);
   const request = useRef(null);
   const enabled = wallet.enabled && account.depositPolicy.enabled;
+  const selectedMethod = wallet.methods[method] ? method : depositMethods.find((item) => wallet.methods[item.value])?.value || "";
   const money = (value) => financeMoney(value, wallet.currency);
   const key = (signature) => {
     if (request.current?.signature !== signature)
@@ -211,34 +217,39 @@ export default function DepositWallet({
         </>
       )}
       <Text style={styles.heading}>Deposit with the company</Text>
+      <Text style={styles.note}>Choose an available payment method. Bank transfers and company receipts require Admin verification; gateway payments are credited only after verification.</Text>
       {wallet.bankAccounts.map((bank) => (
-        <Text key={bank._id}>
-          {bank.bankName}: {bank.accountNumber} / {bank.accountHolderName} (
-          {wallet.currency})
-        </Text>
+        <View style={styles.bankAccount} key={bank._id}>
+          <Text style={styles.bankName}>{bank.bankName} ({wallet.currency})</Text>
+          <Text selectable>Account number: {bank.accountNumber}</Text>
+          <Text>Account holder: {bank.accountHolderName}</Text>
+          {bank.bankCode ? <Text selectable>Bank code: {bank.bankCode}</Text> : null}
+          {bank.additionalInfo ? <Text>{bank.additionalInfo}</Text> : null}
+        </View>
       ))}
       {!wallet.bankAccounts.length && (
-        <Text>Contact Admin for verified company deposit instructions.</Text>
+        <Text>No company bank account is configured for {wallet.currency}. Contact Admin for verified bank or company-receipt instructions.</Text>
       )}
       {input(`Deposit amount (${wallet.currency})`, amount, setAmount, true)}
-      <Picker
-        accessibilityLabel="Deposit method"
-        enabled={!busy && enabled}
-        selectedValue={method}
-        onValueChange={setMethod}
-      >
-        <Picker.Item
-          label="Bank / company receipt (Admin verification)"
-          value="bank"
-        />
-        {wallet.methods.card && (
-          <Picker.Item label="Card (verified gateway)" value="card" />
-        )}
-        {wallet.methods.telebirr && (
-          <Picker.Item label="Telebirr (verified gateway)" value="telebirr" />
-        )}
-      </Picker>
-      {method === "bank" && (
+      <Text style={styles.methodHeading}>Deposit method</Text>
+      {depositMethods.map((item) => {
+        const available = wallet.methods[item.value];
+        return (
+          <TouchableOpacity
+            key={item.value}
+            accessibilityRole="radio"
+            accessibilityLabel={item.label}
+            accessibilityState={{ checked: selectedMethod === item.value, disabled: busy || !enabled || !available }}
+            disabled={busy || !enabled || !available}
+            onPress={() => setMethod(item.value)}
+            style={[styles.methodOption, selectedMethod === item.value && styles.methodSelected, !available && styles.disabled]}
+          >
+            <Text style={styles.methodText}>{item.label}{available ? "" : " - unavailable"}</Text>
+          </TouchableOpacity>
+        );
+      })}
+      {!selectedMethod && <Text accessibilityRole="alert" style={styles.error}>No deposit payment method is currently available. Contact Admin.</Text>}
+      {selectedMethod === "bank" && (
         <>
           {input(
             "Transfer / company receipt reference",
@@ -258,7 +269,7 @@ export default function DepositWallet({
           run(async () => {
             const amount = value();
             let date;
-            if (method === "bank") {
+            if (selectedMethod === "bank") {
               if (
                 !reference.trim() ||
                 !depositedAt.trim() ||
@@ -272,11 +283,11 @@ export default function DepositWallet({
             const result = await send(`${path}/wallet/deposits`, {
               amount,
               currency: wallet.currency,
-              method,
-              reference,
+              method: selectedMethod,
+              reference: selectedMethod === "bank" ? reference : undefined,
               depositedAt: date,
               requestKey: key(
-                `deposit:${amount}:${method}:${reference}:${depositedAt}`,
+                `deposit:${amount}:${selectedMethod}:${selectedMethod === "bank" ? reference : ""}:${date || ""}`,
               ),
             });
             request.current = null;
@@ -289,7 +300,7 @@ export default function DepositWallet({
                 "Admin must verify the actual funds before your balance is credited.",
               );
           }),
-        !enabled || !wallet.methods[method],
+        !enabled || !selectedMethod,
       )}
       {admin && (
         <>
@@ -430,6 +441,12 @@ const styles = StyleSheet.create({
   balance: { fontSize: 24, fontWeight: "700" },
   note: { marginVertical: 8 },
   error: { color: "#b91c1c", fontWeight: "600" },
+  bankAccount: { padding: 12, borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 6, gap: 4 },
+  bankName: { fontWeight: "700" },
+  methodHeading: { fontWeight: "700" },
+  methodOption: { borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 6, padding: 12 },
+  methodSelected: { borderColor: "#2563eb", backgroundColor: "#eff6ff" },
+  methodText: { color: "#1a1a1a" },
   input: {
     borderWidth: 1,
     borderColor: "#aaa",

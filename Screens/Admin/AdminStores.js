@@ -37,6 +37,11 @@ const emptyForm = {
   password: "",
 };
 
+const storeCountries = [
+  { label: "Ethiopia", value: "Ethio" },
+  { label: "USA", value: "USA" },
+];
+
 const AdminStores = ({ navigation }) => {
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -355,6 +360,7 @@ const AdminStores = ({ navigation }) => {
         renderItem={renderStore}
         onRefresh={loadStores}
         refreshing={loading}
+        keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <View style={styles.formCard}>
             <Text style={styles.formTitle}>Create Company Store</Text>
@@ -385,11 +391,21 @@ const AdminStores = ({ navigation }) => {
             <TextInput style={styles.input} placeholder="Password" secureTextEntry value={form.password} onChangeText={(text) => setForm({ ...form, password: text })} />
 
             <Text style={styles.fieldLabel}>Country</Text>
-            <View style={styles.pickerContainer}>
-              <Picker selectedValue={form.country} onValueChange={(value) => setForm({ ...form, country: value })} style={styles.picker}>
-                <Picker.Item label="Ethiopia" value="Ethio" />
-                <Picker.Item label="USA" value="USA" />
-              </Picker>
+            <View style={styles.countryOptions} accessibilityRole="radiogroup" accessibilityLabel="Store country">
+              {storeCountries.map((country) => (
+                <TouchableOpacity
+                  key={country.value}
+                  style={[styles.countryOption, form.country === country.value && styles.countryOptionSelected]}
+                  accessibilityRole="radio"
+                  accessibilityLabel={country.label}
+                  accessibilityState={{ checked: form.country === country.value }}
+                  onPress={() => setForm((current) => ({ ...current, country: country.value }))}
+                >
+                  <Text style={[styles.countryOptionText, form.country === country.value && styles.countryOptionTextSelected]}>
+                    {country.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
 
             {form.country === "USA" ? (
@@ -543,14 +559,20 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.3,
   },
-  pickerContainer: {
+  countryOptions: { flexDirection: "row", gap: 10, marginBottom: 10 },
+  countryOption: {
+    flex: 1,
+    minHeight: 48,
     borderWidth: 1,
     borderColor: "#e0e0e0",
     borderRadius: 8,
-    marginBottom: 10,
-    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
   },
-  picker: { height: 48 },
+  countryOptionSelected: { borderColor: "#2563eb", backgroundColor: "#eff6ff" },
+  countryOptionText: { color: "#1a1a1a", fontSize: 14 },
+  countryOptionTextSelected: { color: "#1d4ed8", fontWeight: "700" },
   locationBox: {
     marginBottom: 12,
     padding: 10,

@@ -4,10 +4,13 @@ import CartView from '../Screens/Cart/CartView'; // Adjust the import path as ne
 import CheckoutNavigator from './CheckoutNavigator';
 import MultiDeliveryCheckout from '../Screens/Cart/Checkout/MultiDeliveryCheckout';
 import DeliveryCheckouts from '../Screens/Cart/Checkout/DeliveryCheckouts';
+import UsaRestrictedScreen from '../Screens/UsaRestrictedScreen';
+import { useMaintenance } from '../Context/store/MaintenanceContext';
 
 
 const Stack = createStackNavigator();
 function MyStack() {
+  const { usaRestricted, testingAccess } = useMaintenance();
   return (
     <Stack.Navigator
       initialRouteName="CartHome"
@@ -21,7 +24,7 @@ function MyStack() {
       <Stack.Screen name="DeliveryCheckouts" component={DeliveryCheckouts} options={{ title: "Deliveries & payments" }} />
       <Stack.Screen
         name="CartHome"
-        component={CartView}  
+        component={usaRestricted && !testingAccess ? UsaRestrictedScreen : CartView}
         options={{
           headerShown: false,
           headerTitleStyle: { color: '#8a6c09ff', fontWeight: 'bold' },

@@ -544,9 +544,9 @@ const CompanyDriverDashboard = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
       >
         <TouchableOpacity style={styles.refreshLink} accessibilityRole="button"
-          accessibilityLabel="Driver income, balance and payouts"
+          accessibilityLabel="Driver income, deposit and payouts"
           onPress={() => navigation.navigate("IncomeDashboard", { kind: "driver" })}>
-          <Text style={styles.refreshLinkText}>Delivery & ride income, balance and payout requests</Text>
+          <Text style={styles.refreshLinkText}>Delivery & ride income, deposit and payout requests</Text>
         </TouchableOpacity>
         {/* Header Block */}
         {companyDriver ? <View style={[styles.headerCard, styles.rideServiceCard]}>

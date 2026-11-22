@@ -184,7 +184,7 @@ const CompanyStoreDashboard = ({ navigation }) => {
     <>
       <View style={styles.quickLinks}>
         <TouchableOpacity style={styles.quickLink} onPress={() => navigation.navigate("IncomeDashboard", { kind: "store" })}>
-          <Text style={styles.retryText}>Income, balance & payout requests</Text>
+          <Text style={styles.retryText}>Income, deposit & payout requests</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.quickLink} onPress={() => navigation.navigate("StoreManagement")}>
           <Text style={styles.retryText}>My store & inventory</Text>

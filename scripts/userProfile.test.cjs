@@ -18,11 +18,12 @@ test("profile includes only the signed-in user's populated or unpopulated orders
     { _id: "one", user: { _id: "customer" } },
     { _id: "two", user: "customer" },
     { _id: "three", user: { id: "customer" } },
+    { _id: "recipient", user: "another-user", customer: { _id: "customer" } },
     { _id: "other", user: { _id: "another-user" } },
     { _id: "missing", user: null },
   ];
   assert.deepEqual(Array.from(helpers.getProfileUserOrders(orders, "customer"), (order) => order._id),
-    ["one", "two", "three"]);
+    ["one", "two", "three", "recipient"]);
   assert.throws(() => helpers.getProfileUserOrders({ message: "error" }, "customer"), /invalid order list/);
 });
 

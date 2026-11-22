@@ -32,7 +32,7 @@ const MaintenanceNavigator = () => {
 
 const MaintenanceWrapper = () => {
   const { user } = useContext(AuthContext);
-  const { maintenanceEnabled, testingAccess, error, loading, checkMaintenanceStatus } = useMaintenance();
+  const { maintenanceEnabled, usaRestricted, testingAccess, error, loading, checkMaintenanceStatus } = useMaintenance();
 
   // Show loading while checking maintenance status
   if (loading) {
@@ -47,7 +47,7 @@ const MaintenanceWrapper = () => {
     <Text accessibilityRole="alert">{error}</Text>
     <TouchableOpacity accessibilityRole="button" onPress={checkMaintenanceStatus}><Text>Retry maintenance access</Text></TouchableOpacity>
   </View>;
-  if (maintenanceEnabled && !user?.isAdmin && !testingAccess) {
+  if ((usaRestricted && !testingAccess && !user) || (maintenanceEnabled && !user?.isAdmin && !testingAccess)) {
     return <MaintenanceNavigator />;
   }
 

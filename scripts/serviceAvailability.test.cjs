@@ -157,6 +157,7 @@ test("admin switches save immediately and independently for each country; save e
       },
     },
     "./TestingAccessSettings": { __esModule: true, default: "TestingAccessSettings" },
+    "./UsaAvailabilitySettings": { __esModule: true, default: "UsaAvailabilitySettings" },
   }).default;
   const render = () => h.render(Screen);
   render(); await tick();
@@ -178,6 +179,38 @@ test("admin switches save immediately and independently for each country; save e
   fail = true;
   await control("Enable Ride service").props.onValueChange(false);
   assert.equal(control("Enable Ride service").props.disabled, true);
+  assert.ok(nodes(render()).some((node) => node.props?.accessibilityRole === "alert" && node.props.children.includes("Save unavailable")));
+});
+
+test("USA switch requires confirmed reads and surfaces save failures", async () => {
+  const h = hooks(), requests = [];
+  let fail = false;
+  const Screen = load("Screens\\Admin\\UsaAvailabilitySettings.js", {
+    react: h.react,
+    "react-native": { ActivityIndicator: "Spinner", Switch: "Switch", Text: "Text", View: "View" },
+    "react-native-paper": { Button: "Button" },
+    "@react-native-async-storage/async-storage": { getItem: async () => "admin-session" },
+    axios: {
+      get: async () => ({ data: { enabled: true } }),
+      put: async (url, body, options) => {
+        requests.push({ url, body, options });
+        if (fail) throw new Error("Save unavailable");
+        return { data: { enabled: body.enabled } };
+      },
+    },
+    "../../assets/common/baseUrl": "https://example.invalid/api/v1/",
+  }).default;
+  const render = () => h.render(Screen);
+  render(); await tick();
+  const control = () => nodes(render()).find((node) => node.props?.accessibilityLabel === "Enable USA storefront");
+  assert.equal(control().props.value, true);
+  await control().props.onValueChange(false);
+  assert.equal(control().props.value, false);
+  assert.equal(requests[0].body.enabled, false);
+  assert.equal(requests[0].options.headers.Authorization, "Bearer admin-session");
+  fail = true;
+  await control().props.onValueChange(true);
+  assert.equal(control().props.disabled, true);
   assert.ok(nodes(render()).some((node) => node.props?.accessibilityRole === "alert" && node.props.children.includes("Save unavailable")));
 });
 

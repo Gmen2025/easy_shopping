@@ -15,11 +15,15 @@ import AdminNavigator from './AdminNavigator'
 import Drivers from '../Screens/Admin/Drivers'
 import CompanyDriverNavigator from './CompanyDriverNavigator'
 import CompanyStoreNavigator from './CompanyStoreNavigator'
+import UsaRestrictedScreen from '../Screens/UsaRestrictedScreen'
+import { useMaintenance } from '../Context/store/MaintenanceContext'
 
 const Tab = createBottomTabNavigator();
 
 const Main = () => {
   const context = useContext(AuthContext);
+  const { usaRestricted, testingAccess } = useMaintenance();
+  const restrictShopping = usaRestricted && !testingAccess;
 
   return (
     <Tab.Navigator
@@ -41,7 +45,7 @@ const Main = () => {
     >
       <Tab.Screen
         name='Home'
-        component={HomeNavigator}
+        component={restrictShopping ? UsaRestrictedScreen : HomeNavigator}
         options={{
           tabBarIcon: ({color}) => {
             return (<Icon

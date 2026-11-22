@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext } from "react";
-import { View, Text, StyleSheet, Alert, Image } from "react-native";
+import { View, Text, StyleSheet, Alert, Image, Pressable } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import Icon from "react-native-vector-icons/FontAwesome";
 import TrafficLight from "./StyledComponenets/TrafficLight";
@@ -32,7 +32,9 @@ const OrderCard = (props) => {
   const [token, setToken] = useState();
   const [cardColor, setCardColor] = useState();
   const [orderItemValues, setOrderItemValues] = useState([]);
+  const [expanded, setExpanded] = useState(false);
   const { formatPrice } = useCurrency();
+  const orderId = props._id || props.id;
   const orderItemsCount = Array.isArray(props.orderItems)
     ? props.orderItems.length
     : 0;
@@ -527,6 +529,22 @@ const OrderCard = (props) => {
 
   return (
     <View style={[styles.container]}>
+      {props.collapsible ? <>
+        <Pressable accessibilityRole="button" accessibilityState={{ expanded }}
+          accessibilityLabel={`${expanded ? "Hide" : "Show"} details for order ${orderId}`}
+          onPress={() => setExpanded((value) => !value)} style={styles.summary}>
+          <Text style={styles.summaryTitle}>Order #{orderId}</Text>
+          <Text>{props.deliveryStatus || ({ "1": "Processing", "2": "Shipped", "3": "Delivered" })[props.status] || props.status || "Pending"} · {formatPrice(props.totalPrice)}</Text>
+          <Text>{formatOrderDateTime(props.dateOrdered)} · {expanded ? "Hide details" : "View details"}</Text>
+        </Pressable>
+        {orderId ? <EasyButton tertiary onPress={() => navigation.navigate("OrderTracking", {
+          orderId, order: props,
+        })} style={styles.trackDeliveryButton}>
+          <Icon name="map-marker" size={16} color="#fff" />
+          <Text style={styles.trackDeliveryText}>Track Delivery</Text>
+        </EasyButton> : null}
+      </> : null}
+      {(!props.collapsible || expanded) ? (<>
       <View style={styles.container}>
         <Text>Order Number: #{props._id}</Text>
       </View>
@@ -606,7 +624,7 @@ const OrderCard = (props) => {
         <ExchangeReceipt value={props.order || props} />
         <DeliveryPricingReceipt value={props.order || props} />
         <InternationalReceipt value={props.order || props} />
-        {!props.editMode && props._id ? (
+        {!props.editMode && !props.collapsible && props._id ? (
           <EasyButton
             tertiary
             onPress={() =>
@@ -679,6 +697,7 @@ const OrderCard = (props) => {
           </View>
         ) : null}
       </View>
+      </>) : null}
     </View>
   );
 };
@@ -695,6 +714,12 @@ const styles = StyleSheet.create({
   title: {
     backgroundColor: "#B1F6",
     padding: 5,
+  },
+  summary: {
+    gap: 5,
+  },
+  summaryTitle: {
+    fontWeight: "700",
   },
   priceContainer: {
     marginTop: 10,

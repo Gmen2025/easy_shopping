@@ -39,6 +39,9 @@ company-receipt claims for Admin verification, or open a live regional gateway
 (ETB Telebirr / USD card). Return to Income and verify or reopen the saved
 attempt after interruption; never create a second payment to resolve uncertainty.
 Backend reconciliation also checks saved gateway payments every minute.
+The screen lists the available methods and active company bank details for the
+wallet's currency. Admin must configure those accounts in Bank Account Settings;
+when none are configured, operators should contact Admin for instructions.
 
 Admin can toggle the requirement region-wide or per account (including
 company-owned operators), set warning/minimum thresholds, approve/reject claims
@@ -98,6 +101,15 @@ toggle **Ride service**, **Service requests**, and **Financial Health** independ
 Ride/service switches default ON; Financial Health retains its existing OFF default.
 These controls supplement country maintenance mode.
 Ride fare configuration must also be enabled for new rides.
+
+The **USA storefront** switch on this screen defaults ON and is shared with the
+website. OFF limits USA browsing and new purchases to USA Admin and approved
+verified USA testers. Signed-in customers and operators retain access to existing
+orders, payments and deliveries. Sign in as a USA Admin to edit the USA tester list.
+The switch does not affect Ethiopia; deploy the matching backend first.
+
+Customer order history uses expandable cards, with Track Delivery available on
+each compact card and the full order details inside.
 
 For ordinary users, OFF hides the corresponding home booking badge and blocks new requests on both
 mobile and website. The backend also rejects new submissions from stale/open

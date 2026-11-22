@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import baseUrl from '../../assets/common/baseUrl';
 import { AuthContext } from './Auth';
+import { getDatabaseNameFromStorage } from '../../assets/common/databaseConfig';
 
 const MaintenanceContext = createContext();
 
@@ -11,6 +12,7 @@ export const MaintenanceProvider = ({ children }) => {
   const { user } = useContext(AuthContext);
   const userId = user?._id || user?.id || null;
   const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
+  const [usaRestricted, setUsaRestricted] = useState(false);
   const [access, setAccess] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -20,15 +22,18 @@ export const MaintenanceProvider = ({ children }) => {
     const request = ++sequence.current;
     try {
       const token = await AsyncStorage.getItem('token');
+      const database = await getDatabaseNameFromStorage();
       const response = await axios.get(`${baseUrl}settings/maintenance`, {
         timeout: 20000, headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (typeof response.data?.enabled !== 'boolean' ||
+          (/usa/i.test(database) && typeof response.data?.usaRegionEnabled !== 'boolean') ||
           (response.data.testingAccess !== undefined && typeof response.data.testingAccess !== 'boolean')) {
         throw new Error('Maintenance access could not be verified.');
       }
       if (request === sequence.current) {
         setMaintenanceEnabled(response.data.enabled);
+        setUsaRestricted(/usa/i.test(database) && !response.data.usaRegionEnabled);
         setAccess({ userId, allowed: response.data.testingAccess === true });
         setError('');
       }
@@ -88,6 +93,7 @@ export const MaintenanceProvider = ({ children }) => {
     <MaintenanceContext.Provider
       value={{
         maintenanceEnabled,
+        usaRestricted,
         testingAccess: Boolean(userId && access?.userId === userId && access.allowed),
         error,
         loading,

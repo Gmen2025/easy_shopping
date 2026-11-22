@@ -89,7 +89,7 @@ const UserProfile = ({ navigation }) => {
     try {
       const token = await AsyncStorage.getItem("token");
       if (!token) throw new Error("Your session has expired. Please sign in again.");
-      const response = await axios.get(`${baseUrl}orders`, {
+      const response = await axios.get(`${baseUrl}orders/get/userorders/${userId}`, {
         headers: { Authorization: `Bearer ${token}` }, timeout: 20000,
       });
       const result = getProfileUserOrders(response.data, userId);
@@ -235,7 +235,7 @@ const UserProfile = ({ navigation }) => {
                 </Pressable>
               </View> :
                 visibleOrders.length ? visibleOrders.map((order) =>
-                  <View key={order._id || order.id} style={{ marginTop: 14 }}><OrderCard {...order} /></View>) :
+                  <View key={order._id || order.id} style={{ marginTop: 14 }}><OrderCard {...order} collapsible /></View>) :
                   <Text style={styles.empty}>{orderFilter === "tracking" ? "No active deliveries." :
                     orderFilter === "delivered" ? "No delivered orders yet." : "No orders yet. Start shopping to see your orders here."}</Text>}
           </View>}

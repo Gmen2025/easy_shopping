@@ -306,7 +306,7 @@ export default function App() {
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <AuthProvider>
         <Provider store={store}>
-          <MaintenanceProvider>
+          <MaintenanceProvider key={`maintenance-${dbRefreshKey}`}>
             <StripeProvider publishableKey={stripePublishableKey}>
               <TelebirrProvider>
                 <NotificationBootstrap

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import {
   View,
   StyleSheet,
@@ -10,12 +10,16 @@ import { Text } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { useNavigation } from '@react-navigation/native';
 import EasyButton from '../Shared/StyledComponenets/EasyButton';
+import { useMaintenance } from '../Context/store/MaintenanceContext';
+import { AuthContext } from '../Context/store/Auth';
 
 const { width, height } = Dimensions.get('window');
 
 const MaintenanceScreen = ({ navigation: navProp, isAdmin = false }) => {
   const navigationHook = useNavigation();
   const navigation = navProp || navigationHook;
+  const { usaRestricted } = useMaintenance();
+  const { user, logout } = useContext(AuthContext);
 
   const handleLogout = () => {
     navigation.navigate('Maintenance');
@@ -39,10 +43,11 @@ const MaintenanceScreen = ({ navigation: navProp, isAdmin = false }) => {
           <Icon name="wrench" size={80} color="#8a6c09" />
         </View>
 
-        <Text style={styles.title}>Maintenance Mode</Text>
+        <Text style={styles.title}>{usaRestricted ? 'USA access is limited' : 'Maintenance Mode'}</Text>
 
         <Text style={styles.subtitle}>
-          We're currently performing scheduled maintenance to improve your experience.
+          {usaRestricted ? 'Sign in with an administrator or approved verified tester account, or select Ethiopia in the header.' :
+            "We're currently performing scheduled maintenance to improve your experience."}
         </Text>
 
         <View style={styles.infoBox}>
@@ -91,10 +96,10 @@ const MaintenanceScreen = ({ navigation: navProp, isAdmin = false }) => {
           <EasyButton
             tertiary
             large
-            onPress={handleAdminLogin}
+            onPress={user ? async () => { await logout(); navigation.navigate('Login'); } : handleAdminLogin}
             style={styles.adminButton}
           >
-            <Text style={styles.adminButtonText}>Admin / Tester Login</Text>
+            <Text style={styles.adminButtonText}>{user ? 'Sign out and switch account' : 'Admin / Tester Login'}</Text>
           </EasyButton>
         )}
 

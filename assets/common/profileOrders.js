@@ -17,7 +17,9 @@ export const filterProfileOrders = (orders, filter) => {
 export const getProfileUserOrders = (orders, userId) => {
   if (!Array.isArray(orders)) throw new Error("The server returned an invalid order list.");
   return orders.filter((order) => {
-    const owner = order.user?._id || order.user?.id || order.user;
-    return owner != null && String(owner) === String(userId);
+    return [order.user, order.customer].some((value) => {
+      const owner = value?._id || value?.id || value;
+      return owner != null && String(owner) === String(userId);
+    });
   });
 };
