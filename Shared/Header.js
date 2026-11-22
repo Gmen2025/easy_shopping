@@ -38,7 +38,7 @@ const Header = ({
     onDeleteNotification,
     onNavigate,
 }) => {
-    const { width } = useWindowDimensions();
+    const { width, height } = useWindowDimensions();
     const compact = width < 500;
     const narrow = width < 390;
     const [menuVisible, setMenuVisible] = useState(false);
@@ -298,7 +298,10 @@ const Header = ({
                         <TouchableWithoutFeedback onPress={closeNotificationModal}>
                             <View style={styles.notificationBackdrop}>
                                 <TouchableWithoutFeedback>
-                                    <View style={styles.notificationModalCard}>
+                                    <View style={[styles.notificationModalCard, {
+                                        maxHeight: Math.max(0, Math.min(360, height - (Platform.OS === 'ios' ? 118 : 88) - 16)),
+                                        maxWidth: '100%',
+                                    }]}>
                                         <View style={styles.notificationModalHeader}>
                                             <Text style={styles.notificationModalTitle}>Notifications</Text>
                                             <TouchableOpacity onPress={closeNotificationModal}>
@@ -312,6 +315,7 @@ const Header = ({
                                                 renderItem={renderNotificationItem}
                                                 keyExtractor={(item) => item.id}
                                                 style={styles.notificationList}
+                                                showsVerticalScrollIndicator
                                             />
                                         ) : (
                                             <View style={styles.emptyNotificationWrap}>
@@ -526,6 +530,7 @@ const styles = StyleSheet.create({
     },
     notificationList: {
         maxHeight: 240,
+        flexShrink: 1,
     },
     notificationItem: {
         flexDirection: 'row',
