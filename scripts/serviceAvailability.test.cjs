@@ -262,6 +262,65 @@ test("tester editor scopes regional updates, allows save-error correction, and p
   assert.equal(button("Save tester list").props.disabled, false);
 });
 
+test("maintenance requests carry the selected region even before the interceptor is installed", async () => {
+  const h = hooks(), requests = [];
+  let user = null, token = null, database = "E_ShopUSA", malformed = false;
+  h.react.createContext = () => ({ Provider: "MaintenanceProvider" });
+  h.react.useContext = () => ({ user });
+  const Provider = load("Context\\store\\MaintenanceContext.js", {
+    react: h.react,
+    "react-native": { AppState: { addEventListener: () => ({ remove() {} }) } },
+    "@react-native-async-storage/async-storage": { getItem: async () => token },
+    axios: {
+      get: async (url, options) => {
+        requests.push({ url, ...options });
+        const usa = options.headers["x-database-name"] === "E_ShopUSA";
+        return { data: { enabled: false, testingAccess: Boolean(token),
+          ...(usa && !malformed ? { usaRegionEnabled: false } : {}) } };
+      },
+      put: async (url, data, options) => {
+        requests.push({ url, data, ...options });
+        return { data: { success: true, enabled: data.enabled } };
+      },
+    },
+    "../../assets/common/baseUrl": "https://example.invalid/api/v1/",
+    "./Auth": { AuthContext: {} },
+    "../../assets/common/databaseConfig": { getDatabaseNameFromStorage: async () => database },
+  }, { setInterval: () => 1, clearInterval() {} }).MaintenanceProvider;
+  const render = () => h.render(() => Provider({ children: null })).props.value;
+
+  render(); await tick();
+  let status = render();
+  assert.equal(requests[0].headers["x-database-name"], "E_ShopUSA");
+  assert.equal(requests[0].headers.Authorization, undefined);
+  assert.equal(status.error, "");
+  assert.equal(status.usaRestricted, true);
+  assert.equal(status.testingAccess, false);
+
+  user = { _id: "tester" }; token = "test-session";
+  render(); await tick();
+  status = render();
+  assert.equal(requests.at(-1).headers.Authorization, "Bearer test-session");
+  assert.equal(status.testingAccess, true);
+
+  malformed = true;
+  await status.checkMaintenanceStatus();
+  status = render();
+  assert.match(status.error, /incomplete maintenance settings/);
+  assert.equal(status.testingAccess, false);
+
+  malformed = false; database = "E_Shopping";
+  await status.checkMaintenanceStatus();
+  status = render();
+  assert.equal(requests.at(-1).headers["x-database-name"], "E_Shopping");
+  assert.equal(status.error, "");
+  assert.equal(status.usaRestricted, false);
+  await status.toggleMaintenance(true);
+  const write = requests.find((entry) => entry.data?.enabled === true);
+  assert.equal(write.headers["x-database-name"], "E_Shopping");
+  assert.equal(write.headers.Authorization, "Bearer test-session");
+});
+
 test("maintenance permits Admin and approved testers, including tester login, without exposing the app to ordinary users", () => {
   const h = hooks();
   let user = null;

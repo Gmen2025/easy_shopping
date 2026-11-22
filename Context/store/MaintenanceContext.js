@@ -24,12 +24,15 @@ export const MaintenanceProvider = ({ children }) => {
       const token = await AsyncStorage.getItem('token');
       const database = await getDatabaseNameFromStorage();
       const response = await axios.get(`${baseUrl}settings/maintenance`, {
-        timeout: 20000, headers: token ? { Authorization: `Bearer ${token}` } : {},
+        timeout: 20000,
+        headers: { 'x-database-name': database, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (typeof response.data?.enabled !== 'boolean' ||
           (/usa/i.test(database) && typeof response.data?.usaRegionEnabled !== 'boolean') ||
           (response.data.testingAccess !== undefined && typeof response.data.testingAccess !== 'boolean')) {
-        throw new Error('Maintenance access could not be verified.');
+        throw Object.assign(new Error('The server returned incomplete maintenance settings. Check the backend connection and try again.'), {
+          code: 'INVALID_MAINTENANCE_RESPONSE',
+        });
       }
       if (request === sequence.current) {
         setMaintenanceEnabled(response.data.enabled);
@@ -41,7 +44,8 @@ export const MaintenanceProvider = ({ children }) => {
       console.error('Error checking maintenance status:', error.message);
       if (request === sequence.current) {
         setAccess(null);
-        setError(error.response?.data?.message || 'Unable to verify maintenance access. Please retry.');
+        setError(error.code === 'INVALID_MAINTENANCE_RESPONSE' ? error.message :
+          error.response?.data?.message || 'Unable to verify maintenance access. Please retry.');
       }
     } finally {
       if (request === sequence.current) setLoading(false);
@@ -54,12 +58,13 @@ export const MaintenanceProvider = ({ children }) => {
       if (!token) {
         return { success: false, message: 'Admin token required' };
       }
+      const database = await getDatabaseNameFromStorage();
 
       const response = await axios.put(
         `${baseUrl}settings/maintenance`,
         { enabled },
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${token}`, 'x-database-name': database },
         }
       );
 
