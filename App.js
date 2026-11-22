@@ -35,6 +35,8 @@ import {
   removeNotificationSubscription,
 } from "./assets/common/notifications";
 
+attachDatabaseInterceptor();
+
 const NOTIFICATION_ITEMS_STORAGE_KEY = "notification_items";
 
 const getStripePublishableKey = () => {
@@ -202,10 +204,6 @@ export default function App() {
   const [notificationItems, setNotificationItems] = useState([]);
   const [notificationsHydrated, setNotificationsHydrated] = useState(false);
   const lastSavedNotificationsJson = useRef(null);
-
-  useEffect(() => {
-    attachDatabaseInterceptor();
-  }, []);
 
   useEffect(() => {
     const hydrateNotifications = async () => {

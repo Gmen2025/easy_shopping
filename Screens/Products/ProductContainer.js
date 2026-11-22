@@ -120,7 +120,7 @@ const ProductContainer = (props) => {
           if (isServiceUnavailableError(err)) {
             setLoadError("Server is waking up. Please retry in a few seconds.");
           } else {
-            setLoadError("Could not load products right now. Please try again.");
+            setLoadError(err.response?.data?.message || "Could not load products right now. Please try again.");
           }
         } finally {
           if (mounted) setLoading(false);

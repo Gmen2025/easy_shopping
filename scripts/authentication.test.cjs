@@ -266,6 +266,7 @@ test("Axios database interceptor preserves the store pinned by an authenticated 
   let intercept;
   const interceptor = load("assets\\common\\attachDatabaseInterceptor.js", {
     axios: { interceptors: { request: { use: (handler) => { intercept = handler; } } } },
+    "@react-native-async-storage/async-storage": { getItem: async () => null },
     "./baseUrl": { __esModule: true, default: "https://api.example/api/v1/" },
     "./databaseConfig": { getDatabaseNameFromStorage: async () => "E_Shopping" },
   }, { global: { fetch: async () => ({}) } });
@@ -279,6 +280,45 @@ test("Axios database interceptor preserves the store pinned by an authenticated 
   assert.equal(request.data.databaseName, "E_ShopUSA");
   const ordinary = await intercept({ url: "https://api.example/api/v1/users/auth/security" });
   assert.equal(ordinary.headers["x-database-name"], "E_Shopping");
+});
+
+test("public shopping requests carry the current session without leaking it to other regions or hosts", async () => {
+  let intercept, token = "admin-session", storageFails = false;
+  const baseUrl = "https://api.example/api/v1/";
+  load("assets\\common\\attachDatabaseInterceptor.js", {
+    axios: { interceptors: { request: { use: (handler) => { intercept = handler; } } } },
+    "@react-native-async-storage/async-storage": { getItem: async () => {
+      if (storageFails) throw new Error("Session storage unavailable");
+      return token;
+    } },
+    "./baseUrl": { __esModule: true, default: baseUrl },
+    "./databaseConfig": { getDatabaseNameFromStorage: async () => "E_ShopUSA" },
+  }, { global: { fetch: async () => ({}) } }).attachDatabaseInterceptor();
+
+  for (const session of ["admin-session", "verified-tester-session"]) {
+    token = session;
+    for (const route of ["products", "products/123", "products?isFeatured=true", "categories",
+      "stores/directory/123/products", "settings/bank-account"]) {
+      const request = await intercept({ url: `${baseUrl}${route}` });
+      assert.equal(request.headers.Authorization, `Bearer ${session}`, route);
+      assert.equal(request.headers["x-database-name"], "E_ShopUSA");
+    }
+  }
+  token = null;
+  assert.equal((await intercept({ url: `${baseUrl}products` })).headers.Authorization, undefined);
+  token = "admin-session";
+  const explicit = await intercept({ url: `${baseUrl}products`, headers: { authorization: "Bearer supplied" } });
+  assert.equal(explicit.headers.authorization, "Bearer supplied");
+  assert.equal(explicit.headers.Authorization, undefined);
+  const otherRegion = await intercept({ url: `${baseUrl}products`, headers: { "X-Database-Name": "E_Shopping" } });
+  assert.equal(otherRegion.headers["x-database-name"], "E_Shopping");
+  assert.equal(otherRegion.headers.Authorization, undefined);
+  const otherHost = { url: "https://unrelated.example/products" };
+  assert.equal(await intercept(otherHost), otherHost);
+  assert.equal(otherHost.headers, undefined);
+  assert.equal((await intercept({ url: `${baseUrl}users/login`, method: "post" })).headers.Authorization, undefined);
+  storageFails = true;
+  await assert.rejects(intercept({ url: `${baseUrl}products` }), /Session storage unavailable/);
 });
 
 test("Security Settings offers Google linking only when enabled and confirms the original account ownership", async () => {

@@ -106,6 +106,8 @@ The **USA storefront** switch on this screen defaults ON and is shared with the
 website. OFF limits USA browsing and new purchases to USA Admin and approved
 verified USA testers. Signed-in customers and operators retain access to existing
 orders, payments and deliveries. Sign in as a USA Admin to edit the USA tester list.
+Approved users must sign in to their USA account so catalog requests include their
+session; tester accounts must also have verified email addresses.
 The switch does not affect Ethiopia; deploy the matching backend first.
 
 Customer order history uses expandable cards, with Track Delivery available on

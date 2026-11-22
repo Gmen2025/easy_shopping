@@ -19,6 +19,11 @@ expo-env.d.ts
 
 # Firebase
 GoogleService-Info.plist
+*firebase-adminsdk-*.json
+addugenet-eshop-6c250-5efe2d0bdb01.json
+*service-account*.json
+*service_account*.json
+credentials.json
 
 # Metro
 .metro-health-check*
@@ -33,6 +38,8 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
+.env.*
 .env*.local
 
 # typescript

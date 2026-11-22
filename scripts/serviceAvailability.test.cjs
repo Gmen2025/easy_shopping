@@ -66,6 +66,7 @@ test("availability transport scopes public reads and partial authenticated write
   const databaseConfig = { getDatabaseNameFromStorage: async () => "E_ShopUSA" };
   load("assets\\common\\attachDatabaseInterceptor.js", {
     axios, "./baseUrl": baseUrl, "./databaseConfig": databaseConfig,
+    "@react-native-async-storage/async-storage": { getItem: async () => null },
   }, { global: { fetch: async () => ({}) } }).attachDatabaseInterceptor();
   const api = load("assets\\common\\serviceAvailability.js", {
     axios,

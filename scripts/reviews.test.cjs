@@ -131,6 +131,7 @@ function reviewTransport() {
   const databaseConfig = { getDatabaseNameFromStorage: async () => database };
   load("assets\\common\\attachDatabaseInterceptor.js", {
     axios, "./baseUrl": { __esModule: true, default: baseUrl }, "./databaseConfig": databaseConfig,
+    "@react-native-async-storage/async-storage": { getItem: async () => "test-token" },
   }, globals).attachDatabaseInterceptor();
   const storefront = load("assets\\common\\storefront.js", {
     axios, "./baseUrl": { __esModule: true, default: baseUrl }, "./databaseConfig": databaseConfig,
@@ -333,6 +334,7 @@ test("ride camera, library and skip complete signing, upload and strict profile 
   load("assets\\common\\attachDatabaseInterceptor.js", {
     axios,
     "./baseUrl": { __esModule: true, default: baseUrl }, "./databaseConfig": databaseConfig,
+    "@react-native-async-storage/async-storage": { getItem: async () => "token" },
   }, globals).attachDatabaseInterceptor();
   const storefront = load("assets\\common\\storefront.js", {
     axios, "./baseUrl": { __esModule: true, default: baseUrl }, "./databaseConfig": databaseConfig,

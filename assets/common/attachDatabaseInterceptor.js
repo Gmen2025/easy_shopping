@@ -1,4 +1,5 @@
 import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import baseUrl from "./baseUrl";
 import { getDatabaseNameFromStorage } from "./databaseConfig";
 
@@ -10,6 +11,19 @@ const isApiRequest = (requestUrl) => {
   }
 
   return requestUrl.startsWith(baseUrl);
+};
+
+const isPublicShoppingRead = (requestUrl, method) => {
+  if (method !== "get") return false;
+  const path = requestUrl.slice(baseUrl.length).split(/[?#]/)[0];
+  return /^(?:products|categories)(?:\/|$)/i.test(path) ||
+    /^stores\/directory(?:\/|$)/i.test(path) ||
+    /^settings\/bank-account\/?$/i.test(path);
+};
+
+const headerValue = (headers, name) => {
+  const key = Object.keys(headers || {}).find((item) => item.toLowerCase() === name);
+  return key === undefined ? undefined : headers[key];
 };
 
 const hasStrictRequestBody = (requestUrl) => {
@@ -88,16 +102,23 @@ export const attachDatabaseInterceptor = () => {
       return config;
     }
 
-    const dbName = config.headers?.["x-database-name"] || await getDatabaseNameFromStorage();
+    const selectedDatabase = await getDatabaseNameFromStorage();
+    const dbName = headerValue(config.headers, "x-database-name") || selectedDatabase;
+    const method = (config.method || "get").toLowerCase();
+    const authorization = headerValue(config.headers, "authorization");
 
     config.headers = {
       ...(config.headers || {}),
       "x-database-name": dbName,
     };
 
+    if (authorization === undefined && dbName === selectedDatabase && isPublicShoppingRead(requestUrl, method)) {
+      const token = await AsyncStorage.getItem("token");
+      if (token) config.headers.Authorization = `Bearer ${token}`;
+    }
+
     config.url = appendDbQuery(config.url, dbName);
 
-    const method = (config.method || "get").toLowerCase();
     if (!["get", "head", "options"].includes(method) && !hasStrictRequestBody(requestUrl)) {
       config.data = attachDatabaseNameToJsonBody(config.data, dbName);
     }

@@ -83,6 +83,12 @@ If these are missing, image upload from admin product form will fail with:
 - Works with production API immediately
 
 ### Option 2: Expo EAS Build (Recommended for Production)
+EAS builds exclude local `.env` files and the known local service-account
+credential files. Check `.easignore` before adding other credential files. Set
+the required app configuration in the EAS environment selected by the build profile:
+`preview` for `internal-testing`, or `production` for `production`. Never put
+private service-account keys in the build archive or app bundle.
+
 ```bash
 # Install EAS CLI
 npm install -g eas-cli
