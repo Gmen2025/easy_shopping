@@ -1,5 +1,5 @@
 import { StatusBar } from "expo-status-bar";
-import { Alert, Text, View, StyleSheet } from "react-native";
+import { Alert, Linking, Text, View, StyleSheet } from "react-native";
 import { useEffect, useState, useCallback, useContext, useRef } from "react";
 import { NavigationContainer, useNavigationContainerRef } from "@react-navigation/native";
 import Toast from "react-native-toast-message";
@@ -189,6 +189,21 @@ const NotificationBootstrap = ({ onNotificationReceived, onNotificationOpened })
 
 
 export default function App() {
+  useEffect(() => {
+    if (!stripeModule?.handleURLCallback) return undefined;
+    const handleUrl = (url) => {
+      if (url?.startsWith("addugeneteshop://stripe-redirect")) {
+        stripeModule.handleURLCallback(url).catch((error) =>
+          console.error("Stripe return URL handling failed:", error.message)
+        );
+      }
+    };
+    Linking.getInitialURL().then(handleUrl).catch((error) =>
+      console.error("Unable to read initial URL:", error.message)
+    );
+    const listener = Linking.addEventListener("url", ({ url }) => handleUrl(url));
+    return () => listener.remove();
+  }, []);
   const navigationRef = useNavigationContainerRef();
   const [currentScreen, setCurrentScreen] = useState("");
   const updateCurrentScreen = () => setCurrentScreen(navigationRef.getCurrentRoute()?.name || "");
@@ -305,7 +320,7 @@ export default function App() {
       <AuthProvider>
         <Provider store={store}>
           <MaintenanceProvider key={`maintenance-${dbRefreshKey}`}>
-            <StripeProvider publishableKey={stripePublishableKey}>
+            <StripeProvider publishableKey={stripePublishableKey} urlScheme="addugeneteshop">
               <TelebirrProvider>
                 <NotificationBootstrap
                   onNotificationReceived={handleNotificationReceived}

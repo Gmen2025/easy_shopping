@@ -62,3 +62,63 @@ test("missing native SDK reports an explicit warning and disables card entry", (
   assert.equal(warnings.length, 1);
   assert.match(warnings[0].join(" "), /Stripe module unavailable: Native module missing/);
 });
+
+test("embedded card confirmation uses the saved intent once and only finalizes a completed payment", async () => {
+  const alerts = [];
+  let created = 0;
+  let finished = 0;
+  let handlerResult;
+  let paymentStatus = "completed";
+  const sdk = {
+    initStripe: async () => {},
+    useEmbeddedPaymentElement: (config) => ({
+      embeddedPaymentElementView: { type: "StripeView", props: {} },
+      paymentOption: { label: "Card" }, isLoaded: true, loadingError: null,
+      confirm: async () => {
+        await config.confirmationTokenConfirmHandler({ id: "ct_fixture" }, (result) => { handlerResult = result; });
+        return handlerResult.error ? { status: "failed", error: handlerResult.error } : { status: paymentStatus };
+      },
+    }),
+  };
+  let stateIndex = 0;
+  const react = {
+    createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
+    useEffect: () => {},
+    useMemo: (factory) => factory(),
+    useRef: (value) => ({ current: value }),
+    useState: (initial) => [stateIndex++ === 0 ? "pk_test_example" : initial, () => {}],
+  };
+  const component = load("Shared\\EmbeddedStripePayment.js", {
+    react,
+    "react-native": { ActivityIndicator: "ActivityIndicator", Alert: { alert: (...args) => alerts.push(args) }, Text: "Text", View: "View" },
+    "react-native-paper": { Button: "Button" },
+    "expo-constants": { expoConfig: { extra: { stripePublishableKey: "pk_test_example" } } },
+    "../assets/common/stripe": { __esModule: true, default: sdk },
+  }).default;
+  const props = {
+    amount: 1250, currency: "usd", label: "Pay",
+    createIntent: async () => { created++; return { clientSecret: "secret", paymentId: "pi_test" }; },
+    onCompleted: async (payment) => { assert.equal(payment.paymentId, "pi_test"); finished++; },
+  };
+  const wrapper = component(props);
+  stateIndex = 1;
+  const view = wrapper.type(wrapper.props);
+  const button = view.props.children.find((child) => child?.type === "Button");
+  assert.equal(button.props.disabled, false);
+  await Promise.all([button.props.onPress(), button.props.onPress()]);
+  assert.equal(created, 1);
+  assert.equal(handlerResult.clientSecret, "secret");
+  assert.equal(finished, 1);
+  paymentStatus = "canceled";
+  await button.props.onPress();
+  assert.equal(finished, 1);
+  props.createIntent = async () => ({});
+  stateIndex = 0;
+  const secondWrapper = component(props);
+  stateIndex = 1;
+  const secondView = secondWrapper.type(secondWrapper.props);
+  await secondView.props.children.find((child) => child?.type === "Button").props.onPress();
+  assert.match(handlerResult.error.message, /no client secret/i);
+  assert.equal(finished, 1);
+  assert.equal(alerts.length, 1);
+});

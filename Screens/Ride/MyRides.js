@@ -6,7 +6,8 @@ import { useIsFocused } from "@react-navigation/native";
 import { rideRequest, rideFare, rideOptionName, addressText, rideStopPoint, pickupArrivalText } from "../../assets/common/rides";
 import { storeRequest } from "../../assets/common/storefront";
 import { getDatabaseNameFromStorage } from "../../assets/common/databaseConfig";
-import CardPayment, { canPayByCard } from "../../Shared/CheckoutCardPayment";
+import { canPayByCard } from "../../Shared/CheckoutCardPayment";
+import EmbeddedStripePayment from "../../Shared/EmbeddedStripePayment";
 import { styles } from "../../Shared/DeliveryCheckout";
 import { AuthContext } from "../../Context/store/Auth";
 import RideRouteMap from "../../Shared/RideRouteMap";
@@ -99,14 +100,20 @@ export default function MyRides({ route, navigation }) {
     return () => clearInterval(timer);
   }, [focused, isAuthenticated, needsSignIn, loading, selected?._id, selected?.status]);
   const update = async (path, data) => setSelected(await rideRequest(`${selected._id}/${path}`, { method: "post", data, timeout: 120000 }));
-  const pay = (confirmPayment) => run(async () => {
+  const createCardIntent = async () => {
+    const db = await getDatabaseNameFromStorage();
+    if (region.current && region.current !== db) throw new Error("The region changed. Return to the ride booking page before continuing.");
     const payment = await rideRequest(`${selected._id}/payment`, { method: "post", timeout: 60000 });
     setSelected(payment.ride);
-    if (payment.ride.paymentStatus === "completed") return;
-    const result = await confirmPayment(payment.clientSecret, { paymentMethodType: "Card" });
-    if (result.error) throw new Error(`${result.error.message} Resume this same ride payment; do not start another payment.`);
-    await update("payment-confirm", {});
-  });
+    if (payment.ride.paymentStatus === "completed") throw new Error("This ride payment is already complete.");
+    return { ...payment, rideId: selected._id, database: db };
+  };
+  const completeCardPayment = async (payment) => {
+    if (payment?.rideId !== selected._id || payment.database !== await getDatabaseNameFromStorage()) {
+      throw new Error("Ride changed after payment. Reopen the original ride and check its status.");
+    }
+    setSelected(await rideRequest(`${payment.rideId}/payment-confirm`, { method: "post", data: {}, timeout: 120000 }));
+  };
   const active = selected && !["completed", "cancelled", "terminated", "quote"].includes(selected.status);
   const paymentMethods = ["bank", ...(/usa/i.test(database) && canPayByCard ? ["card"] : []),
     ...(selected?.currency === "etb" && telebirrAvailable ? ["telebirr"] : []), "cash"]
@@ -231,7 +238,8 @@ export default function MyRides({ route, navigation }) {
             </Picker> : null}
             <Button disabled={busy || !paymentMethods.includes(method) || (method === "bank" && !bankId)} onPress={() => run(() => update("payment-method", { method, bankAccountId: bankId }))}>Choose payment method</Button>
           </> : selected.paymentMethod === "card" ? <>
-            {canPayByCard ? <CardPayment pay={pay} disabled={busy} label="Pay ride fare" /> : <Text style={styles.error}>Card payment requires a configured development/production build, not Expo Go.</Text>}
+            {canPayByCard ? focused && <EmbeddedStripePayment createIntent={createCardIntent} onCompleted={completeCardPayment} onProcessingChange={setBusy} disabled={busy} label="Pay ride fare"
+              amount={Math.round(Number(selected.finalFare) * 100)} currency={selected.currency} /> : <Text style={styles.error}>Card payment requires a configured development/production build, not Expo Go.</Text>}
             <Button disabled={busy} onPress={() => run(() => update("payment-confirm", {}))}>Check existing card payment</Button>
             <Text>After interruptions, resume this ride's existing payment. Never pay a second time.</Text>
           </> : selected.paymentMethod === "telebirr" ? <>

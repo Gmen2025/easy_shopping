@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -25,7 +25,9 @@ import { AuthContext } from "../../../Context/store/Auth";
 import { useCurrency } from "../../../assets/common/currency";
 import { deductInventoryFromOrder, validateOrderStock } from "../../../assets/common/inventory";
 import { getTrackingOrder } from "../../../assets/common/orderTracking";
+import { useIsFocused } from "@react-navigation/native";
 import stripeModule from "../../../assets/common/stripe";
+import EmbeddedStripePayment from "../../../Shared/EmbeddedStripePayment";
 
 const width = Dimensions.get("window").width;
 const stripeCurrency =
@@ -50,8 +52,7 @@ const hasValidStripePublishableKey = (key) => {
   return normalized.startsWith("pk_");
 };
 
-const CardField = stripeModule?.CardField;
-const useStripe = stripeModule?.useStripe;
+const useEmbeddedPaymentElement = stripeModule?.useEmbeddedPaymentElement;
 
 const StripeUnavailable = ({ navigation }) => {
   return (
@@ -84,7 +85,7 @@ const StripeUnavailable = ({ navigation }) => {
 };
 
 const StripePaymentSupported = (props) => {
-  const { confirmPayment } = useStripe();
+  const focused = useIsFocused();
   const [loading, setLoading] = useState(false);
   const [orderProcessing, setOrderProcessing] = useState(false);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
@@ -94,58 +95,16 @@ const StripePaymentSupported = (props) => {
   const dispatch = useDispatch();
   const authContext = useContext(AuthContext);
   const { formatPrice } = useCurrency();
-  const [cardDetails, setCardDetails] = useState(null);
-
-  const isStripeConfigurationError = (message) => {
-    console.log("Checking for Stripe configuration error in message:", message);
-    if (!message) {
-      return false;
-    }
-
-    const normalized = String(message).toLowerCase();
-    return (
-      normalized.includes("stripe is not configured") ||
-      normalized.includes("stripe_not_configured") ||
-      normalized.includes("card payment is currently unavailable") ||
-      normalized.includes("stripe_key") ||
-      normalized.includes("publishable key") ||
-      normalized.includes("secret key")
-    );
-  };
-
-  const showStripeUnavailableAlert = () => {
-    Alert.alert(
-      "Card Payment Unavailable",
-      "Card payment is currently unavailable for this store. Please choose another payment method.",
-      [
-        {
-          text: "Back to Payment Methods",
-          onPress: () => props.navigation.goBack(),
-        },
-      ]
-    );
-  };
+  const paymentAttempt = useRef(null);
+  const paymentRequestUncertain = useRef(false);
 
   const orderData = order || props.route?.params?.order;
 
-  const isMissingPaymentIntentError = (message) => {
-    if (!message) {
-      return false;
-    }
-
-    const normalized = String(message).toLowerCase();
-    return (
-      normalized.includes("no such payment_intent") ||
-      normalized.includes("no such payment intent") ||
-      normalized.includes("resource_missing")
-    );
-  };
-
-  const buildPaymentIntentOrderId = (suffix = "") => {
+  const buildPaymentIntentOrderId = () => {
     const baseOrderId =
       orderData?.orderId ||
       (typeof orderData?._id === "string" ? orderData._id : "checkout");
-    return `${baseOrderId}-${Date.now()}${suffix}`;
+    return `${baseOrderId}-${Date.now()}`;
   };
 
   console.log("Order in StripePayment:", orderData);
@@ -252,172 +211,39 @@ const StripePaymentSupported = (props) => {
     }
   };
 
-  const handlePayment = async () => {
-    if (!orderData || !orderData.totalPrice) {
-      Alert.alert("Error", "Invalid order data");
-      return;
-    }
-
-    // Validate card details before proceeding
-    if (!cardDetails || !cardDetails.complete) {
-      Alert.alert(
-        "Card Details Required",
-        "Please enter complete card details:\n• Card number (16 digits)\n• Expiry date (MM/YY)\n• CVC code (3-4 digits)"
-      );
-      return;
-    }
-
-    setLoading(true);
-
+  const createCardIntent = async () => {
+    if (paymentAttempt.current) return paymentAttempt.current;
+    if (paymentRequestUncertain.current) throw new Error("The payment request could not be verified. Contact support before trying again.");
+    const token = await AsyncStorage.getItem("token");
+    if (!token) throw new Error("Authentication token not found");
+    const stockValidation = await validateOrderStock({ orderItems: orderData.orderItems, token });
+    if (!stockValidation.ok) throw new Error(stockValidation.message || "Could not verify order stock.");
+    let response;
     try {
-      // Get the auth token
-      const token = await AsyncStorage.getItem("token");
-
-      if (!token) {
-        throw new Error("Authentication token not found");
-      }
-
-      const stockValidation = await validateOrderStock({
-        orderItems: orderData.orderItems,
-        token,
-      });
-
-      if (!stockValidation.ok) {
-        Alert.alert(
-          stockValidation.unverified?.length ? "Could not verify stock" : "Reduce item quantity",
-          stockValidation.message || "Some items exceed available stock."
-        );
-        return;
-      }
-
-      const requestPaymentIntent = async (intentOrderId) => {
-        return axios.post(
-          `${baseUrl}stripe/create-payment-intent`,
-          {
-            amount: Math.round(Number(orderData.totalPrice || 0) * 100),
-            currency: String(stripeCurrency).toLowerCase(),
-            orderId: intentOrderId,
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-      };
-
-      const getIntentResponse = async (intentOrderId) => {
-        try {
-          return await requestPaymentIntent(intentOrderId);
-        } catch (requestError) {
-          const responseStatus = requestError?.response?.status;
-          const responseData = requestError?.response?.data;
-          const errorCode = responseData?.code;
-          const errorMessage =
-            responseData?.message || responseData?.error || requestError?.message;
-
-          if (
-            responseStatus === 503 &&
-            (errorCode === "STRIPE_NOT_CONFIGURED" ||
-              isStripeConfigurationError(errorMessage))
-          ) {
-            showStripeUnavailableAlert();
-            return null;
-          }
-
-          if (
-            (responseStatus === 500 || responseStatus === 400) &&
-            isStripeConfigurationError(errorMessage)
-          ) {
-            showStripeUnavailableAlert();
-            return null;
-          }
-
-          if (responseStatus === 404) {
-            Alert.alert(
-              "Stripe Endpoint Missing",
-              "The card payment service endpoint was not found on the server. Please contact support or use another payment method."
-            );
-            return null;
-          }
-
-          throw new Error(errorMessage || "Failed to create payment intent");
-        }
-      };
-
-      let intentResponse = await getIntentResponse(buildPaymentIntentOrderId());
-      if (!intentResponse) {
-        return;
-      }
-
-      let { client_secret } = intentResponse?.data || {};
-
-      if (!client_secret) {
-        throw new Error("No client secret received");
-      }
-
-      let { error, paymentIntent } = await confirmPayment(client_secret, {
-        paymentMethodType: "Card",
-      });
-
-      if (error && isMissingPaymentIntentError(error?.message)) {
-        const retryIntentResponse = await getIntentResponse(
-          buildPaymentIntentOrderId("-retry")
-        );
-
-        if (!retryIntentResponse) {
-          return;
-        }
-
-        client_secret = retryIntentResponse?.data?.client_secret;
-
-        if (!client_secret) {
-          throw new Error("No client secret received");
-        }
-
-        const retryResult = await confirmPayment(client_secret, {
-          paymentMethodType: "Card",
-        });
-
-        error = retryResult.error;
-        paymentIntent = retryResult.paymentIntent;
-      }
-
-      if (error) {
-        // Handle specific card validation errors
-        if (
-          error.code === "IncompletePaymentMethod" ||
-          error.message?.includes("incomplete") ||
-          error.message?.includes("card details")
-        ) {
-          Alert.alert(
-            "Card Details Incomplete",
-            "Please fill in all card details (number, expiry, CVC)"
-          );
-        } else {
-          Alert.alert("Payment failed", error.message);
-        }
-      } else if (paymentIntent) {
-        // Payment successful - show order confirmation
-        const transactionId = paymentIntent.id;
-        setPaymentId(transactionId);
-        setPaymentSuccess(true);
-        setShowOrderDetails(true);
-      } else {
-        throw new Error("API not available");
-      }
+      response = await axios.post(`${baseUrl}stripe/create-payment-intent`, {
+        amount: Math.round(Number(orderData.totalPrice) * 100),
+        currency: String(stripeCurrency).toLowerCase(),
+        orderId: buildPaymentIntentOrderId(),
+        cardOnly: true,
+      }, { headers: { Authorization: `Bearer ${token}` } });
     } catch (error) {
-      console.error("Payment error:", error);
-
-      if (isStripeConfigurationError(error?.message)) {
-        showStripeUnavailableAlert();
-        return;
-      }
-
-      Alert.alert("Error", `Payment failed: ${error.message}`);
-    } finally {
-      setLoading(false);
+      if (!error.response) paymentRequestUncertain.current = true;
+      throw error;
     }
+    const data = response.data;
+    if (!data?.client_secret || !data.payment_intent_id ||
+        data.payment_method_types?.length !== 1 || data.payment_method_types[0] !== "card") {
+      paymentRequestUncertain.current = true;
+      throw new Error("The payment service must be updated before this checkout can accept cards.");
+    }
+    paymentAttempt.current = { clientSecret: data.client_secret, paymentId: data.payment_intent_id };
+    return paymentAttempt.current;
+  };
+  const completeCardPayment = async (payment) => {
+    if (!payment?.paymentId) throw new Error("Payment reference unavailable. Contact support before trying again.");
+    setPaymentId(payment.paymentId);
+    setPaymentSuccess(true);
+    setShowOrderDetails(true);
   };
 
   // Calculate total price
@@ -577,64 +403,17 @@ const StripePaymentSupported = (props) => {
             </View>
 
             <View style={styles.inputCard}>
-              <Text style={styles.cardFieldLabel}>Card Details</Text>
-              <View style={styles.cardFieldContainer}>
-                <CardField
-                  postalCodeEnabled={false}
-                  placeholders={{
-                    number: "4242 4242 4242 4242",
-                    expiry: "MM/YY",
-                    cvc: "CVC",
-                  }}
-                  cardStyle={{
-                    backgroundColor: "#FFFFFF",
-                    textColor: "#0f172a",
-                    borderColor: "#d7dce5",
-                    borderWidth: 1,
-                    borderRadius: 8,
-                    fontSize: 16,
-                    placeholderColor: "#94a3b8",
-                  }}
-                  style={{
-                    width: "100%",
-                    height: 50,
-                  }}
-                  onCardChange={(details) => {
-                    setCardDetails(details);
-                    console.log("Card details:", details);
-                  }}
-                />
-              </View>
-
-              {cardDetails && (
-                <View style={styles.cardStatus}>
-                  <Text
-                    style={[
-                      styles.cardStatusText,
-                      cardDetails.complete ? styles.cardStatusSuccess : styles.cardStatusPending,
-                    ]}
-                  >
-                    {cardDetails.complete ? "Card details complete" : "Please complete card details"}
-                  </Text>
-                </View>
-              )}
+              <Text style={styles.cardFieldLabel}>Payment Details</Text>
+              {focused ? <EmbeddedStripePayment
+                amount={Math.round(Number(orderData.totalPrice) * 100)}
+                currency={stripeCurrency}
+                createIntent={createCardIntent}
+                onCompleted={completeCardPayment}
+                onProcessingChange={setLoading}
+                disabled={orderProcessing}
+                label="Pay Now"
+              /> : null}
             </View>
-
-            <EasyButton
-              primary
-              large
-              onPress={handlePayment}
-              disabled={loading || orderProcessing}
-              style={styles.payButton}
-            >
-              <Text style={styles.payButtonText}>
-                {loading
-                  ? "Processing..."
-                  : orderProcessing
-                  ? "Placing Order..."
-                  : "Pay Now"}
-              </Text>
-            </EasyButton>
 
             <EasyButton
               secondary
@@ -653,7 +432,7 @@ const StripePaymentSupported = (props) => {
 };
 
 const StripePayment = (props) => {
-  if (!CardField || !useStripe || !hasValidStripePublishableKey(stripePublishableKey)) {
+  if (!useEmbeddedPaymentElement || !hasValidStripePublishableKey(stripePublishableKey)) {
     return <StripeUnavailable navigation={props.navigation} />;
   }
 

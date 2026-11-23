@@ -146,3 +146,57 @@ test("payment settings requests preserve explicit region, Admin token, and parti
     assert.throws(() => exports.parsePaymentSettings(data), /Unable to load payment availability/);
   }
 });
+
+test("payment switches retain their strict body through the database interceptor", async () => {
+  const calls = [];
+  const fetchCalls = [];
+  let intercept;
+  const methods = { cash: true, bank: true, card: true, telebirr: true };
+  const axios = async (options) => {
+    calls.push(await intercept(options));
+    return { data: { success: true, methods } };
+  };
+  axios.interceptors = { request: { use: (handler) => { intercept = handler; } } };
+  const baseUrl = "https://api.example.test/api/v1/";
+  const database = { getDatabaseNameFromStorage: async () => "E_Shopping" };
+  const storage = { getItem: async () => "admin-fixture" };
+  const globals = { fetch: async (url, options) => { fetchCalls.push({ url, options }); } };
+  const load = (relative, dependencies) => {
+    const file = path.join(__dirname, "..", relative);
+    const { code } = babel.transformSync(fs.readFileSync(file, "utf8"), {
+      filename: file, configFile: false, babelrc: false,
+      plugins: ["@babel/plugin-transform-modules-commonjs"],
+    });
+    const exports = {};
+    vm.runInNewContext(code, { exports, global: globals, require: (name) => {
+      assert.ok(name in dependencies, `Unexpected dependency: ${name}`);
+      return dependencies[name];
+    } });
+    return exports;
+  };
+  const dependencies = {
+    axios,
+    "@react-native-async-storage/async-storage": storage,
+    "./baseUrl": baseUrl,
+    "./databaseConfig": database,
+  };
+  load("assets\\common\\attachDatabaseInterceptor.js", dependencies).attachDatabaseInterceptor();
+  const api = load("assets\\common\\paymentSettings.js", dependencies);
+
+  for (const [region, enabled] of [["E_ShopUSA", false], ["E_Shopping", true]]) {
+    await api.paymentSettings(region, { card: enabled });
+    const request = calls.at(-1);
+    assert.equal(JSON.stringify(request.data), JSON.stringify({ methods: { card: enabled } }));
+    assert.equal(request.headers["x-database-name"], region);
+    assert.equal(request.headers.Authorization, "Bearer admin-fixture");
+    assert.match(request.url, new RegExp(`db=${region}$`));
+  }
+  await globals.fetch(`${baseUrl}settings/payment-methods/?view=admin`, {
+    method: "PUT", body: JSON.stringify({ methods: { cash: false } }),
+  });
+  assert.equal(fetchCalls[0].options.body, JSON.stringify({ methods: { cash: false } }));
+  assert.equal(fetchCalls[0].options.headers["x-database-name"], "E_Shopping");
+  assert.match(fetchCalls[0].url, /view=admin&db=E_Shopping$/);
+  const other = await intercept({ url: `${baseUrl}orders`, method: "post", data: { example: true } });
+  assert.equal(other.data.databaseName, "E_Shopping");
+});

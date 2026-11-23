@@ -31,6 +31,13 @@ Before production, test successful/declined payments, interruptions, disabled
 methods and repeated verification/credit. Keep production credentials and data
 separate; do not switch environments with outstanding payments or refunds.
 
+Shopping and ride card payments use Stripe's embedded Payment Element. Deploy
+the matching backend before updating clients: the standard cart requires its
+card-only PaymentIntent response. Combined checkouts and rides continue to
+recover and verify their saved payment on the server. Apple Pay and Google Pay
+are not enabled by these mobile forms. Test card success, decline, 3-D Secure,
+and interrupted-payment recovery in both native development builds before release.
+
 ## Cash-fee deposit wallets
 
 The driver/store **Income** screen shows a separate prepaid deposit balance,

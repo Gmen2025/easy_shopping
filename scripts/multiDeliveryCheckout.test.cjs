@@ -211,6 +211,7 @@ function harness(
           Item: "PickerItem",
         }),
       },
+      "@react-navigation/native": { useIsFocused: () => true },
       "react-redux": {
         useSelector: (selector) => selector({ cart: { cartItems: [item] } }),
         useDispatch: () => (action) => actions.push(action),
@@ -221,6 +222,7 @@ function harness(
         nativeCardAvailable: nativeCards,
         __esModule: true,
       },
+      "../../../Shared/EmbeddedStripePayment": { __esModule: true, default: "CardPayment" },
       "../../../assets/common/cartIdentity": {
         cartItemKey: (entry) => `key-${entry._id}`,
       },
@@ -1982,6 +1984,33 @@ test("USD recovery does not load or gate on today's policy; it shows the saved p
   await ui.start();
   assert.match(text(ui.render()), /USD payment: USD \$10.00/);
   assert.ok(ui.button("Check payment / finish checkout"));
+});
+
+test("embedded checkout uses the saved converted total and confirms the same reservation", async () => {
+  const calls = [];
+  const group = {
+    _id: "saved", cart: [], deliveries: [], status: "awaiting_payment",
+    paymentMethod: "card", currency: "usd", exchangeRate: freshExchange(),
+    stripePublishableKey: "pk_test_converted", paymentAmount: 10.67,
+    totalPrice: 300, itemsSubtotal: 300, deliveryFee: 0,
+    expiresAt: new Date(Date.now() + 600000).toISOString(),
+  };
+  const ui = harness(async (path) => {
+    calls.push(path);
+    if (path === "checkouts/saved") return group;
+    if (path === "checkouts/saved/payment") return { group, clientSecret: "saved-secret" };
+    if (path === "checkouts/saved/confirm") return { ...group, status: "placed" };
+    throw new Error(path);
+  }, { database: "E_Shopping", resumeId: "saved", nativeCards: true });
+  await ui.start();
+  const element = nodes(ui.render()).find((node) => node.type === "CardPayment");
+  assert.equal(element.props.amount, 1067);
+  assert.equal(element.props.currency, "usd");
+  assert.equal(element.props.publishableKey, "pk_test_converted");
+  const payment = await element.props.createIntent();
+  assert.equal(payment.clientSecret, "saved-secret");
+  await element.props.onCompleted(payment);
+  assert.equal(calls.join(","), "checkouts/saved,checkouts/saved/payment,checkouts/saved/confirm");
 });
 
 test("checkout UI splits units between current and edited saved addresses, upgrades vehicles and submits one reserved checkout", async () => {

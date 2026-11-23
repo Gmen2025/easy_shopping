@@ -114,7 +114,8 @@ function harness(file, request, params = {}, auth = { isAuthenticated: true, loa
       ? options.storeRequest(route, requestOptions) : route === "delivery-current-address" ? address
       : route === "delivery-addresses" ? [{ ...address, _id: "saved", label: "Saved home" }] : [{ _id: "bank", bankName: "Bank" }] },
     "../../assets/common/databaseConfig": { getDatabaseNameFromStorage: options.database || (async () => "E_ShopUSA") },
-    "../../Shared/CheckoutCardPayment": { __esModule: true, default: "CardPayment", canPayByCard: false },
+    "../../Shared/CheckoutCardPayment": { __esModule: true, default: "CardPayment", canPayByCard: Boolean(options.cardAvailable) },
+    "../../Shared/EmbeddedStripePayment": { __esModule: true, default: "CardPayment" },
     "../../Shared/DeliveryCheckout": { styles: {} },
     "../../Context/store/Auth": { AuthContext: {} },
     "../../Shared/RideRouteMap": { __esModule: true, default: "RideRouteMap" },
@@ -883,6 +884,27 @@ test("rides cannot be paid before completion; completed bank fare exposes recove
   assert.match(text(ui.render()), /Your final fare: USD 9.00/);
   assert.ok(ui.button("Submit bank transfer reference"));
   assert.equal(ui.button("Choose payment method"), undefined);
+});
+test("embedded ride payment uses the final fare and confirms the same ride", async () => {
+  const ride = { _id: "ride", currency: "usd", status: "completed", finalFare: 9.25,
+    paymentMethod: "card", paymentStatus: "pending",
+    stops: [{ key: "0", type: "pickup", passengers: 1, address }, { key: "1", type: "dropoff", passengers: 1, address }] };
+  const ui = harness("Screens\\Ride\\MyRides.js", async (route) => {
+    if (!route) return [ride];
+    if (route === "ride") return ride;
+    if (route === "ride/payment") return { ride, clientSecret: "saved-ride-secret" };
+    if (route === "ride/payment-confirm") return { ...ride, paymentStatus: "completed" };
+    throw new Error(route);
+  }, { rideId: "ride", database: "E_ShopUSA" }, undefined, { cardAvailable: true });
+  await ui.start();
+  const element = nodes(ui.render()).find((node) => node.type === "CardPayment");
+  assert.equal(element.props.amount, 925);
+  assert.equal(element.props.currency, "usd");
+  const payment = await element.props.createIntent();
+  assert.equal(payment.clientSecret, "saved-ride-secret");
+  await element.props.onCompleted(payment);
+  assert.ok(ui.calls.some((call) => call.route === "ride/payment-confirm"));
+  assert.match(text(ui.render()), /Payment: completed/);
 });
 test("driver screen separates offers and route, expires claim controls, and warns before closing shared intake", async () => {
   const driver = { serviceModes: { delivery: true, regular: true, shared: true }, passengerSeats: 3, sharedIntakeOpen: true, isAvailable: true };

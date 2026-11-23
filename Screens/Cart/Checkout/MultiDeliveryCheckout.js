@@ -11,11 +11,13 @@ import {
 } from "react-native";
 import { Button, TextInput } from "react-native-paper";
 import { Picker } from "@react-native-picker/picker";
+import { useIsFocused } from "@react-navigation/native";
 import { useDispatch, useSelector } from "react-redux";
-import CardPayment, {
+import {
   canPayByCard,
   nativeCardAvailable,
 } from "../../../Shared/CheckoutCardPayment";
+import EmbeddedStripePayment from "../../../Shared/EmbeddedStripePayment";
 import { cartItemKey } from "../../../assets/common/cartIdentity";
 import { storeRequest } from "../../../assets/common/storefront";
 import {
@@ -96,6 +98,7 @@ const getUpcomingDeliveryDays = () =>
   });
 
 const MultiDeliveryCheckout = ({ navigation, route }) => {
+  const focused = useIsFocused();
   const items = useSelector((state) => state.cart.cartItems);
   const dispatch = useDispatch();
   const { formatPrice } = useCurrency();
@@ -561,30 +564,30 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
         }),
       );
     });
-  const pay = (confirmPayment) =>
-    run(async () => {
-      const payment = await storeRequest(`checkouts/${group._id}/payment`, {
+  const createCardIntent = async () => {
+    const db = await getDatabaseNameFromStorage();
+    if (region.current && region.current !== db) throw new Error("The region changed. Reopen this checkout in its original shopping region.");
+    const payment = await storeRequest(`checkouts/${group._id}/payment`, {
+      method: "post",
+      timeout: 60000,
+    });
+    if (payment.group.status === "placed") {
+      await showGroup(payment.group);
+      throw new Error("This checkout is already paid and placed.");
+    }
+    return { ...payment, checkoutId: group._id, database: db };
+  };
+  const completeCardPayment = async (payment) => {
+    if (payment?.checkoutId !== group._id || payment.database !== await getDatabaseNameFromStorage()) {
+      throw new Error("Checkout changed after payment. Reopen the original checkout and check its status.");
+    }
+    await showGroup(
+      await storeRequest(`checkouts/${payment.checkoutId}/confirm`, {
         method: "post",
         timeout: 60000,
-      });
-      if (payment.group.status === "placed") {
-        await showGroup(payment.group);
-        return;
-      }
-      const result = await confirmPayment(payment.clientSecret, {
-        paymentMethodType: "Card",
-      });
-      if (result.error)
-        throw new Error(
-          `${result.error.message} This checkout keeps the same payment attempt. Check its payment status before retrying.`,
-        );
-      await showGroup(
-        await storeRequest(`checkouts/${group._id}/confirm`, {
-          method: "post",
-          timeout: 60000,
-        }),
-      );
-    });
+      }),
+    );
+  };
   const needsVehicleSelection = quote?.deliveries.some(
     (delivery) =>
       (delivery.fulfillmentMethod !== "pickup" || quote.international) &&
@@ -738,11 +741,16 @@ const MultiDeliveryCheckout = ({ navigation, route }) => {
                       ? nativeCardAvailable && group.stripePublishableKey
                       : canPayByCard
                   ) ? (
-                    <CardPayment
-                      pay={pay}
+                    focused ? <EmbeddedStripePayment
+                      createIntent={createCardIntent}
+                      onCompleted={completeCardPayment}
+                      onProcessingChange={setBusy}
                       disabled={busy}
                       publishableKey={group.stripePublishableKey}
-                    />
+                      amount={Math.round(Number(group.paymentAmount ?? group.totalPrice) * 100)}
+                      currency={group.currency}
+                      label="Pay combined total"
+                    /> : null
                   ) : (
                     <Text style={styles.error}>
                       Card payment needs a development/production build and a
