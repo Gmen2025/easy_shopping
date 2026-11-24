@@ -61,7 +61,8 @@ test("driver and store deposit methods show bank details, fall back to available
   const nodes = (node) => !node || typeof node !== "object" ? [] : Array.isArray(node) ? node.flatMap(nodes) :
     [node, ...nodes(node.props?.children)];
   for (const kind of ["driver", "store"]) {
-    const state = [], calls = [], opened = [];
+    const state = [], calls = [], opened = [], alerts = [];
+    let noGatewayUrl = false;
     let cursor = 0;
     const React = {
       createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
@@ -80,7 +81,7 @@ test("driver and store deposit methods show bank details, fall back to available
     const dependencies = {
       react: React,
       "react-native": new Proxy({
-        StyleSheet: { create: (styles) => styles }, Alert: { alert() {} },
+        StyleSheet: { create: (styles) => styles }, Alert: { alert: (...args) => alerts.push(args) },
         Linking: { openURL: async (url) => opened.push(url) },
       }, { get: (target, key) => target[key] || key }),
       "expo-crypto": { randomUUID: () => "unique-request-1" },
@@ -89,7 +90,7 @@ test("driver and store deposit methods show bank details, fall back to available
         financeError: (error) => error.message,
         financeRequest: async (url, options) => {
           calls.push({ url, ...options });
-          return options.data.method === "bank" ? {} : { paymentUrl: "https://gateway.example.test/pay" };
+          return options.data.method === "bank" || noGatewayUrl ? {} : { paymentUrl: "https://gateway.example.test/pay" };
         },
       },
     };
@@ -98,7 +99,7 @@ test("driver and store deposit methods show bank details, fall back to available
       assert.ok(name in dependencies, `Unexpected dependency: ${name}`);
       return dependencies[name];
     } });
-    let currentWallet = { ...wallet, bankAccounts: [{ _id: "bank1", bankName: "Example Bank",
+    let currentWallet = { ...wallet, cardUnavailableReason: "Admin must configure USD Stripe credentials matching STRIPE_MODE.", bankAccounts: [{ _id: "bank1", bankName: "Example Bank",
       accountNumber: "123456", accountHolderName: "Company", bankCode: "CODE", additionalInfo: "Use reference" }],
     methods: { bank: true, card: false, telebirr: true } };
     const render = () => {
@@ -113,6 +114,7 @@ test("driver and store deposit methods show bank details, fall back to available
     assert.ok(text.includes("Company"));
     assert.equal(method(tree, "Bank transfer / company receipt").props.accessibilityState.checked, true);
     assert.equal(method(tree, "Card").props.disabled, true);
+    assert.ok(tree.some((node) => node.type === "Text" && node.props.children.includes(currentWallet.cardUnavailableReason)));
     tree.find((node) => node.props?.accessibilityLabel === "Deposit amount (ETB)").props.onChangeText("10");
     render().find((node) => node.props?.accessibilityLabel === "Transfer / company receipt reference").props.onChangeText("receipt");
     render().find((node) => node.props?.accessibilityLabel === "Actual deposit local date/time (YYYY-MM-DDTHH:mm)").props.onChangeText("2026-01-01T10:00");
@@ -142,6 +144,10 @@ test("driver and store deposit methods show bank details, fall back to available
     await render().find((node) => node.props?.accessibilityLabel === "Submit deposit / open payment").props.onPress();
     assert.equal(calls[2].data.method, "card");
     assert.equal(calls[2].data.currency, "USD");
+    noGatewayUrl = true;
+    render().find((node) => node.props?.accessibilityLabel === "Deposit amount (USD)").props.onChangeText("40");
+    await render().find((node) => node.props?.accessibilityLabel === "Submit deposit / open payment").props.onPress();
+    assert.ok(alerts.some(([title, message]) => title === "Deposit action failed" && /no payment link/.test(message)));
     currentWallet = { ...currentWallet, bankAccounts: [], methods: { bank: false, card: false, telebirr: false } };
     tree = render();
     assert.equal(tree.find((node) => node.props?.accessibilityLabel === "Submit deposit / open payment").props.disabled, true);

@@ -248,6 +248,9 @@ export default function DepositWallet({
           </TouchableOpacity>
         );
       })}
+      {!wallet.methods.card && wallet.cardUnavailableReason && (
+        <Text>Card unavailable: {wallet.cardUnavailableReason}</Text>
+      )}
       {!selectedMethod && <Text accessibilityRole="alert" style={styles.error}>No deposit payment method is currently available. Contact Admin.</Text>}
       {selectedMethod === "bank" && (
         <>
@@ -294,11 +297,12 @@ export default function DepositWallet({
             setAmount("");
             await reload();
             if (result.paymentUrl) await open(result.paymentUrl);
-            else
+            else if (selectedMethod === "bank")
               Alert.alert(
                 "Deposit saved",
                 "Admin must verify the actual funds before your balance is credited.",
               );
+            else throw new Error("The gateway returned no payment link. Check the saved deposit before retrying.");
           }),
         !enabled || !selectedMethod,
       )}
@@ -393,6 +397,7 @@ export default function DepositWallet({
                       );
                       await reload();
                       if (result.paymentUrl) await open(result.paymentUrl);
+                      else throw new Error("The gateway returned no payment link. Check the saved deposit before retrying.");
                     }),
                   )}
               </>

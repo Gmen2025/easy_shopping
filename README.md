@@ -60,6 +60,13 @@ manual Admin suspensions. Inbox alerts and registered-device pushes notify
 operators of low balances/credits. Deploy backend schemas/indexes and verified
 live gateway/company bank configuration before enabling the feature.
 
+For USD card deposits, Admin must enable the USA **Payment Methods > Card**
+switch and both deposit requirement switches. Configure the backend's USA Stripe
+secret key for `STRIPE_MODE` and HTTPS `WALLET_PAYMENT_RETURN_URL`. The Income
+screen explains which card prerequisite is missing. Card payment opens hosted
+Stripe Checkout; return to Income to verify the saved deposit. ETB wallets do
+not support card deposits or automatic conversion.
+
 ## Customer pickup or delivery
 
 In checkout's **Delivery** step, choose **Pickup from store** or **Delivery**
