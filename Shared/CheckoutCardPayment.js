@@ -1,11 +1,11 @@
 import React, { useRef, useState } from "react";
-import { Alert, View } from "react-native";
+import { Alert, Text, View } from "react-native";
 import { Button } from "react-native-paper";
 import Constants from "expo-constants";
 import stripeModule from "../assets/common/stripe";
 
 const publishableKey = Constants.expoConfig?.extra?.stripePublishableKey || process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || "";
-export const canPayByCard = Boolean(stripeModule && publishableKey.startsWith("pk_"));
+export const canPayByCard = Boolean(stripeModule);
 export const nativeCardAvailable = Boolean(stripeModule);
 
 function CardEntry({ pay, disabled, label, paymentKey }) {
@@ -42,5 +42,8 @@ function CardEntry({ pay, disabled, label, paymentKey }) {
 }
 export default function CheckoutCardPayment({ publishableKey: paymentKey, ...props }) {
   if (!stripeModule) return null;
+  if (typeof paymentKey !== "string" || !/^pk_(test|live)_/.test(paymentKey)) {
+    return <Text accessibilityRole="alert">Card payment configuration is missing. Check the saved payment before retrying.</Text>;
+  }
   return <CardEntry label="Pay combined total" paymentKey={paymentKey} {...props} />;
 }

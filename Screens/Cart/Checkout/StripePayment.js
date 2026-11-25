@@ -32,26 +32,6 @@ import EmbeddedStripePayment from "../../../Shared/EmbeddedStripePayment";
 const width = Dimensions.get("window").width;
 const stripeCurrency =
   Constants?.expoConfig?.extra?.stripeCurrency || "usd";
-const stripePublishableKey = (() => {
-  const configKey = Constants?.expoConfig?.extra?.stripePublishableKey;
-  const envKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-
-  if (typeof configKey === "string" && configKey.trim()) {
-    return configKey;
-  }
-
-  if (typeof envKey === "string") {
-    return envKey;
-  }
-
-  return "";
-})();
-
-const hasValidStripePublishableKey = (key) => {
-  const normalized = typeof key === "string" ? key.trim() : "";
-  return normalized.startsWith("pk_");
-};
-
 const useEmbeddedPaymentElement = stripeModule?.useEmbeddedPaymentElement;
 
 const StripeUnavailable = ({ navigation }) => {
@@ -432,7 +412,7 @@ const StripePaymentSupported = (props) => {
 };
 
 const StripePayment = (props) => {
-  if (!useEmbeddedPaymentElement || !hasValidStripePublishableKey(stripePublishableKey)) {
+  if (!useEmbeddedPaymentElement) {
     return <StripeUnavailable navigation={props.navigation} />;
   }
 

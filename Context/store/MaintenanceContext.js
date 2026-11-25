@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react';
-import { AppState } from 'react-native';
+import { Alert, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import baseUrl from '../../assets/common/baseUrl';
@@ -9,7 +9,7 @@ import { getDatabaseNameFromStorage } from '../../assets/common/databaseConfig';
 const MaintenanceContext = createContext();
 
 export const MaintenanceProvider = ({ children }) => {
-  const { user } = useContext(AuthContext);
+  const { user, logout } = useContext(AuthContext);
   const userId = user?._id || user?.id || null;
   const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
   const [usaRestricted, setUsaRestricted] = useState(false);
@@ -23,10 +23,33 @@ export const MaintenanceProvider = ({ children }) => {
     try {
       const token = await AsyncStorage.getItem('token');
       const database = await getDatabaseNameFromStorage();
-      const response = await axios.get(`${baseUrl}settings/maintenance`, {
+      const readStatus = (authToken) => axios.get(`${baseUrl}settings/maintenance`, {
         timeout: 20000,
-        headers: { 'x-database-name': database, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        headers: { 'x-database-name': database, ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) },
       });
+      let response;
+      try {
+        response = await readStatus(token);
+      } catch (failure) {
+        if (!token || failure.response?.status !== 401) throw failure;
+        if (request !== sequence.current) return;
+        const currentToken = await AsyncStorage.getItem('token');
+        if (request !== sequence.current) return;
+        if (currentToken && currentToken !== token) {
+          throw Object.assign(new Error('Your session changed while checking maintenance access. Please retry.'), {
+            code: 'MAINTENANCE_SESSION_CHANGED',
+          });
+        }
+        await logout();
+        Alert.alert('Session expired', 'Your sign-in token is invalid or expired. Please sign in again.');
+        if (request !== sequence.current) return;
+        if (userId) {
+          setAccess(null);
+          setError('Your sign-in token is invalid or expired. Sign in again.');
+          return;
+        }
+        response = await readStatus(null);
+      }
       if (typeof response.data?.enabled !== 'boolean' ||
           (/usa/i.test(database) && typeof response.data?.usaRegionEnabled !== 'boolean') ||
           (response.data.testingAccess !== undefined && typeof response.data.testingAccess !== 'boolean')) {
@@ -44,13 +67,13 @@ export const MaintenanceProvider = ({ children }) => {
       console.error('Error checking maintenance status:', error.message);
       if (request === sequence.current) {
         setAccess(null);
-        setError(error.code === 'INVALID_MAINTENANCE_RESPONSE' ? error.message :
+        setError(['INVALID_MAINTENANCE_RESPONSE', 'MAINTENANCE_SESSION_CHANGED'].includes(error.code) ? error.message :
           error.response?.data?.message || 'Unable to verify maintenance access. Please retry.');
       }
     } finally {
       if (request === sequence.current) setLoading(false);
     }
-  }, [userId]);
+  }, [userId, logout]);
 
   const toggleMaintenance = useCallback(async (enabled) => {
     try {

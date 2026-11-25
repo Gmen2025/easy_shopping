@@ -322,6 +322,83 @@ test("maintenance requests carry the selected region even before the interceptor
   assert.equal(write.headers.Authorization, "Bearer test-session");
 });
 
+test("expired maintenance sessions are signed out and checked anonymously without bypassing restrictions", async () => {
+  for (const signedIn of [false, true]) {
+    const h = hooks(), requests = [], alerts = [];
+    let user = signedIn ? { _id: "expired-admin", isAdmin: true } : null;
+    let token = "expired-token", logouts = 0;
+    const logout = async () => { token = null; user = null; logouts++; };
+    h.react.createContext = () => ({ Provider: "MaintenanceProvider" });
+    h.react.useContext = () => ({ user, logout });
+    const Provider = load("Context\\store\\MaintenanceContext.js", {
+      react: h.react,
+      "react-native": { Alert: { alert: (...args) => alerts.push(args) },
+        AppState: { addEventListener: () => ({ remove() {} }) } },
+      "@react-native-async-storage/async-storage": { getItem: async () => token },
+      axios: { get: async (_url, options) => {
+        requests.push(options.headers.Authorization || null);
+        if (options.headers.Authorization) throw Object.assign(new Error("Unauthorized"), { response: { status: 401 } });
+        return { data: { enabled: true, usaRegionEnabled: false, testingAccess: false } };
+      } },
+      "../../assets/common/baseUrl": "https://example.invalid/api/v1/",
+      "./Auth": { AuthContext: {} },
+      "../../assets/common/databaseConfig": { getDatabaseNameFromStorage: async () => "E_ShopUSA" },
+    }, { setInterval: () => 1, clearInterval() {} }).MaintenanceProvider;
+    const render = () => h.render(() => Provider({ children: null })).props.value;
+    render(); await tick(); render(); await tick();
+    const status = render();
+    assert.equal(logouts, 1);
+    assert.match(alerts[0][1], /sign in again/i);
+    assert.deepEqual(requests, ["Bearer expired-token", null]);
+    assert.equal(status.error, "");
+    assert.equal(status.maintenanceEnabled, true);
+    assert.equal(status.usaRestricted, true);
+    assert.equal(status.testingAccess, false);
+  }
+});
+
+test("a newer session is not signed out by a stale maintenance response", async () => {
+  const h = hooks();
+  let reads = 0, logouts = 0;
+  const logout = async () => { logouts++; };
+  h.react.createContext = () => ({ Provider: "MaintenanceProvider" });
+  h.react.useContext = () => ({ user: null, logout });
+  const Provider = load("Context\\store\\MaintenanceContext.js", {
+    react: h.react,
+    "react-native": { AppState: { addEventListener: () => ({ remove() {} }) } },
+    "@react-native-async-storage/async-storage": { getItem: async () => ++reads === 1 ? "old-token" : "new-token" },
+    axios: { get: async () => { throw Object.assign(new Error("Unauthorized"), { response: { status: 401 } }); } },
+    "../../assets/common/baseUrl": "https://example.invalid/api/v1/",
+    "./Auth": { AuthContext: {} },
+    "../../assets/common/databaseConfig": { getDatabaseNameFromStorage: async () => "E_ShopUSA" },
+  }, { setInterval: () => 1, clearInterval() {} }).MaintenanceProvider;
+  const render = () => h.render(() => Provider({ children: null })).props.value;
+  render(); await tick();
+  assert.equal(logouts, 0);
+  assert.match(render().error, /session changed.*retry/i);
+});
+
+test("maintenance failures other than an expired token do not sign users out", async () => {
+  const h = hooks();
+  let logouts = 0;
+  const logout = async () => { logouts++; };
+  h.react.createContext = () => ({ Provider: "MaintenanceProvider" });
+  h.react.useContext = () => ({ user: { _id: "user" }, logout });
+  const Provider = load("Context\\store\\MaintenanceContext.js", {
+    react: h.react,
+    "react-native": { AppState: { addEventListener: () => ({ remove() {} }) } },
+    "@react-native-async-storage/async-storage": { getItem: async () => "valid-token" },
+    axios: { get: async () => { throw Object.assign(new Error("Unavailable"), { response: { status: 503 } }); } },
+    "../../assets/common/baseUrl": "https://example.invalid/api/v1/",
+    "./Auth": { AuthContext: {} },
+    "../../assets/common/databaseConfig": { getDatabaseNameFromStorage: async () => "E_ShopUSA" },
+  }, { setInterval: () => 1, clearInterval() {} }).MaintenanceProvider;
+  const render = () => h.render(() => Provider({ children: null })).props.value;
+  render(); await tick();
+  assert.equal(logouts, 0);
+  assert.match(render().error, /Unable to verify maintenance access/);
+});
+
 test("maintenance permits Admin and approved testers, including tester login, without exposing the app to ordinary users", () => {
   const h = hooks();
   let user = null;

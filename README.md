@@ -5,10 +5,10 @@ A full-featured React Native e-commerce mobile application built with Expo, feat
 ## Regional payment sandbox setup
 
 Use the matching backend's README sandbox steps on an isolated test deployment.
-Set mobile `EXPO_PUBLIC_API_URL` to that backend, including `/api/v1/`, and
-`EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` to the sandbox `pk_test_*` paired with its
-USA merchant secret key. The backend must use `STRIPE_MODE=test`; never put
-`sk_*` keys or Telebirr credentials in the mobile app. Restart/rebuild after
+Set mobile `EXPO_PUBLIC_API_URL` to that backend, including `/api/v1/`. The
+backend must use `STRIPE_MODE=test` and matching USA test keys. Card forms load
+the current publishable key from the backend; never put `sk_*` keys or Telebirr
+credentials in the mobile app. Restart/rebuild after
 environment changes. Card entry requires a native development/production build,
 not Expo Go. Existing local live credentials are not changed automatically.
 

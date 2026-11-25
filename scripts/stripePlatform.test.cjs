@@ -81,12 +81,16 @@ test("embedded card confirmation uses the saved intent once and only finalizes a
     }),
   };
   let stateIndex = 0;
+  const request = {};
   const react = {
     createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
     useEffect: () => {},
-    useMemo: (factory) => factory(),
+    useMemo: (factory) => { const value = factory(); return Object.keys(value).length ? value : request; },
     useRef: (value) => ({ current: value }),
-    useState: (initial) => [stateIndex++ === 0 ? "pk_test_example" : initial, () => {}],
+    useState: (initial) => {
+      const index = stateIndex++;
+      return [index === 0 ? "pk_test_example" : index === 2 ? { request, key: "pk_test_example" } : initial, () => {}];
+    },
   };
   const component = load("Shared\\EmbeddedStripePayment.js", {
     react,
@@ -94,14 +98,15 @@ test("embedded card confirmation uses the saved intent once and only finalizes a
     "react-native-paper": { Button: "Button" },
     "expo-constants": { expoConfig: { extra: { stripePublishableKey: "pk_test_example" } } },
     "../assets/common/stripe": { __esModule: true, default: sdk },
+    "../assets/common/storefront": { apiRequest: async () => ({ mode: "test", publishableKey: "pk_test_example" }) },
   }).default;
   const props = {
-    amount: 1250, currency: "usd", label: "Pay",
+    amount: 1250, currency: "usd", label: "Pay", publishableKey: "pk_test_example",
     createIntent: async () => { created++; return { clientSecret: "secret", paymentId: "pi_test" }; },
     onCompleted: async (payment) => { assert.equal(payment.paymentId, "pi_test"); finished++; },
   };
   const wrapper = component(props);
-  stateIndex = 1;
+  stateIndex = 3;
   const view = wrapper.type(wrapper.props);
   const button = view.props.children.find((child) => child?.type === "Button");
   assert.equal(button.props.disabled, false);
@@ -115,10 +120,62 @@ test("embedded card confirmation uses the saved intent once and only finalizes a
   props.createIntent = async () => ({});
   stateIndex = 0;
   const secondWrapper = component(props);
-  stateIndex = 1;
+  stateIndex = 3;
   const secondView = secondWrapper.type(secondWrapper.props);
   await secondView.props.children.find((child) => child?.type === "Button").props.onPress();
   assert.match(handlerResult.error.message, /no client secret/i);
   assert.equal(finished, 1);
   assert.equal(alerts.length, 1);
+});
+
+test("native embedded payments initialize matching keys and reject stale saved modes", async () => {
+  for (const [mode, key, valid, explicitKey] of [
+    ["test", "pk_test_server", true], ["live", "pk_live_server", true], ["test", "pk_live_server", false],
+    ["test", "pk_test_saved", true, "pk_test_saved"], ["test", "pk_live_saved", false, "pk_live_saved"],
+  ]) {
+    const values = [], pending = [], initialized = [];
+    let cursor = 0;
+    const changed = (a, b) => !a || a.length !== b.length || a.some((value, index) => value !== b[index]);
+    const react = {
+      createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
+      useState: (initial) => {
+        const index = cursor++;
+        if (!(index in values)) values[index] = initial;
+        return [values[index], (value) => { values[index] = value; }];
+      },
+      useRef: (initial) => { const index = cursor++; if (!(index in values)) values[index] = { current: initial }; return values[index]; },
+      useMemo: (factory, deps) => {
+        const index = cursor++;
+        if (!values[index] || changed(values[index].deps, deps)) values[index] = { deps, value: factory() };
+        return values[index].value;
+      },
+      useEffect: (effect, deps) => {
+        const index = cursor++;
+        if (!values[index] || changed(values[index], deps)) { values[index] = deps; pending.push(effect); }
+      },
+    };
+    const sdk = { initStripe: async ({ publishableKey }) => initialized.push(publishableKey), useEmbeddedPaymentElement() {} };
+    const component = load("Shared\\EmbeddedStripePayment.js", {
+      react, "react-native": { ActivityIndicator: "ActivityIndicator", Alert: { alert() {} }, Text: "Text", View: "View" },
+      "react-native-paper": { Button: "Button" }, "expo-constants": { expoConfig: { extra: {} } },
+      "../assets/common/stripe": { __esModule: true, default: sdk },
+      "../assets/common/storefront": { apiRequest: async (resource, route) => {
+        assert.equal(resource, "stripe");
+        assert.equal(route, explicitKey ? "mode" : "config");
+        return { mode, publishableKey: key };
+      } },
+    }).default;
+    const render = () => { cursor = 0; return component({ amount: 100, currency: "USD", publishableKey: explicitKey }); };
+    const flush = async () => { while (pending.length) pending.shift()(); await new Promise((resolve) => setImmediate(resolve)); };
+    assert.equal(render().type, "ActivityIndicator"); await flush(); render(); await flush();
+    const result = render();
+    if (valid) {
+      assert.deepEqual(initialized, [key]);
+      assert.equal(typeof result.type, "function");
+    } else {
+      assert.equal(result.type, "Text");
+      assert.match(result.props.children[0], explicitKey ? /does not match/ : /invalid card payment configuration/);
+      assert.deepEqual(initialized, []);
+    }
+  }
 });

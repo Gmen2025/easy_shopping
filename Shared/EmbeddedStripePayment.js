@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Text, View } from "react-native";
 import { Button } from "react-native-paper";
 import Constants from "expo-constants";
 import stripeModule from "../assets/common/stripe";
+import { apiRequest } from "../assets/common/storefront";
 
 const defaultKey = Constants.expoConfig?.extra?.stripePublishableKey ||
   process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || "";
@@ -80,14 +81,35 @@ function Element({ amount, currency, createIntent, onCompleted, onProcessingChan
 }
 
 export default function EmbeddedStripePayment({ publishableKey, amount, currency, ...props }) {
-  const key = publishableKey || defaultKey;
   const [readyKey, setReadyKey] = useState("");
   const [error, setError] = useState("");
+  const [serverConfig, setServerConfig] = useState(null);
+  const request = useMemo(() => ({}), [publishableKey]);
+  const key = serverConfig?.request === request ? serverConfig.key : "";
+
+  useEffect(() => {
+    let active = true;
+    setError("");
+    apiRequest("stripe", publishableKey ? "mode" : "config").then((result) => {
+      const selectedKey = publishableKey || result?.publishableKey;
+      if (!["test", "live"].includes(result?.mode) || typeof selectedKey !== "string" ||
+          !selectedKey.startsWith(`pk_${result.mode}_`)) {
+        throw new Error(publishableKey
+          ? "This saved payment does not match the current card payment mode. Check its status before retrying."
+          : "The server returned invalid card payment configuration.");
+      }
+      if (active) setServerConfig({ request, key: selectedKey });
+    }).catch((failure) => {
+      if (active) setError(failure.response?.data?.message || failure.message || "Unable to load card payment configuration.");
+    });
+    return () => { active = false; };
+  }, [publishableKey, request]);
 
   useEffect(() => {
     let active = true;
     let initialized = false;
     setReadyKey("");
+    if (!key) return () => { active = false; };
     setError("");
     const initialize = async () => {
       try {
@@ -123,6 +145,6 @@ export default function EmbeddedStripePayment({ publishableKey, amount, currency
     return <Text accessibilityRole="alert">The payment amount or currency is invalid. Reload this checkout.</Text>;
   }
   if (error) return <Text accessibilityRole="alert">{error}</Text>;
-  if (readyKey !== key) return <ActivityIndicator />;
+  if (!key || readyKey !== key) return <ActivityIndicator />;
   return <Element key={`${key}-${amount}-${currency}`} amount={amount} currency={currency} {...props} />;
 }

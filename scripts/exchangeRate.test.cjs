@@ -126,7 +126,7 @@ test("card checkout explicitly selects the saved USD merchant then restores the 
   const stripe = { CardField: "CardField", useStripe: () => ({ confirmPayment: confirmation }),
     initStripe: async (options) => keys.push(options.publishableKey) };
   const module = load("Shared\\CheckoutCardPayment.js", {
-    react: h.react, "react-native": { View: "View", Alert: { alert: () => assert.fail("No alert expected") } },
+    react: h.react, "react-native": { View: "View", Text: "Text", Alert: { alert: () => assert.fail("No alert expected") } },
     "react-native-paper": { Button: "Button" }, "expo-constants": { expoConfig: { extra: { stripePublishableKey: "pk_live_normal" } } },
     "../assets/common/stripe": { __esModule: true, default: stripe },
   });
@@ -134,6 +134,9 @@ test("card checkout explicitly selects the saved USD merchant then restores the 
   tree(render()).find((entry) => entry.type === "CardField").props.onCardChange({ complete: true });
   await tree(render()).find((entry) => entry.type === "Button").props.onPress();
   assert.deepEqual(keys, ["pk_live_usd", "pk_live_normal"]);
+  const missing = module.default({ pay: async () => {} });
+  assert.equal(missing.type, "Text");
+  assert.match(text(missing), /configuration is missing/);
 });
 test("Admin US shipping saves the tariff/hub and explicitly controls product export approval", async () => {
   const h = hooks(); const calls = []; const alerts = [];

@@ -49,18 +49,8 @@ const getStripePublishableKey = () => {
     : "";
 };
 
-const isValidStripePublishableKey = (key) => {
-  const normalized = typeof key === "string" ? key.trim() : "";
-  return normalized.startsWith("pk_");
-};
-
-const createStripeProvider = (publishableKey) => {
+const createStripeProvider = () => {
   if (!stripeModule) {
-    return ({ children }) => children;
-  }
-
-  if (!isValidStripePublishableKey(publishableKey)) {
-    console.warn("Stripe provider disabled: missing or invalid publishable key.");
     return ({ children }) => children;
   }
 
@@ -69,7 +59,7 @@ const createStripeProvider = (publishableKey) => {
 
 const stripePublishableKey =
   getStripePublishableKey();
-const StripeProvider = createStripeProvider(stripePublishableKey);
+const StripeProvider = createStripeProvider();
 
 const NotificationBootstrap = ({ onNotificationReceived, onNotificationOpened }) => {
   const authContext = useContext(AuthContext);
